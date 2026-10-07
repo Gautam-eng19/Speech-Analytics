@@ -4,14 +4,15 @@ Last updated:
 2026-10-07
 
 Updated by:
-Architecture Review Agent
+Control File Synchronization
 
 ---
 
 # 1. CURRENT PHASE
 
-Architecture Definition — complete.
-Moving to: Foundation Implementation (API contract, dataset schema, environment setup).
+Foundation Implementation — in progress.
+Architecture Definition (TASK-001), API Contract (TASK-002), and Dataset Schema (TASK-003) are complete and merged into main.
+Next immediate focus: Development Environment (TASK-004).
 
 ---
 
@@ -21,19 +22,19 @@ Overall:
 🟢 Healthy
 
 Repository:
-🟢 Initialized
+🟢 Initialized and synced on main with foundation contracts
 
 Architecture:
 🟢 Canonical architecture defined (ARCHITECTURE.md)
 
 Backend:
-⚪ Not started
+⚪ Not started (contracts defined; environment setup pending)
 
 Frontend:
 ⚪ Not started
 
 Dataset:
-⚪ Not started
+🟡 Schema and validation tooling defined (TASK-003 complete; audio collection pending)
 
 Analysis pipeline:
 ⚪ Not started
@@ -48,13 +49,8 @@ Demo:
 
 # 3. CURRENT OBJECTIVE
 
-Complete the three foundation deliverables that unblock all implementation:
-
-1. API Contract (TASK-002) — request/response schemas in Pydantic
-2. Dataset Schema (TASK-003) — manifest format, recording metadata, split rules
-3. Development Environment (TASK-004) — backend and frontend runnable on all machines
-
-These must complete before backend implementation tasks begin.
+Complete Development Environment (TASK-004) so that backend, frontend, and development tools
+are runnable on all team machines, unblocking backend application implementation (TASK-010).
 
 ---
 
@@ -67,8 +63,8 @@ Success criteria:
 - [x] repository is shared by all teammates
 - [x] control files are established
 - [x] architecture is defined (ARCHITECTURE.md canonical)
-- [ ] API contract is defined (TASK-002)
-- [ ] dataset schema is defined (TASK-003)
+- [x] API contract is defined (TASK-002)
+- [x] dataset schema is defined (TASK-003)
 - [ ] development environments work (TASK-004)
 - [ ] first minimal backend can run (TASK-010, TASK-011)
 
@@ -85,15 +81,15 @@ Success criteria:
 - [x] DECISIONS.md created
 - [x] Architecture proposal completed (docs/architecture/architecture-proposal.md)
 - [x] Architecture review completed
-- [x] ARCHITECTURE.md canonicalized (2026-10-07)
-- [x] DECISIONS.md updated with 14 accepted decisions and 9 proposed decisions
+- [x] ARCHITECTURE.md canonicalized (TASK-001)
+- [x] DECISIONS.md updated with accepted and proposed decisions
+- [x] API Contract completed, reviewed, and merged into main (TASK-002)
+- [x] Dataset Schema and validation tooling completed, reviewed, and merged into main (TASK-003)
 
 ---
 
 # 6. IN PROGRESS
 
-- [ ] TASK-002 — API Contract (READY — see TASKS.md)
-- [ ] TASK-003 — Dataset Schema (READY — see TASKS.md)
 - [ ] TASK-004 — Development Environment (READY — see TASKS.md)
 
 ---
@@ -109,22 +105,23 @@ This is an early Day 1 experiment, not currently a blocker.
 
 # 8. ACTIVE TASKS
 
-None — foundation tasks are READY and available to be picked up.
+- TASK-004 — Development Environment (READY)
 
 ---
 
 # 9. RECENT CHANGES
 
 2026-10-07:
-- Architecture proposal (docs/architecture/architecture-proposal.md) completed and reviewed.
-- ARCHITECTURE.md replaced with canonical architecture (32 sections).
-- DECISIONS.md updated: 14 accepted decisions (DEC-008 through DEC-022) added.
-- 9 proposed decisions added (DEC-P001 through DEC-P009) for empirically unresolved choices.
-- TASKS.md updated: TASK-001 marked DONE; TASK-002, TASK-003, TASK-004 moved to READY.
+- Architecture review completed and ARCHITECTURE.md canonicalized (TASK-001 DONE).
+- DECISIONS.md updated with 14 accepted decisions and 9 proposed decisions.
+- TASK-002 (API Contract) completed, reviewed, and merged into main (Pydantic schemas for request, response, contracts).
+- TASK-003 (Dataset Schema) completed, reviewed, and merged into main (manifest schema, speaker/passage metadata, schema validation fixtures, validate_dataset.py, unit tests).
+- Repository main branch updated with completed foundation artifacts.
+- TASKS.md updated: TASK-002 and TASK-003 marked DONE; TASK-004 is READY.
 
-No implementation code has been written.
-No dependencies have been installed.
-No experiments have been run.
+No backend/frontend implementation code has been written yet.
+No audio files have been collected yet.
+No experiments have been run yet.
 
 ---
 
@@ -184,11 +181,11 @@ These are documented risks. Mitigation strategies are in ARCHITECTURE.md §30.
 
 # 12. NEXT PRIORITIES
 
-1. TASK-002 — API Contract (define Pydantic schemas)
-2. TASK-003 — Dataset Schema (manifest format, recording plan)
-3. TASK-004 — Development Environment (install verification on all machines)
-4. TASK-010 — FastAPI Application Skeleton (after TASK-002)
-5. Day 1 experiments: Whisper speed benchmark, WhisperX install test
+1. TASK-004 — Development Environment (install verification on all machines)
+2. Day 1 experiments: Whisper speed benchmark, WhisperX install test
+3. TASK-010 — FastAPI Application Skeleton (after environment setup)
+4. TASK-011 — Health Endpoint
+5. Audio recording & collection plan (TASK-122)
 
 ---
 

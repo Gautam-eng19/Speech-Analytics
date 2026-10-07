@@ -216,7 +216,7 @@ Define the complete technical architecture and data flow.
 
 \## TASK-002 — API Contract
 
-Status: READY
+Status: DONE
 
 Priority: P0
 
@@ -234,7 +234,7 @@ Define the request/response schemas connecting frontend and backend.
 
 \## TASK-003 — Dataset Schema
 
-Status: READY
+Status: DONE
 
 Priority: P0
 
