@@ -1,0 +1,20 @@
+[
+  {
+    "passage_id": "p001",
+    "title": "Welcome and Project Mission",
+    "text": "Welcome everyone. Today we present Track C, an integrated system for speech delivery analytics. Our platform compares participant recordings against an effective same-content baseline, isolates acoustic deviations, grounds temporal flaws with millisecond precision, and provides deterministic, evidence-backed feedback.",
+    "target_word_count": 42,
+    "domain": "technical_presentation",
+    "dataset_version": "1.0.0",
+    "created_at": "2026-10-07"
+  },
+  {
+    "passage_id": "p002",
+    "title": "The Art of Persuasion",
+    "text": "Effective leadership requires clear and engaging communication. When a speaker rushes through key concepts or delivers ideas in a flat monotone, listeners lose interest. By balancing energy, modulating pitch, and pausing strategically, we ensure our ideas resonate with clarity.",
+    "target_word_count": 42,
+    "domain": "executive_briefing",
+    "dataset_version": "1.0.0",
+    "created_at": "2026-10-07"
+  }
+]

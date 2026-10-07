@@ -1,0 +1,30 @@
+[
+  {
+    "speaker_id": "spk_dev_01",
+    "split": "dev",
+    "gender": "female",
+    "native_language": "en",
+    "notes": "Dev split baseline and controlled speaker"
+  },
+  {
+    "speaker_id": "spk_dev_02",
+    "split": "dev",
+    "gender": "male",
+    "native_language": "en",
+    "notes": "Dev split baseline and controlled speaker"
+  },
+  {
+    "speaker_id": "spk_test_01",
+    "split": "test",
+    "gender": "female",
+    "native_language": "en",
+    "notes": "Strictly held-out evaluation speaker (never used in dev/calibration)"
+  },
+  {
+    "speaker_id": "spk_test_02",
+    "split": "test",
+    "gender": "male",
+    "native_language": "en",
+    "notes": "Strictly held-out evaluation speaker (never used in dev/calibration)"
+  }
+]
