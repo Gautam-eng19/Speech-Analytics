@@ -1,0 +1,14 @@
+# Core Web & API Framework (DEC-003)
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+
+# Data Contracts, Schema Validation & Settings (TASK-002)
+pydantic>=2.7.0
+python-multipart>=0.0.9
+python-dotenv>=1.0.1
+
+# Numerical Computing & Foundations
+numpy>=1.26.0
+
+# Testing & Quality Assurance
+pytest>=8.0.0
