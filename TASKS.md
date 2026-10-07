@@ -198,7 +198,7 @@ Useful polish that should only be attempted after P0/P1 work is safe.
 
 \## TASK-001 — Architecture
 
-Status: READY
+Status: DONE
 
 Priority: P0
 
@@ -216,7 +216,7 @@ Define the complete technical architecture and data flow.
 
 \## TASK-002 — API Contract
 
-Status: BACKLOG
+Status: READY
 
 Priority: P0
 
@@ -234,7 +234,7 @@ Define the request/response schemas connecting frontend and backend.
 
 \## TASK-003 — Dataset Schema
 
-Status: BACKLOG
+Status: READY
 
 Priority: P0
 
@@ -254,7 +254,7 @@ transcripts, alignment information, annotations and metadata.
 
 \## TASK-004 — Development Environment
 
-Status: BACKLOG
+Status: READY
 
 Priority: P0
 
