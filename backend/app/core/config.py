@@ -42,6 +42,7 @@ class Settings:
         self.MAX_DURATION_S: float = float(os.getenv("MAX_DURATION_S", "300.0"))  # 5 minutes
         self.TARGET_SAMPLE_RATE: int = int(os.getenv("TARGET_SAMPLE_RATE", "16000"))
         self.TARGET_PEAK_DBFS: float = float(os.getenv("TARGET_PEAK_DBFS", "-3.0"))
+        self.VAD_ENERGY_THRESHOLD_DBFS: float = float(os.getenv("VAD_ENERGY_THRESHOLD_DBFS", "-50.0"))
 
 
 settings = Settings()
