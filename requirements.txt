@@ -20,5 +20,8 @@ librosa>=0.10.0
 # project requirement (see docs/methodology/asr-alignment-feasibility-spike.md).
 openai-whisper>=20250625
 
+# Forced Alignment (TASK-022, ARCHITECTURE.md §12, DEC-009, DEC-P002)
+whisperx>=3.8.0
+
 # Testing & Quality Assurance
 pytest>=8.0.0

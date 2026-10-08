@@ -7,9 +7,9 @@ from __future__ import annotations
 from typing import Optional
 
 import numpy as np
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import ConfigDict, Field, field_validator, model_validator
 
-from .common import ContractModel, TranscriptSource
+from .common import AlignmentMethod, ContractModel, TranscriptSource
 
 
 class PreprocessedAudio(ContractModel):
@@ -85,4 +85,54 @@ class Transcript(ContractModel):
     source: TranscriptSource = Field(description="'asr' or 'manual'")
     language: Optional[str] = Field(
         default=None, description="ISO 639-1 language code detected or configured"
+    )
+
+
+class AlignedWord(ContractModel):
+    """Word-level forced alignment entry (ARCHITECTURE.md §9.3)."""
+
+    word: str = Field(min_length=1, description="Aligned word token text")
+    start_s: Optional[float] = Field(
+        default=None, ge=0.0, description="Start timestamp in seconds (None if unaligned)"
+    )
+    end_s: Optional[float] = Field(
+        default=None, ge=0.0, description="End timestamp in seconds (None if unaligned)"
+    )
+    confidence: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0, description="Alignment confidence score in [0.0, 1.0] if provided"
+    )
+
+    @model_validator(mode="after")
+    def _check_ordering(self) -> "AlignedWord":
+        if self.start_s is not None and self.end_s is not None:
+            if self.end_s < self.start_s:
+                raise ValueError(
+                    f"end_s ({self.end_s}) must be >= start_s ({self.start_s})"
+                )
+        return self
+
+
+# Alias for backward-compatibility or alternative naming
+AlignedWordTiming = AlignedWord
+
+
+class AlignedTranscript(ContractModel):
+    """Output of services/alignment/ (ARCHITECTURE.md §7.3, §9.3, §12).
+
+    Contains word-level forced alignment timing, alignment method provenance,
+    and total coverage statistics. Consumed by downstream feature extraction
+    and grounding services.
+    """
+
+    text: str = Field(description="Full transcript text (preserved from input Transcript)")
+    words: list[AlignedWord] = Field(
+        default_factory=list, description="List of aligned word timings"
+    )
+    alignment_method: AlignmentMethod = Field(
+        description="Method used for alignment: 'whisperx' | 'whisper_word_timestamps' | 'manual'"
+    )
+    total_coverage_pct: float = Field(
+        ge=0.0,
+        le=100.0,
+        description="Fraction or percentage of audio covered by aligned words",
     )
