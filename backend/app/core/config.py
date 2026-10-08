@@ -27,9 +27,13 @@ class Settings:
         self.CONFIG_VERSION: str = os.getenv("CONFIG_VERSION", "1.0.0")
         self.PIPELINE_VERSION: str = os.getenv("PIPELINE_VERSION", "1.0.0")
 
-        # Model and Provider defaults (DEC-018, DEC-P001, DEC-P008)
+        # Model and Provider defaults (DEC-009, DEC-018, DEC-P001, DEC-P002, DEC-P008)
         self.WHISPER_MODEL: str = os.getenv("WHISPER_MODEL", "base")
         self.WHISPER_LANGUAGE: str = os.getenv("WHISPER_LANGUAGE", "en")
+        self.ALIGNMENT_DEVICE: str = os.getenv("ALIGNMENT_DEVICE", "cpu")
+        self.ALIGNMENT_LANGUAGE: str = os.getenv("ALIGNMENT_LANGUAGE", "en")
+        self.ALIGNMENT_MODEL_DIR: Optional[str] = os.getenv("ALIGNMENT_MODEL_DIR", None)
+        self.MIN_COVERAGE_PCT: float = float(os.getenv("MIN_COVERAGE_PCT", "0.80"))
         self.EXPLANATION_PROVIDER: str = os.getenv("EXPLANATION_PROVIDER", "template")
         self.GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 
