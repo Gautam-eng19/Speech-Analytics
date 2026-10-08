@@ -15,5 +15,10 @@ av>=14.0.0
 # Audio Analysis & Feature Extraction (TASK-030, ARCHITECTURE.md §13.1, DEC-P004)
 librosa>=0.10.0
 
+# ASR Transcription (TASK-021, ARCHITECTURE.md §11, DEC-P001)
+# NOTE: Whisper requires NumPy array input in this project — ffmpeg is NOT a
+# project requirement (see docs/methodology/asr-alignment-feasibility-spike.md).
+openai-whisper>=20250625
+
 # Testing & Quality Assurance
 pytest>=8.0.0
