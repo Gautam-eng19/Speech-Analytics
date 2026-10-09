@@ -33,6 +33,12 @@ from app.services.features.energy import extract_energy  # noqa: E402
 from app.services.features.f0 import extract_f0  # noqa: E402
 from app.services.features.pause import detect_pauses  # noqa: E402
 from app.services.features.rate import extract_rate  # noqa: E402
+from app.services.explanation import (  # noqa: E402
+    build_fact_sheet,
+    build_overall_summary,
+    explain_flaw,
+    find_ungrounded,
+)
 from app.services.scoring import score_analysis  # noqa: E402
 from app.schemas.common import FeatureName  # noqa: E402
 from app.services.grounding import (  # noqa: E402
@@ -280,3 +286,34 @@ def test_clean_delivery_scores_100_over_the_evaluated_features(baseline):
     assert result.scores.composite_score == 100.0
     assert all(s.score == 100.0 and s.flaw_count == 0 for s in result.scores.feature_scores.values())
     assert FeatureName.PITCH not in result.scores.feature_scores             # 100 here would wrongly imply pitch was checked
+
+
+# ------------------------------------------------------------------ explanations
+def test_explanations_of_the_injected_flaws_quote_the_right_words_and_stay_grounded(grounded):
+    _, _, _, flaws = grounded
+    low, fast, pause = flaws
+    for flaw in flaws:
+        out = explain_flaw(flaw)
+        assert out.used_fallback is False
+        facts = build_fact_sheet(flaw)
+        for text in (out.explanation, out.recommendation):
+            assert find_ungrounded(text, facts, list(flaw.affected_words)) == []
+
+    low_text = explain_flaw(low).explanation
+    assert "covering \u201cw12\u201d to \u201cw19\u201d" in low_text and "below the baseline" in low_text
+    assert "\u2212" in low_text                                           # dBFS levels keep their sign
+    pause_text = explain_flaw(pause).explanation
+    assert "after \u201cw19\u201d and before \u201cw20\u201d" in pause_text and "inside a phrase" in pause_text
+    assert f"{pause.start_s:.1f}\u2013{pause.end_s:.1f} s" in pause_text
+    assert "above the baseline" in explain_flaw(fast).explanation
+
+
+def test_overall_summary_of_the_injected_scenario(grounded):
+    aligned, _, detection, flaws = grounded
+    scored = score_analysis(flaws, detection.skipped, "1.0.0")
+    duration = aligned.words[-1].end_s
+    text = build_overall_summary(flaws, scored.scores, scored.unevaluated, duration)
+    assert text.startswith(f"3 delivery deviations from the baseline were detected in {duration:.1f} s of analysed speech")
+    assert "too fast: 1, excessive pause: 1, low energy: 1" in text
+    assert f"Deviation score: {scored.scores.composite_score:.1f} out of 100 across speech rate, pauses and energy" in text
+    assert "Not evaluated: pitch." in text and "not yet been calibrated" in text

@@ -243,6 +243,15 @@ def test_evaluated_features_helper_reports_reasons():
     assert set(excluded) == {FeatureName.PITCH, FeatureName.MFCC, FeatureName.CLARITY}
 
 
+def test_unevaluated_lists_only_weighted_features_that_could_not_be_evaluated():
+    assert _score([]).unevaluated == (FeatureName.PITCH,)                 # weight 0.25 but flat_pitch not checked
+    assert _score([], skipped={}).unevaluated == ()                       # mfcc / clarity: weight 0, not "unevaluated"
+    cfg = ScoringConfig(weights={FeatureName.CLARITY: 0.1})
+    assert _score([], skipped={}, config=cfg).unevaluated == (FeatureName.CLARITY,)
+    skipped = {**PITCH_SKIPPED, "too_fast": "x", "too_slow": "x"}
+    assert _score([], skipped).unevaluated == (FeatureName.SPEECH_RATE, FeatureName.PITCH)
+
+
 def test_p1_clarity_stays_excluded_even_with_a_positive_weight():
     cfg = ScoringConfig(weights={FeatureName.CLARITY: 0.1})
     evaluated, excluded = evaluated_features(PITCH_SKIPPED, cfg)

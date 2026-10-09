@@ -780,6 +780,39 @@ Date: 2026-10-09
 
 ---
 
+## DEC-031 — Explanation Layer: Fact Sheet, Number Guard, Fallback
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- Each flaw gets a FACT SHEET (`services/explanation/facts.py`): every number that may appear in its text, formatted once
+  with fixed decimals from the grounded evidence, the detection rule and the interval. Templates insert fact-sheet strings
+  only; no number is typed into a template. Differences and z-scores carry no sign (direction is written as "above" /
+  "below"); inherently signed levels (dBFS) keep their sign.
+- An independent GUARD (`guard.py`) checks any explanation text: every numeric token must equal a fact-sheet value (sign and
+  trailing zeros ignored); spelled-out quantities ("twice", "half", "three", ...) are rejected; digits are tolerated only inside
+  a quoted word that is exactly one of the transcript words the flaw covers.
+- If a template is missing, a fact is missing, or the guard rejects a text, a minimal fallback that states only the finding
+  type and interval is used (`used_fallback`). The overall summary is guarded the same way.
+- Only the template provider is implemented (`explanation_method` = "template"). A future LLM provider must receive the fact
+  sheet only, must pass the same guard, and falls back to the template (DEC-018, DEC-021). TASK-072 is therefore delivered as the
+  guard; the LLM call itself is not implemented.
+- Wording describes a difference from the baseline recording only; it makes no claim about content, confidence, emotion or
+  intelligibility (a test scans for such language).
+
+Reason:
+The LLM boundary (AGENTS §6.2) is only enforceable if there is one canonical source of numbers and a check independent of the
+author of the text. Dropping the sign of a dBFS level would have turned "-28.2 dBFS" into "28.2 dBFS", the opposite statement.
+
+Impact:
+- TASK-070, TASK-071, TASK-072. The guard cannot judge whether a sentence is true (direction words are fixed by the
+  templates and tested), only that no number or quantity is invented.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-09
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been

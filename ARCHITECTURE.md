@@ -1327,6 +1327,11 @@ It may not add, modify, or remove any field in `evidence`.
 
 ## 22. Explanation and LLM Boundary
 
+> **Implemented (DEC-031):** `services/explanation/` builds a per-flaw fact sheet (the only source of numbers), renders
+> deterministic templates from it, and re-checks every text with an independent number-grounding guard; a minimal fallback
+> is used on any failure. Only the template provider exists; an LLM provider is not implemented and, when added, must receive
+> the fact sheet only and pass the same guard.
+
 ### Permitted LLM operations
 
 | Input to LLM | Output |

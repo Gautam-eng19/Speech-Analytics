@@ -113,10 +113,16 @@ class ScoringConfig:
 
 @dataclass(frozen=True)
 class ScoringResult:
-    """The public `ScoreSummary` plus why some features were left out of it."""
+    """The public `ScoreSummary` plus why some features were left out of it.
+
+    `unevaluated` lists the excluded features that carry a weight, i.e. those a reader would expect to be
+    scored but could not be (pitch while flat-pitch detection is not available); features excluded only
+    because their weight is 0 (mfcc and clarity at P0) are in `excluded` but not here.
+    """
 
     scores: ScoreSummary
     excluded: Dict[FeatureName, str]
+    unevaluated: Tuple[FeatureName, ...] = ()
 
 
 def evaluated_features(
@@ -206,4 +212,5 @@ def score_analysis(
         composite_score=min(100.0, max(0.0, round(composite, cfg.decimals))),
         scoring_version=scoring_version,
     )
-    return ScoringResult(scores=summary, excluded=excluded)
+    unevaluated = tuple(f for f in FeatureName if f in excluded and cfg.weights[f] > 0.0)
+    return ScoringResult(scores=summary, excluded=excluded, unevaluated=unevaluated)
