@@ -2,6 +2,7 @@
 from .energy import EnergyConfig, EnergyExtractionResult, EnergyExtractor, extract_energy
 from .f0 import F0Config, F0ExtractionResult, F0Extractor, extract_f0
 from .mfcc import MFCCConfig, MFCCExtractionResult, MFCCExtractor, extract_mfcc
+from .rate import RateConfig, RateExtractionResult, RateExtractor, extract_rate
 
 __all__ = [
     "EnergyConfig",
@@ -16,4 +17,8 @@ __all__ = [
     "MFCCExtractionResult",
     "MFCCExtractor",
     "extract_mfcc",
+    "RateConfig",
+    "RateExtractionResult",
+    "RateExtractor",
+    "extract_rate",
 ]
