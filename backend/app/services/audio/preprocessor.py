@@ -4,7 +4,8 @@ Converts raw audio bytes or files into the canonical PreprocessedAudio contract:
 - Validates audio format (WAV PCM / IEEE float; MP3 requires ffmpeg/av backend)
 - Converts multi-channel audio to mono (averaging channels)
 - Resamples to TARGET_SAMPLE_RATE (default 16 000 Hz) deterministically via polyphase filtering
-- Trims leading and trailing silence using energy VAD with configurable threshold
+- Trims leading and trailing silence using energy VAD with configurable threshold;
+  the start offset and pre-trim duration are recorded (trim_start_s, source_duration_s)
 - Peak-normalizes to TARGET_PEAK_DBFS (default -3.0 dBFS)
 - Computes SHA-256 over normalized float32 PCM bytes for reproducible provenance
 """
@@ -166,19 +167,23 @@ def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> np.ndarra
     return resampled
 
 
-def trim_silence(
+def find_active_span(
     audio: np.ndarray,
     sample_rate: int,
     threshold_dbfs: float = -50.0,
     frame_duration_ms: float = 20.0,
-) -> np.ndarray:
-    """Trim leading and trailing silence using energy VAD with configurable threshold.
-    
-    Divides audio into non-overlapping frames, computes RMS energy in dBFS,
-    and identifies the first and last frames exceeding threshold_dbfs.
+) -> Optional[Tuple[int, int]]:
+    """Locate the retained region for silence trimming as ``(start_sample, end_sample)``.
+
+    Single source of truth for the trimming decision: ``trim_silence`` slices with this
+    span and ``AudioPreprocessor.process`` derives ``trim_start_s`` from it, so the recorded
+    offset always matches the exact samples retained. ``audio[start:end]`` is the kept audio.
+
+    Returns ``None`` when there is nothing to keep (empty input or no frame at or above
+    ``threshold_dbfs``).
     """
     if len(audio) == 0:
-        return audio
+        return None
 
     frame_length = max(1, int(sample_rate * (frame_duration_ms / 1000.0)))
     n_frames = len(audio) // frame_length
@@ -187,7 +192,7 @@ def trim_silence(
         # Audio is shorter than a single frame: evaluate directly
         rms = np.sqrt(np.mean(audio**2) + 1e-12)
         dbfs = 20.0 * np.log10(rms + 1e-12)
-        return audio if dbfs >= threshold_dbfs else np.empty(0, dtype=np.float32)
+        return (0, len(audio)) if dbfs >= threshold_dbfs else None
 
     # Reshape frames and compute RMS
     truncated_len = n_frames * frame_length
@@ -198,12 +203,32 @@ def trim_silence(
     active_indices = np.where(frame_dbfs >= threshold_dbfs)[0]
     if len(active_indices) == 0:
         # Entire audio is below silence threshold
+        return None
+
+    start_sample = int(active_indices[0]) * frame_length
+    end_sample = min(len(audio), (int(active_indices[-1]) + 1) * frame_length)
+    return start_sample, end_sample
+
+
+def trim_silence(
+    audio: np.ndarray,
+    sample_rate: int,
+    threshold_dbfs: float = -50.0,
+    frame_duration_ms: float = 20.0,
+) -> np.ndarray:
+    """Trim leading and trailing silence using energy VAD with configurable threshold.
+    
+    Divides audio into non-overlapping frames, computes RMS energy in dBFS,
+    and identifies the first and last frames exceeding threshold_dbfs.
+    See ``find_active_span`` for the exact retained region.
+    """
+    if len(audio) == 0:
+        return audio
+
+    span = find_active_span(audio, sample_rate, threshold_dbfs, frame_duration_ms)
+    if span is None:
         return np.empty(0, dtype=np.float32)
-
-    start_sample = active_indices[0] * frame_length
-    end_sample = min(len(audio), (active_indices[-1] + 1) * frame_length)
-
-    return audio[start_sample:end_sample]
+    return audio[span[0]:span[1]]
 
 
 def peak_normalize(audio: np.ndarray, target_peak_dbfs: float = -3.0) -> Tuple[np.ndarray, float]:
@@ -256,7 +281,7 @@ class AudioPreprocessor:
         1. Read & decode audio to float32
         2. Convert multi-channel to mono
         3. Resample to target_sample_rate (16000 Hz)
-        4. Trim leading/trailing silence using VAD
+        4. Trim leading/trailing silence using VAD (offset recorded as trim_start_s)
         5. Peak-normalize to target_peak_dbfs (-3 dBFS)
         6. Validate duration against max_duration_s
         7. Compute SHA-256 over float32 PCM bytes
@@ -281,12 +306,20 @@ class AudioPreprocessor:
         # 3. Resample to 16 kHz
         resampled_audio = resample_audio(mono_audio, orig_sr, self.target_sample_rate)
 
-        # 4. Silence trimming
-        trimmed_audio = trim_silence(
+        # 4. Silence trimming (record where the retained audio starts in the pre-trim signal)
+        source_duration_s = float(len(resampled_audio)) / float(self.target_sample_rate)
+        span = find_active_span(
             resampled_audio,
             self.target_sample_rate,
             threshold_dbfs=self.vad_energy_threshold_dbfs,
         )
+        if span is None:
+            trimmed_audio = np.empty(0, dtype=np.float32)
+            trim_start_s = 0.0
+        else:
+            trimmed_audio = resampled_audio[span[0]:span[1]]
+            # Not rounded: start_sample / sample_rate keeps the offset exact to the sample.
+            trim_start_s = float(span[0]) / float(self.target_sample_rate)
 
         # Handle all-silence edge case
         if len(trimmed_audio) == 0:
@@ -315,4 +348,6 @@ class AudioPreprocessor:
             audio_array=final_audio,
             sha256=sha256_digest,
             peak_dbfs=round(peak_dbfs, 2),
+            trim_start_s=trim_start_s,
+            source_duration_s=source_duration_s,
         )
