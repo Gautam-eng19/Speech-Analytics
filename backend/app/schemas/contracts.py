@@ -133,6 +133,38 @@ class AlignedTranscript(ContractModel):
     )
     total_coverage_pct: float = Field(
         ge=0.0,
-        le=100.0,
-        description="Fraction or percentage of audio covered by aligned words",
+        le=1.0,
+        description="Fraction of audio covered by aligned words in [0.0, 1.0]",
     )
+
+
+class AlignmentValidationResult(ContractModel):
+    """Validation result for AlignedTranscript (TASK-023, ARCHITECTURE.md §12).
+
+    Distinguishes valid from invalid alignments, providing machine-readable
+    deterministic error reasons and warnings.
+    """
+
+    is_valid: bool = Field(description="True if the aligned transcript passed all validation checks")
+    errors: list[str] = Field(
+        default_factory=list, description="Deterministic validation error reasons"
+    )
+    warnings: list[str] = Field(
+        default_factory=list, description="Deterministic validation warning messages"
+    )
+
+    @property
+    def valid(self) -> bool:
+        """Convenience alias for is_valid."""
+        return self.is_valid
+
+    @property
+    def messages(self) -> list[str]:
+        """All deterministic error and warning messages combined."""
+        return [*self.errors, *self.warnings]
+
+    def __bool__(self) -> bool:
+        return self.is_valid
+
+
+ValidationResult = AlignmentValidationResult

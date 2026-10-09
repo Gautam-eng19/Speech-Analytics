@@ -21,6 +21,13 @@ from .aligner import (
     clear_alignment_model_cache,
     get_aligner,
 )
+from .validator import (
+    AlignmentValidationError,
+    AlignmentValidationResult,
+    ValidationResult,
+    validate_alignment,
+    validate_alignment_or_raise,
+)
 
 __all__ = [
     "WhisperXAligner",
@@ -32,4 +39,9 @@ __all__ = [
     "AlignmentConfigError",
     "AlignmentModelError",
     "AlignmentRuntimeError",
+    "AlignmentValidationError",
+    "AlignmentValidationResult",
+    "ValidationResult",
+    "validate_alignment",
+    "validate_alignment_or_raise",
 ]
