@@ -53,6 +53,11 @@ def _energy_bundle(z: Sequence[float]) -> NormalizedFeatureBundle:
     )
 
 
+def _inside_recording(z: Sequence[float], frames: int = 5) -> List[float]:
+    """`z` surrounded by normal-range covered frames, so no run touches the (clipped) edges of the recording."""
+    return [0.0] * frames + list(z) + [0.0] * frames
+
+
 def _pause(start: float, end: float, kind: PauseBoundaryType, z: float) -> NormalizedPause:
     ev = PauseEvent(
         start_s=start, end_s=end, duration_s=end - start,
@@ -138,6 +143,7 @@ def test_sustained_quiet_speech_with_word_gaps_is_detected_as_one_flaw():
     z = []
     for i in range(8):
         z += word + (gap if i < 7 else [])
+    z = _inside_recording(z)                                          # keep the run away from the clipped recording edges
     (cand,) = detect_candidates(_energy_bundle(z)).candidates
     assert cand.type == FlawType.LOW_ENERGY
     assert cand.flagged_duration_s == pytest.approx(3.2)
@@ -155,13 +161,14 @@ def test_low_energy_blips_cannot_chain_through_normal_range_frames():
 def test_minimum_duration_counts_flagged_time_not_span():
     # Two 0.2 s dips bridged by 0.4 s of uncovered frames: span 0.8 s but only 0.4 s flagged -> rejected.
     blip, gap = [-3.0] * 20, [np.nan] * 40
-    assert detect_candidates(_energy_bundle(blip + gap + blip)).candidates == []
+    assert detect_candidates(_energy_bundle(_inside_recording(blip + gap + blip))).candidates == []
     # Three such dips reach 0.6 s of flagged time -> kept, with the span (1.4 s) larger than flagged time.
-    (cand,) = detect_candidates(_energy_bundle(blip + gap + blip + gap + blip)).candidates
+    three = _inside_recording(blip + gap + blip + gap + blip)
+    (cand,) = detect_candidates(_energy_bundle(three)).candidates
     assert cand.flagged_duration_s == pytest.approx(0.6) and cand.duration_s == pytest.approx(1.4)
     # A stricter configured minimum rejects it.
     cfg = DetectionConfig(min_duration_s={FlawType.LOW_ENERGY: 0.7})
-    assert detect_candidates(_energy_bundle(blip + gap + blip + gap + blip), cfg).candidates == []
+    assert detect_candidates(_energy_bundle(three), cfg).candidates == []
 
 
 def test_uncovered_stretch_of_merge_gap_or_more_splits_the_run():
@@ -194,10 +201,32 @@ def test_energy_runs_with_small_gaps_merge_and_large_gaps_do_not():
     z_close = [-3.0] * 60 + [0.0] * 30 + [-3.0] * 60      # 0.30 s gap < 0.5 -> one flaw
     (merged,) = detect_candidates(_energy_bundle(z_close)).candidates
     assert merged.member_indices == tuple(range(0, 60)) + tuple(range(90, 150))
-    assert merged.start_s == pytest.approx(-HOP / 2) and merged.end_s == pytest.approx(149 * HOP + HOP / 2)
+    # The run touches both ends of the recording, so it is clipped to the span of the frame centres (never negative).
+    assert merged.start_s == 0.0 and merged.end_s == pytest.approx(149 * HOP)
 
     z_far = [-3.0] * 60 + [0.0] * 60 + [-3.0] * 60        # 0.60 s gap -> two flaws
     assert len(detect_candidates(_energy_bundle(z_far)).candidates) == 2
+
+
+def test_energy_runs_at_the_recording_edges_are_clipped_to_the_audio():
+    """Frames are centred (first centre 0, last centre = end of audio); a run must never reach outside the recording."""
+    (high,) = detect_candidates(_energy_bundle([3.0] * 100 + [0.0] * 100)).candidates      # starts on the first frame
+    assert high.type == FlawType.HIGH_ENERGY
+    assert high.start_s == 0.0 and high.end_s == pytest.approx(99 * HOP + HOP / 2)
+
+    (low,) = detect_candidates(_energy_bundle([0.0] * 100 + [-3.0] * 100)).candidates      # ends on the last frame
+    assert low.start_s == pytest.approx(100 * HOP - HOP / 2) and low.end_s == pytest.approx(199 * HOP)
+
+    (whole,) = detect_candidates(_energy_bundle([3.0] * 200)).candidates                   # the entire recording
+    assert whole.start_s == 0.0 and whole.end_s == pytest.approx(199 * HOP)
+    assert whole.flagged_intervals == ((0.0, pytest.approx(199 * HOP)),)
+    assert whole.flagged_duration_s == pytest.approx(199 * HOP)
+
+
+def test_a_one_frame_timeline_has_no_extent_to_flag():
+    nb = _energy_bundle([3.0])
+    cfg = DetectionConfig(min_duration_s={FlawType.HIGH_ENERGY: 0.0})                       # no minimum: only the clipping decides
+    assert detect_candidates(nb, cfg).candidates == []
 
 
 def test_merge_gap_is_strictly_less_than():

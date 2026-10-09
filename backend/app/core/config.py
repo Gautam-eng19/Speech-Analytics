@@ -64,6 +64,12 @@ class Settings:
         self.SEVERITY_Z_SEVERE: float = float(os.getenv("SEVERITY_Z_SEVERE", "4.0"))
         self.SEVERITY_DURATION_SEVERE_S: float = float(os.getenv("SEVERITY_DURATION_SEVERE_S", "5.0"))
 
+        # Pipeline honesty flags and baseline/content checks (DEC-032). PROPOSED, uncalibrated.
+        self.THRESHOLDS_CALIBRATED: bool = os.getenv("THRESHOLDS_CALIBRATED", "false").strip().lower() in ("1", "true", "yes")
+        self.PASSAGE_MATCH_MIN_RATIO: float = float(os.getenv("PASSAGE_MATCH_MIN_RATIO", "0.6"))
+        self.BASELINE_THIN_RATE_WINDOWS: int = int(os.getenv("BASELINE_THIN_RATE_WINDOWS", "5"))
+        self.BASELINE_THIN_PAUSES: int = int(os.getenv("BASELINE_THIN_PAUSES", "3"))
+
         # Scoring (DEC-014 as amended by DEC-030; weights DEC-P007). PROPOSED, uncalibrated.
         self.BASE_PENALTY: float = float(os.getenv("BASE_PENALTY", "30.0"))
         self.SCORE_WEIGHT_SPEECH_RATE: float = float(os.getenv("SCORE_WEIGHT_SPEECH_RATE", "0.30"))

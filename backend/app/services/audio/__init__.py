@@ -2,6 +2,7 @@
 from .preprocessor import (
     AudioPreprocessingError,
     AudioPreprocessor,
+    AudioTooLongError,
     compute_audio_sha256,
     convert_to_mono,
     find_active_span,
@@ -14,6 +15,7 @@ from .preprocessor import (
 __all__ = [
     "AudioPreprocessingError",
     "AudioPreprocessor",
+    "AudioTooLongError",
     "compute_audio_sha256",
     "convert_to_mono",
     "find_active_span",

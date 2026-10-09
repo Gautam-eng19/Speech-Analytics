@@ -30,6 +30,20 @@ Frontend TypeScript types must be derived from these models (never hand-extended
 `status` values `processing`/`failed` are reserved for the DEC-016 async upgrade and are not
 emitted at P0.
 
+### Analysis identity and result retrieval (DEC-032)
+- `analysis_id` is deterministic: a UUIDv5 of everything that can change the stored result (the audio, its trim offset and
+  length in the uploaded file, the baseline file and its content hash, the passage text, the `speaker_gender` hint, a manual
+  transcript, all versions, a fingerprint of every analytical constant, and the numeric library versions). The same request
+  therefore returns the same `analysis_id`, and the second request is answered from the store with
+  `processing_meta.cached = true` and the same `deterministic_json()`.
+- `POST /analyze` is synchronous (DEC-016); the server runs one analysis at a time and queues the others.
+- `GET /result/{analysis_id}` returns the stored `AnalysisResult` exactly as `POST /analyze` returned it (the stored copy has
+  `cached = false`; a repeated `POST` reports `cached = true`). Results are kept on disk, so they survive a server restart.
+- `GET /status/{analysis_id}` answers `done` when the result exists and `not_found` otherwise, always with HTTP 200. A malformed
+  id is simply `not_found` (and is never echoed back in an error body).
+- `baseline_id` selects a baseline statistics file; it must describe `passage_id`. By default `baseline_id` equals the passage id;
+  several baselines (for example different baseline speakers) may exist for one passage under other ids.
+
 ## Errors
 Body is always `{ "error": ErrorCode, "detail": str, "analysis_id": str | null }`.
 
@@ -40,8 +54,25 @@ Body is always `{ "error": ErrorCode, "detail": str, "analysis_id": str | null }
 | BASELINE_NOT_FOUND, RESULT_NOT_FOUND | 404 |
 | PROCESSING_ERROR | 500 |
 
-The mapping is `ERROR_HTTP_STATUS`. TASK-010 must install exception handlers so FastAPI's
-default 422 body is replaced by `ErrorResponse`.
+The mapping is `ERROR_HTTP_STATUS`. FastAPI's default 422 body is replaced by `ErrorResponse` (`main.py`).
+
+Which condition produces which error (all analysis failures store nothing):
+
+| Condition | ErrorCode |
+|---|---|
+| Missing/blank field, bad id, empty upload, blank manual transcript | VALIDATION_ERROR |
+| Extension or content type is not WAV/MP3; audio that cannot be decoded | UNSUPPORTED_AUDIO_FORMAT |
+| Upload larger than `MAX_UPLOAD_BYTES` | FILE_TOO_LARGE |
+| Audio longer than `MAX_DURATION_S` | AUDIO_TOO_LONG |
+| Client `config_version` differs from the server's | CONFIG_VERSION_MISMATCH |
+| Audio is silent after trimming; the transcript is empty; no word could be aligned; `baseline_id` describes another passage | VALIDATION_ERROR |
+| No baseline statistics under `baseline_id` | BASELINE_NOT_FOUND |
+| Transcription or alignment model failure; alignment fails validation; baseline file fails its integrity check or cannot be used for normalization; any unexpected exception | PROCESSING_ERROR |
+| Unknown `analysis_id` on `GET /result/{id}` | RESULT_NOT_FOUND |
+
+`detail` is a short, user-safe message built only from the project's own validation messages and the client's own identifiers.
+Text raised by decoders, models or the file system, and server paths, are logged on the server and never returned; an unexpected
+exception is reported only as a generic PROCESSING_ERROR.
 
 ## AnalysisResult
 | Field | Architecture concept |
@@ -83,6 +114,25 @@ against that end. MP3 decoder delay is not compensated.
 `notes[]` carries `{code, message}` entries for everything the analysis did not or could not do: features that were
 unavailable, flaw types not evaluated (e.g. flat pitch), alignment issues, a thin baseline, a transcript that does not
 match the passage, and uncalibrated thresholds. The dashboard must show them; missing evidence is never silent.
+
+Codes (the message carries the numbers; a code appears at most once, `{feature}` is a name such as `f0`, `energy`, `rate`, `pauses`
+or a score dimension such as `pitch`, `speech_rate`):
+
+| Code | Meaning |
+|---|---|
+| `thresholds_uncalibrated` | Thresholds and score weights are initial values, not calibrated on recordings (cleared only by `THRESHOLDS_CALIBRATED=true`) |
+| `baseline_thin_rate`, `baseline_thin_pauses` | The baseline rests on very few rate windows / within-phrase pauses, so those z-scores can be over-sensitive |
+| `audio_very_quiet` | The recording's mean level is below the extractor's quiet limit; energy findings can be unreliable |
+| `passage_text_unavailable`, `content_mismatch` | The passage text is not available / the transcript matches it only partly (similarity in the message) |
+| `alignment_warning` | A warning from alignment validation (for example low word coverage) |
+| `{feature}_unavailable` | A feature could not be normalized against the baseline (reason in the message) |
+| `pauses_not_comparable` | Some pauses have no usable baseline statistic (unknown pause type or no baseline spread) |
+| `{feature}_not_scored` | A score dimension was not evaluated (for example `pitch_not_scored`: flat pitch is not implemented) and is left out of the composite |
+| `words_without_timing` | Words without complete timing were left out of `alignment` |
+| `speaker_gender_ignored` | The optional hint was ignored: baselines are not gender-specific |
+| `mfcc_unavailable` | The MFCC summary could not be computed |
+| `result_not_stored` | The analysis succeeded but the result could not be written, so `GET /result/{analysis_id}` will not find it |
+| `explanation_provider_unavailable`, `explanation_fallback_used` | A non-template provider was configured but is not implemented / a text used the minimal fallback |
 
 ## Reproducibility
 - `AnalysisResult.deterministic_json()` excludes `analysis_id` and `processing_meta`;

@@ -30,6 +30,11 @@ class AudioPreprocessingError(ValueError):
     pass
 
 
+class AudioTooLongError(AudioPreprocessingError):
+    """Raised when the preprocessed audio exceeds the configured maximum duration."""
+    pass
+
+
 def _decode_wav(data: bytes) -> Tuple[np.ndarray, int]:
     """Decode WAV bytes using scipy.io.wavfile into float32 array."""
     try:
@@ -333,7 +338,7 @@ class AudioPreprocessor:
         # 6. Duration
         duration_s = float(len(final_audio)) / float(self.target_sample_rate)
         if duration_s > self.max_duration_s:
-            raise AudioPreprocessingError(
+            raise AudioTooLongError(
                 f"Audio duration {duration_s:.1f}s exceeds maximum allowed duration {self.max_duration_s:.1f}s"
             )
 
