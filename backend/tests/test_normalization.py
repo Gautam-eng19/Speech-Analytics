@@ -190,6 +190,26 @@ def test_rate_z_scores_use_baseline_stats_and_keep_window_bounds():
     assert res.rate_z.max() > 0  # ~150 wpm vs 120 baseline: faster => positive z
 
 
+def test_rate_span_and_energy_hop_are_passed_through_for_grounding():
+    rate = _rate()
+    res = normalize_features(_baseline(), rate=rate, energy=_energy([-25.0, -20.0, -30.0]))
+    assert np.array_equal(res.rate_effective_duration_s, rate.effective_duration_s)
+    assert np.array_equal(res.rate_word_count, rate.word_count)
+    assert res.energy_hop_s == pytest.approx(0.01)                      # EnergyConfig hop 160 / 16 kHz
+    # Measured interval of window k: rate_times_s[k] +/- effective_duration_s[k] / 2.
+    assert res.rate_times_s[0] - res.rate_effective_duration_s[0] / 2 == pytest.approx(0.0)
+
+
+def test_energy_hop_falls_back_to_median_time_spacing():
+    class _Bare:  # an energy-like object without hop_s
+        times_s = np.array([0.0, 0.02, 0.04, 0.06])
+        values_db = np.array([-25.0, -20.0, -30.0, -25.0])
+
+    assert normalize_features(_baseline(), energy=_Bare()).energy_hop_s == pytest.approx(0.02)
+    single = type("S", (), {"times_s": np.array([0.0]), "values_db": np.array([-25.0])})()
+    assert normalize_features(_baseline(), energy=single).energy_hop_s is None
+
+
 def test_skipped_rate_is_reported_not_normalized():
     res = normalize_features(_baseline(), rate=_rate(n_words=6))
     assert len(res.rate_z) == 0
