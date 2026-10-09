@@ -12,7 +12,7 @@ Use `AnalysisResult.deterministic_json()` to compare runs.
 from __future__ import annotations
 
 import math
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 from pydantic import Field, field_validator, model_validator
 
@@ -33,7 +33,7 @@ from .common import (
 __all__ = [
     "HealthResponse", "StatusResponse", "ErrorResponse", "AnalysisResult",
     "AudioInfo", "BaselineInfo", "AlignedWord", "FeatureSet", "BaselineStats",
-    "Flaw", "ScoreSummary", "FeatureScore", "ProcessingMeta",
+    "Flaw", "DetectionRule", "ScoreSummary", "FeatureScore", "ProcessingMeta", "AnalysisNote",
 ]
 
 _Unit = Field(ge=0.0, le=1.0)
@@ -71,13 +71,27 @@ class ErrorResponse(ContractModel):
 # Input / provenance
 # --------------------------------------------------------------------------
 class AudioInfo(ContractModel):
-    """Participant audio after preprocessing (PreprocessedAudio, §9.1)."""
+    """Participant audio after preprocessing (PreprocessedAudio, §9.1).
+
+    `duration_s` is the duration of the ANALYSED audio (leading/trailing silence removed). Every time in
+    the result (alignment, feature timelines, pauses, flaws) is expressed in SOURCE time, i.e. on the
+    timeline of the uploaded recording: `trim_start_s` is the leading silence that was removed before
+    analysis, and the analysed audio therefore spans [trim_start_s, trim_start_s + duration_s].
+    """
 
     sha256: str = Field(pattern="^[0-9a-f]{64}$")
     duration_s: float = Field(gt=0.0)
     sample_rate_hz: int = Field(gt=0)
     channels: int = Field(ge=1)
     peak_dbfs: float
+    trim_start_s: float = Field(default=0.0, ge=0.0, allow_inf_nan=False)
+    source_duration_s: Optional[float] = Field(default=None, ge=0.0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def _trim_within_source(self) -> "AudioInfo":
+        if self.source_duration_s is not None and self.trim_start_s + self.duration_s > self.source_duration_s + 0.001:
+            raise ValueError("trim_start_s + duration_s must not exceed source_duration_s")
+        return self
 
 
 class BaselineInfo(ContractModel):
@@ -297,6 +311,20 @@ _EVIDENCE_FOR_TYPE: dict[FlawType, type] = {
 }
 
 
+class DetectionRule(ContractModel):
+    """The rule that flagged a finding (§17), so each flaw states WHY it was flagged.
+
+    The finding was flagged where the named normalized signal was `above` (z > threshold_z) or `below`
+    (z < threshold_z) the threshold for at least `min_duration_s` of flagged time. The thresholds are
+    initial, uncalibrated values (DEC-P005).
+    """
+
+    feature: str = Field(min_length=1)  # normalized signal: "rate_z", "energy_z" or "pause_z"
+    direction: Literal["above", "below"]
+    threshold_z: float = Field(allow_inf_nan=False)
+    min_duration_s: float = Field(ge=0.0, allow_inf_nan=False)
+
+
 class Flaw(ContractModel):
     """GroundedFlaw (§9.9) + explanation fields (§9.11)."""
 
@@ -312,6 +340,10 @@ class Flaw(ContractModel):
     explanation: str = Field(min_length=1)
     recommendation: str = Field(min_length=1)
     explanation_method: ExplanationMethod
+    # Added in 1.1.0 (all optional): why it was flagged, which words it covers, and its limitations.
+    rule: Optional[DetectionRule] = None
+    affected_words: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _grounded(self) -> "Flaw":
@@ -361,6 +393,20 @@ class ProcessingMeta(ContractModel):
 
 
 # --------------------------------------------------------------------------
+# Notes: explicit statements of what was NOT evaluated and of analysis limitations (1.1.0)
+# --------------------------------------------------------------------------
+class AnalysisNote(ContractModel):
+    """A machine-readable, human-readable statement about the analysis itself.
+
+    Used for unavailable features, flaw types that were not evaluated, alignment problems, thin baselines,
+    content mismatch and uncalibrated thresholds, so missing evidence is never silent.
+    """
+
+    code: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    message: str = Field(min_length=1)
+
+
+# --------------------------------------------------------------------------
 # Final result
 # --------------------------------------------------------------------------
 class AnalysisResult(ContractModel):
@@ -381,6 +427,9 @@ class AnalysisResult(ContractModel):
     scores: ScoreSummary
     overall_summary: Optional[str] = None
     processing_meta: ProcessingMeta
+    # Added in 1.1.0 (optional).
+    notes: list[AnalysisNote] = Field(default_factory=list)
+    config_fingerprint: Optional[str] = Field(default=None, pattern="^[0-9a-f]{64}$")
 
     @model_validator(mode="after")
     def _consistent(self) -> "AnalysisResult":
@@ -390,8 +439,10 @@ class AnalysisResult(ContractModel):
         ids = [f.flaw_id for f in self.flaws]
         if len(ids) != len(set(ids)):
             raise ValueError("flaw_id values must be unique")
+        # Times are source-time: the analysed audio ends at trim_start_s + duration_s.
+        analysed_end_s = self.audio.trim_start_s + self.audio.duration_s
         for f in self.flaws:
-            if f.end_s > self.audio.duration_s + 0.01:
+            if f.end_s > analysed_end_s + 0.01:
                 raise ValueError(f"{f.flaw_id} extends beyond audio duration")
         return self
 

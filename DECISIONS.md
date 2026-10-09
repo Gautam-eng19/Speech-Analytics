@@ -709,7 +709,7 @@ Decision:
   factor would count the same quantity twice (and cap even a 16-sigma, 1.5 s pause at 0.3).
 - Duration is counted once. DEC-014's flaw_penalty = BASE_PENALTY * severity * duration_weight * reliability is
   therefore amended to flaw_penalty = BASE_PENALTY * severity * reliability (duration_weight / DURATION_NORM_S are
-  dropped; see DEC-029).
+  dropped; see DEC-030).
 - Reliability stays a constant 1.0 at P0 (ARCHITECTURE §19); it is not a confidence measure.
 
 Reason:
@@ -720,6 +720,30 @@ Impact:
 - TASK-052, TASK-060. Limitation: with a small-spread (single-reference) baseline most real deviations exceed
   Z_SEVERE, so magnitude saturates at 1 and severity reduces to the duration component. All constants need
   calibration on a dev split.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-09
+
+---
+
+## DEC-029 — API Contract 1.1.0 and the Source-Time Response Timeline
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- The public contract gains only OPTIONAL fields (MINOR bump to 1.1.0; 1.0.0 payloads stay valid): `Flaw.rule`
+  (the detection rule and threshold that flagged it), `Flaw.affected_words`, `Flaw.warnings`,
+  `AudioInfo.trim_start_s` / `source_duration_s`, `AnalysisResult.notes[]` and `config_fingerprint`.
+- Every time in a result is in SOURCE time (the uploaded recording's timeline), converted exactly once at response
+  assembly with the trim offset (DEC-023). Flaw bounds are validated against `trim_start_s + duration_s`.
+- Words without complete timings are not invented; they are omitted from `alignment` and reported in `notes`.
+
+Reason:
+The problem statement requires each finding to state why it was flagged, which words it covers and its limitations,
+and requires missing evidence to be visible. Markers must line up with the user's own audio.
+
+Impact:
+- TASK-054, response assembly (Task 5), frontend types (derive from the Pydantic models).
 
 Approved by: Team leader (delegated to coding agent)
 Date: 2026-10-09

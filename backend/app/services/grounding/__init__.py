@@ -6,6 +6,7 @@ from .candidates import (
     detect_candidates,
     merge_candidates,
 )
+from .flaws import EvidenceError, GroundedFlaw, ground_flaws, to_api_flaw
 from .severity import SeverityConfig, compute_severity, severity_components
 from .normalizer import (
     NormalizationError,
@@ -21,6 +22,10 @@ __all__ = [
     "FlawCandidate",
     "detect_candidates",
     "merge_candidates",
+    "EvidenceError",
+    "GroundedFlaw",
+    "ground_flaws",
+    "to_api_flaw",
     "SeverityConfig",
     "compute_severity",
     "severity_components",
