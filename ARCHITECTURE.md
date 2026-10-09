@@ -1242,6 +1242,10 @@ Flaws with `reliability < RELIABILITY_THRESHOLD` (config, proposed 0.4):
 
 Scoring is owned exclusively by `services/scoring/`. It is deterministic.
 
+> **Amended by DEC-028 / DEC-030:** the per-flaw penalty is `BASE_PENALTY * severity * reliability` (duration is already
+> inside severity, so `duration_weight` / `DURATION_NORM_S` below are no longer applied), and the composite is taken over
+> the features that were actually evaluated: unevaluated features are omitted and the remaining weights renormalised.
+
 ### Per-feature sub-score
 
 ```

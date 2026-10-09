@@ -750,6 +750,36 @@ Date: 2026-10-09
 
 ---
 
+## DEC-030 — Scoring Conventions (amends DEC-014; weights from DEC-P007)
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- Penalty per flaw = BASE_PENALTY x severity x reliability (BASE_PENALTY = 30.0). DEC-014's extra duration_weight /
+  DURATION_NORM_S are dropped because severity already contains duration (DEC-028); applying both counted it twice.
+- sub_score = max(0, 100 - penalty_total); composite = sum(effective_weight x sub_score) over EVALUATED features.
+- A feature is evaluated only if every P0 flaw type that maps to it was actually checked. Flaw types the detector
+  reports as skipped (not implemented, e.g. flat_pitch, or whose feature was unavailable) make their feature NOT
+  evaluated. Such a feature is OMITTED from the scores (never 100, never 0), the remaining weights are renormalised
+  and the EFFECTIVE weights are reported, with the reasons returned for `notes`. With flat_pitch not implemented the
+  P0 weights 0.30 / 0.25 / 0.20 therefore become 0.4 / 0.333333 / 0.266667 and pitch is not scored.
+- If no feature can be evaluated, scoring fails (no number is invented). mfcc and clarity have weight 0 at P0.
+- Displayed numbers are rounded first (penalty and scores 2 dp, weights 6 dp) and the composite is computed from them,
+  so it can be re-derived from the response. Flaws are summed in a fixed order.
+- Meaning: the score summarises deviation from the BASELINE over the evaluated dimensions (100 = none detected). It is
+  not a speech-quality or intelligibility score and it is not calibrated (all constants are proposed starting values).
+
+Reason:
+A pitch score of 100 would claim pitch was assessed when it cannot be, and counting duration twice distorts penalties.
+
+Impact:
+- TASK-060, TASK-061, TASK-062; response assembly (Task 5) must surface `excluded` reasons in `notes`.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-09
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been

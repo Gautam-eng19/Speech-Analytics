@@ -64,5 +64,14 @@ class Settings:
         self.SEVERITY_Z_SEVERE: float = float(os.getenv("SEVERITY_Z_SEVERE", "4.0"))
         self.SEVERITY_DURATION_SEVERE_S: float = float(os.getenv("SEVERITY_DURATION_SEVERE_S", "5.0"))
 
+        # Scoring (DEC-014 as amended by DEC-030; weights DEC-P007). PROPOSED, uncalibrated.
+        self.BASE_PENALTY: float = float(os.getenv("BASE_PENALTY", "30.0"))
+        self.SCORE_WEIGHT_SPEECH_RATE: float = float(os.getenv("SCORE_WEIGHT_SPEECH_RATE", "0.30"))
+        self.SCORE_WEIGHT_PITCH: float = float(os.getenv("SCORE_WEIGHT_PITCH", "0.25"))
+        self.SCORE_WEIGHT_PAUSES: float = float(os.getenv("SCORE_WEIGHT_PAUSES", "0.25"))
+        self.SCORE_WEIGHT_ENERGY: float = float(os.getenv("SCORE_WEIGHT_ENERGY", "0.20"))
+        self.SCORE_WEIGHT_MFCC: float = float(os.getenv("SCORE_WEIGHT_MFCC", "0.0"))
+        self.SCORE_WEIGHT_CLARITY: float = float(os.getenv("SCORE_WEIGHT_CLARITY", "0.0"))
+
 
 settings = Settings()

@@ -33,6 +33,8 @@ from app.services.features.energy import extract_energy  # noqa: E402
 from app.services.features.f0 import extract_f0  # noqa: E402
 from app.services.features.pause import detect_pauses  # noqa: E402
 from app.services.features.rate import extract_rate  # noqa: E402
+from app.services.scoring import score_analysis  # noqa: E402
+from app.schemas.common import FeatureName  # noqa: E402
 from app.services.grounding import (  # noqa: E402
     compute_severity,
     detect_candidates,
@@ -246,3 +248,35 @@ def test_grounding_is_deterministic(baseline, grounded):
 
 def test_clean_delivery_grounds_to_no_flaws(baseline):
     assert _ground(baseline, normal_delivery(24, special_gaps={6: 0.35, 12: 0.6, 18: 0.3}))[3] == []
+
+
+# ------------------------------------------------------------------- scoring
+def test_score_of_the_injected_scenario_is_reproducible_from_its_flaws(grounded):
+    _, _, detection, flaws = grounded
+    result = score_analysis(flaws, detection.skipped, "1.0.0")
+    fs = result.scores.feature_scores
+
+    # Independent recomputation: penalty = 30 x severity x reliability, summed per feature.
+    by_type = {f.type: f for f in flaws}
+    expected_penalty = {
+        FeatureName.SPEECH_RATE: 30.0 * by_type[FlawType.TOO_FAST].severity,
+        FeatureName.PAUSES: 30.0 * by_type[FlawType.EXCESSIVE_PAUSE].severity,
+        FeatureName.ENERGY: 30.0 * by_type[FlawType.LOW_ENERGY].severity,
+    }
+    assert set(fs) == set(expected_penalty)                                  # pitch is NOT scored (not evaluated)
+    for feature, penalty in expected_penalty.items():
+        assert fs[feature].penalty_total == pytest.approx(penalty, abs=0.006)
+        assert fs[feature].score == pytest.approx(100.0 - fs[feature].penalty_total, abs=1e-9)
+    assert fs[FeatureName.SPEECH_RATE].score == 70.0 and fs[FeatureName.PAUSES].score == 70.0
+    shown = sum(s.weight * s.score for s in fs.values())
+    assert result.scores.composite_score == pytest.approx(shown, abs=0.006)
+    assert 70.0 < result.scores.composite_score < 75.0                        # about 72.5 for this scenario
+    assert FeatureName.PITCH in result.excluded and "flat_pitch" in result.excluded[FeatureName.PITCH]
+
+
+def test_clean_delivery_scores_100_over_the_evaluated_features(baseline):
+    _, _, detection, flaws = _ground(baseline, normal_delivery(24, special_gaps={6: 0.35, 12: 0.6, 18: 0.3}))
+    result = score_analysis(flaws, detection.skipped, "1.0.0")
+    assert result.scores.composite_score == 100.0
+    assert all(s.score == 100.0 and s.flaw_count == 0 for s in result.scores.feature_scores.values())
+    assert FeatureName.PITCH not in result.scores.feature_scores             # 100 here would wrongly imply pitch was checked
