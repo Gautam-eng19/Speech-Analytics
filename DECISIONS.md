@@ -696,6 +696,36 @@ Date: 2026-10-09
 
 ---
 
+## DEC-028 — Severity Formula (resolves DEC-P006; amends DEC-014)
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- Option A (linear product) is selected:
+  severity = clip((|mean_z| - Z_MIN) / (Z_SEVERE - Z_MIN), 0, 1) * clip(flagged_duration_s / DURATION_SEVERE_S, 0, 1)
+  with the PROPOSED constants Z_MIN = 1.0, Z_SEVERE = 4.0, DURATION_SEVERE_S = 5.0 (config.py, uncalibrated).
+- |mean_z| is used (direction does not matter); the duration is the FLAGGED time, not the span.
+- excessive_pause has NO duration component: its z-score is a function of the pause duration alone, so a separate
+  factor would count the same quantity twice (and cap even a 16-sigma, 1.5 s pause at 0.3).
+- Duration is counted once. DEC-014's flaw_penalty = BASE_PENALTY * severity * duration_weight * reliability is
+  therefore amended to flaw_penalty = BASE_PENALTY * severity * reliability (duration_weight / DURATION_NORM_S are
+  dropped; see DEC-029).
+- Reliability stays a constant 1.0 at P0 (ARCHITECTURE §19); it is not a confidence measure.
+
+Reason:
+Option B (sigmoid) spans only about 0.58-0.73 with the proposed constants, so it cannot distinguish mild from severe
+deviations. Applying both Option A's duration component and DEC-014's duration_weight would count duration twice.
+
+Impact:
+- TASK-052, TASK-060. Limitation: with a small-spread (single-reference) baseline most real deviations exceed
+  Z_SEVERE, so magnitude saturates at 1 and severity reduces to the duration component. All constants need
+  calibration on a dev split.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-09
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been
@@ -805,7 +835,7 @@ Date: pending
 
 ## DEC-P006 — Severity Formula
 
-Status: PROPOSED (team must select Option A or B before TASK-052)
+Status: RESOLVED by DEC-028 (Option A selected, with amendments)
 
 Option A — Linear product (simpler, recommended for P0):
   magnitude = clip((mean_z - Z_MIN) / (Z_SEVERE - Z_MIN), 0, 1)
@@ -887,7 +917,7 @@ Items that remain requiring empirical investigation before any decision can be m
 
 1. Exact threshold values — must be calibrated on dev data (DEC-P005)
 2. Exact score weights — must be calibrated on dev data (DEC-P007)
-3. Severity formula choice (A vs B) — must be team-selected (DEC-P006)
+3. Severity formula choice (A vs B) — RESOLVED by DEC-028 (constants still need calibration)
 4. WhisperX vs. fallback — depends on install success (DEC-P002)
 5. Whisper model size — depends on speed benchmark (DEC-P001)
 
