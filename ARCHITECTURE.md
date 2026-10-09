@@ -552,7 +552,14 @@ duration_s:        float
 audio_array:       np.ndarray   — float32 PCM
 sha256:            str          — hex digest of audio_array bytes
 peak_dbfs:         float        — measured peak after normalization
+trim_start_s:      float        — offset (s) of audio_array[0] within the pre-trim signal; 0.0 if untrimmed or all-silent (default 0.0)
+source_duration_s: float | None — duration (s) of the pre-trim (decoded, mono, resampled) signal (default None)
 ```
+
+All pipeline timestamps are in processed-audio time (t = 0 is `audio_array[0]`). `trim_start_s` is applied
+exactly once, at response assembly, to express timestamps in source time (DEC-023;
+`PreprocessedAudio.to_source_time()`). `sha256` covers `audio_array` only and does not encode `trim_start_s`; the
+§26.4 cache key MUST therefore include `trim_start_s` (or a hash of the source signal).
 
 ### 9.2 Transcript
 
@@ -633,6 +640,13 @@ hf_ratio_std:          float    (optional)
 sha256:                str      — hash of this stats file
 ```
 
+Implemented as `BaselineStatsRecord` (`schemas/contracts.py`), which extends the API `BaselineStats` with the identity
+fields above and also holds: `pause_cross_sentence_std_s` (optional; unset when only one cross-sentence pause exists),
+evidence counts (`n_f0_voiced_frames`, `n_energy_frames`, `n_rate_windows`, `n_pauses_within_phrase`,
+`n_pauses_cross_sentence`, `n_pauses_unknown_boundary`) and `config_snapshot` (the conventions used, e.g. the energy
+frame rule). `sha256` is the SHA-256 of the canonical JSON of every other field (DEC-024). Served by
+`core/baseline.py::BaselineProvider`, built by `scripts/dataset/build_baseline_stats.py`.
+
 ### 9.6 NormalizedFeatureBundle
 
 Extends `FeatureBundle` with z-scored fields:
@@ -642,6 +656,12 @@ energy_z:          np.ndarray
 rate_z:            np.ndarray
 clarity_z:         np.ndarray   (P1)
 ```
+
+Implemented as `NormalizedFeatureBundle` (`services/grounding/normalizer.py`). A value with no meaningful z-score is
+NaN, never 0 (unvoiced F0 frames, energy frames outside the baseline's frame rule, pauses of unknown boundary type);
+a feature with an unusable baseline spread or that was not provided is listed in `unavailable` with a reason
+(DEC-025). It additionally carries `energy_in_baseline_rule`, per-window rate spans (`rate_effective_duration_s`,
+`rate_word_count`), `energy_hop_s`, and per-pause z-scores.
 
 ### 9.7 ContrastiveBundle
 
