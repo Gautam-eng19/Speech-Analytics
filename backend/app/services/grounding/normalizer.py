@@ -98,7 +98,10 @@ class NormalizedFeatureBundle:
         energy_times_s / energy_z: energy z-scores; NaN on frames outside the baseline's rule.
         energy_in_baseline_rule: bool mask of frames the baseline energy statistic covers.
         rate_times_s / rate_z: speech-rate z-score per rolling window, with the nominal window
-            bounds in rate_window_start_s / rate_window_end_s.
+            bounds in rate_window_start_s / rate_window_end_s. rate_effective_duration_s and
+            rate_word_count pass through the extractor's per-window span and word count (the
+            measured interval of window k is rate_times_s[k] +/- rate_effective_duration_s[k] / 2).
+        energy_hop_s: frame hop of the energy timeline in seconds (None if not derivable).
         pauses: per-event pause z-scores (same order as the input events).
         unavailable: feature name -> machine-readable reason, for everything not normalized.
     """
@@ -114,6 +117,9 @@ class NormalizedFeatureBundle:
     rate_z: np.ndarray = field(default_factory=_empty)
     rate_window_start_s: np.ndarray = field(default_factory=_empty)
     rate_window_end_s: np.ndarray = field(default_factory=_empty)
+    rate_effective_duration_s: np.ndarray = field(default_factory=_empty)
+    rate_word_count: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    energy_hop_s: Optional[float] = None
     pauses: List[NormalizedPause] = field(default_factory=list)
     unavailable: Dict[str, str] = field(default_factory=dict)
 
@@ -207,6 +213,10 @@ def normalize_features(
         covered = np.isfinite(values) & (values >= threshold)
         out.energy_times_s = times.copy()
         out.energy_in_baseline_rule = covered
+        hop = getattr(energy, "hop_s", None)
+        if hop is None and len(times) >= 2:
+            hop = float(np.median(np.diff(times)))
+        out.energy_hop_s = None if hop is None else float(hop)
         z = np.full(len(values), np.nan, dtype=np.float64)
         if _usable_std(baseline.energy_db_std):
             z[covered] = z_score(values[covered], baseline.energy_db_mean, baseline.energy_db_std)
@@ -224,11 +234,14 @@ def normalize_features(
         wpm = np.asarray(rate.words_per_min, dtype=np.float64)
         w_start = np.asarray(rate.window_start_s, dtype=np.float64)
         w_end = np.asarray(rate.window_end_s, dtype=np.float64)
-        if not (len(times) == len(wpm) == len(w_start) == len(w_end)):
+        n_eff, n_cnt = len(rate.effective_duration_s), len(rate.word_count)
+        if not (len(times) == len(wpm) == len(w_start) == len(w_end) == n_eff == n_cnt):
             raise NormalizationError("rate arrays must have equal length")
         out.rate_times_s = times.copy()
         out.rate_window_start_s = w_start.copy()
         out.rate_window_end_s = w_end.copy()
+        out.rate_effective_duration_s = np.asarray(rate.effective_duration_s, dtype=np.float64).copy()
+        out.rate_word_count = np.asarray(rate.word_count, dtype=np.int64).copy()
         if _usable_std(baseline.rate_wpm_std):
             out.rate_z = z_score(wpm, baseline.rate_wpm_mean, baseline.rate_wpm_std)
         else:

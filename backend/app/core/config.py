@@ -48,5 +48,16 @@ class Settings:
         self.TARGET_PEAK_DBFS: float = float(os.getenv("TARGET_PEAK_DBFS", "-3.0"))
         self.VAD_ENERGY_THRESHOLD_DBFS: float = float(os.getenv("VAD_ENERGY_THRESHOLD_DBFS", "-50.0"))
 
+        # Flaw-detection thresholds (DEC-P005, ARCHITECTURE.md §17). PROPOSED starting values:
+        # NOT calibrated on a dev split and not empirically validated (no recordings exist yet).
+        # They must be calibrated, then frozen with a CONFIG_VERSION bump (DEC-014).
+        self.Z_RATE_FAST: float = float(os.getenv("Z_RATE_FAST", "2.0"))
+        self.Z_RATE_SLOW: float = float(os.getenv("Z_RATE_SLOW", "2.0"))
+        self.Z_ENERGY: float = float(os.getenv("Z_ENERGY", "2.0"))
+        self.Z_PAUSE_WITHIN: float = float(os.getenv("Z_PAUSE_WITHIN", "2.0"))
+        self.Z_PAUSE_CROSS: float = float(os.getenv("Z_PAUSE_CROSS", "2.5"))
+        self.MIN_FLAW_DURATION_S: float = float(os.getenv("MIN_FLAW_DURATION_S", "0.5"))
+        self.MERGE_GAP_S: float = float(os.getenv("MERGE_GAP_S", "0.5"))
+
 
 settings = Settings()
