@@ -553,6 +553,149 @@ Date: 2026-10-07
 
 ---
 
+## DECISIONS FROM IMPLEMENTATION (2026-10-09)
+
+DEC-023 was approved explicitly by the team leader. DEC-024 to DEC-027 record conventions the coding agent
+chose under the authority delegated by the team leader on 2026-10-09; they are ACCEPTED so that code and
+documents agree, and the team leader may revise any of them (revising one means regenerating baseline
+statistics or re-running detection, not a data migration).
+
+---
+
+## DEC-023 — Source-Time Provenance for Trimmed Audio
+
+Status: ACCEPTED
+
+Decision:
+PreprocessedAudio records `trim_start_s` (offset of the retained audio within the pre-trim signal) and
+`source_duration_s` (pre-trim duration). All internal analysis (transcription, alignment, features,
+grounding) stays in processed-audio time. Conversion to source time happens exactly once, at final response
+assembly, via `PreprocessedAudio.to_source_time()`. Trimming behavior, thresholds, `audio_array` and `sha256`
+are unchanged.
+
+Reason:
+Trimming discarded the start offset, so timestamps could not be mapped onto the user's original recording.
+
+Impact:
+- TASK-013A (implemented); response assembly must expose the offset (API contract MINOR bump)
+- Cache key (§26.4) must include `trim_start_s` or a source-audio hash: `sha256` covers only trimmed samples
+- Amends DEC-P003 and ARCHITECTURE §9.1
+
+Approved by: Team leader (explicit approval, 2026-10-09)
+Date: 2026-10-09
+
+---
+
+## DEC-024 — Baseline Statistics Conventions
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- Statistics are pooled across a passage's `baseline_effective` recordings (frames, windows and events
+  pooled, not averaged per recording) and stored as one `BaselineStatsRecord` JSON per passage under
+  `data/processed/baseline_stats/<passage_id>.json`; `BaselineProvider.get(passage_id)` serves it (DEC-015).
+- F0 statistics use voiced frames only. Energy statistics use ACTIVE frames (energy_db >= the VAD threshold,
+  -50 dBFS) by default so pauses do not inflate the spread of speaking level; `--energy-frames all` is
+  available. The rule and threshold are stored in the file's `config_snapshot`.
+- Standard deviation is the sample std (ddof=1); percentiles are linear; floats are rounded to 6 decimals.
+- A statistic with too few observations is NOT defaulted: the build fails with an explicit error (std needs
+  >= 2 observations; cross-sentence pause std stays unset with one pause).
+- `sha256` is the SHA-256 of the canonical JSON (sorted keys, compact, no NaN) of every other field.
+- The builder requires an explicit `--splits`, checks manifest SHA-256s (rejecting all-zero placeholders) and
+  expects alignment files to be `AlignedTranscript` JSON in processed-audio time.
+
+Reason:
+The architecture fixes the statistics' meaning (DEC-010) but not these computation details; they must be
+fixed, recorded in the file and reproducible.
+
+Impact:
+- TASK-040, TASK-041. Open: whether test-split speakers' baselines may feed test participants' statistics;
+  meaning of the API `baseline_id`.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-09
+
+---
+
+## DEC-025 — Normalization Semantics
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+`z = (value - baseline_mean) / baseline_std`. Missing stays missing: unvoiced F0 frames, energy frames outside the
+baseline's frame rule (e.g. pauses), and pauses of unknown boundary type have NaN z-scores, never 0. A baseline
+std that is not finite or not > 0 makes that feature's z-scores undefined with a reported reason (no epsilon
+floor). Unprovided or skipped features are listed in `unavailable`. The baseline must pass sha256 verification and
+its passage id and sha256 are carried into the result. No participant calibration (P1).
+
+Reason:
+Silence must not be scored as "low energy" against a speaking-level baseline, and a zero spread cannot express
+deviation in baseline units.
+
+Impact:
+- TASK-041, TASK-042 (delta == z), TASK-050
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-09
+
+---
+
+## DEC-026 — Flaw Candidate Detection Conventions
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- Rules use strict inequalities on the normalized z-scores: too_fast rate_z > +Z_RATE_FAST, too_slow rate_z <
+  -Z_RATE_SLOW, high/low_energy energy_z > +Z_ENERGY / < -Z_ENERGY, excessive_pause pause_z > Z_PAUSE_WITHIN or
+  Z_PAUSE_CROSS by boundary type. Threshold values are the PROPOSED DEC-P005 values, now in `core/config.py`;
+  they remain uncalibrated. CONFIG_VERSION is not bumped until the calibration freeze (DEC-014).
+- Order is threshold -> minimum duration -> merge (gap < MERGE_GAP_S). Energy runs are formed over covered
+  frames: uncovered (NaN) frames bridge a run (until the uncovered stretch reaches MERGE_GAP_S), a covered
+  in-range frame breaks it; minimum duration counts flagged time, not span.
+- Excessive pauses are never merged; their minimum duration defaults to 0.0 (configurable per type).
+- flat_pitch is NOT detected: BaselineStats holds only the pooled global F0 std, not a statistic of F0 variation
+  within a window. Implementing it requires a new baseline statistic (record-contract change).
+  pitch_instability and reduced_clarity are P1.
+- peak_z is the largest |z| among flagged samples; mean_z their signed mean.
+
+Reason:
+A naive per-frame run detector missed sustained quiet speech (every word gap is NaN), and chaining blips across
+gaps produced false positives that grew with recording length; both were found with end-to-end tests.
+
+Impact:
+- TASK-043, TASK-050, TASK-051. Rate findings are window-resolution (several seconds).
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-09
+
+---
+
+## DEC-027 — Feature Extraction Conventions (energy, rate, pauses)
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- Energy: librosa RMS with pinned zero padding, 512-sample (32 ms) window, 160-sample (10 ms) hop, dBFS with a
+  1e-9 floor. Values are relative loudness after peak normalization, not absolute levels.
+- Speech rate (DEC-020): window k covers [k*step, k*step+window); a word belongs to a window by its start time
+  (start inclusive, end exclusive); each value is timestamped at the midpoint of its effective span; fewer than
+  min_windows valid windows -> the analysis is marked skipped with a reason.
+- Pauses (DEC-011): VAD and alignment candidates "agree" when overlap > 50% of the SHORTER interval; a merged
+  event spans the union; VAD runs touching the first/last frame are ignored; boundary type comes from the
+  preceding word's sentence-final punctuation (cross_sentence), inside a word (within_phrase), or unknown.
+  Duration thresholds are inclusive with a 1e-9 s tolerance.
+
+Reason:
+DEC-011, DEC-020 and ARCHITECTURE §13 leave these details open.
+
+Impact:
+- TASK-032, TASK-033, TASK-034. Pause type is punctuation-based (abbreviations misread as sentence ends).
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-09
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been
