@@ -8,6 +8,9 @@ Frontend TypeScript types must be derived from these models (never hand-extended
 - URL prefix `/api/v1`; `API_CONTRACT_VERSION` (semver, `schemas/common.py`) is returned in
   `HealthResponse.api_contract_version` and `AnalysisResult.api_contract_version`.
 - MAJOR = breaking change (new URL prefix); MINOR = backward-compatible optional additions.
+- History: **1.0.0** initial contract (TASK-002). **1.1.0** adds `Flaw.rule`, `Flaw.affected_words`, `Flaw.warnings`,
+  `AudioInfo.trim_start_s` / `source_duration_s`, `AnalysisResult.notes` and `config_fingerprint` (all optional with
+  defaults, so 1.0.0 payloads remain valid) and checks flaw bounds against the analysed audio in source time.
 - Independent of `config_version` (analytical parameters) and `pipeline_version` (pipeline structure).
 - All models use `extra="forbid"`.
 
@@ -44,20 +47,42 @@ default 422 body is replaced by `ErrorResponse`.
 | Field | Architecture concept |
 |---|---|
 | `analysis_id`, `config_version`, `pipeline_version` | §26.2 |
-| `audio` (sha256, duration, sample rate, channels, peak) | PreprocessedAudio §9.1 |
+| `audio` (sha256, duration, sample rate, channels, peak, `trim_start_s`, `source_duration_s`) | PreprocessedAudio §9.1 |
 | `baseline` (ids, sha256, dataset_version) | BaselineStats identity §9.5 |
 | `alignment_method`, `alignment[]` | AlignedTranscript §9.3 |
 | `transcript` | Transcript.text §9.2 |
 | `features` (f0/energy/rate timelines, pause events; mfcc/clarity P1 optional) | FeatureBundle §9.4 |
 | `baseline_stats` | BaselineStats §9.5 |
-| `flaws[]` (id, type, start/end/duration, severity, reliability, low_confidence, typed evidence, explanation, recommendation, explanation_method) | GroundedFlaw §9.9 + §9.11 |
+| `flaws[]` (id, type, start/end/duration, severity, reliability, low_confidence, typed evidence, `rule`, `affected_words`, `warnings`, explanation, recommendation, explanation_method) | GroundedFlaw §9.9 + §9.11 |
 | `scores` (feature_scores, composite_score, scoring_version) | ScoredResult §9.10 |
 | `overall_summary` | §9.11 (optional) |
 | `processing_meta` (whisper_model, transcript_source, processing_time_s, cached) | run info |
+| `notes[]` (`code`, `message`), `config_fingerprint` | what was NOT evaluated and analysis limitations; exact analytical configuration |
 
 Evidence is a typed model per flaw family with fields exactly as ARCHITECTURE.md §21; a `Flaw`
 is rejected if its evidence class does not match its `type`, if `end_s <= start_s`, or if it
 extends beyond the audio duration.
+
+## Timeline convention (1.1.0)
+Every time in an `AnalysisResult` (alignment words, F0/energy/rate timelines, pause events, flaw intervals) is in
+**source time**: the timeline of the uploaded recording, so a marker at `start_s` lines up with the user's own audio.
+Internally the pipeline works in processed-audio time (leading/trailing silence trimmed) and converts exactly once,
+at response assembly (DEC-023). `audio.duration_s` is the duration of the analysed audio and `audio.trim_start_s` the
+leading silence removed, so the analysed audio spans `[trim_start_s, trim_start_s + duration_s]` and flaws are validated
+against that end. MP3 decoder delay is not compensated.
+
+## Flaw grounding fields (1.1.0)
+- `rule`: why the finding was flagged: the normalized signal (`rate_z` / `energy_z` / `pause_z`), the direction
+  (`above` / `below`), `threshold_z` (signed) and `min_duration_s`. Thresholds are initial, uncalibrated values.
+- `affected_words`: words covered by the interval (rate/energy: midpoint inside the interval; pause: the word(s) it
+  follows and precedes). The full alignment is in `alignment`.
+- `warnings`: plain-language limitations of that finding (e.g. rate findings are window-resolution).
+- `reliability` is a constant `1.0` at P0 and `low_confidence` is `false`; neither is a measured confidence.
+
+## Notes (1.1.0)
+`notes[]` carries `{code, message}` entries for everything the analysis did not or could not do: features that were
+unavailable, flaw types not evaluated (e.g. flat pitch), alignment issues, a thin baseline, a transcript that does not
+match the passage, and uncalibrated thresholds. The dashboard must show them; missing evidence is never silent.
 
 ## Reproducibility
 - `AnalysisResult.deterministic_json()` excludes `analysis_id` and `processing_meta`;
@@ -65,7 +90,9 @@ extends beyond the audio duration.
   canonical `FeatureName` order.
 - Unvoiced F0 frames are `null` (NaN is not valid JSON).
 - `audio.sha256`, `baseline.sha256`, `config_version`, `pipeline_version`, `alignment_method`,
-  `processing_meta.whisper_model` / `transcript_source` identify the exact run (§26.3).
+  `processing_meta.whisper_model` / `transcript_source` identify the exact run (§26.3). `config_fingerprint`
+  (SHA-256 of every analytical constant in effect) additionally detects threshold changes made without a
+  `config_version` bump.
 
 ## Assumptions / deviations from the §6.3 sample (shape only, no new analytics)
 1. `config_version` request field is optional (§23: "optional for P0").

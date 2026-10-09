@@ -149,10 +149,12 @@ class FlawCandidate:
 
 @dataclass
 class CandidateDetectionResult:
-    """Candidates (sorted by start, end, type) and the flaw types that could not be evaluated."""
+    """Candidates (sorted by start, end, type), the flaw types that could not be evaluated, and the
+    `DetectionConfig` that produced them (so later stages state exactly the rule that was applied)."""
 
     candidates: List[FlawCandidate]
     skipped: Dict[str, str]
+    config: "DetectionConfig" = None  # type: ignore[assignment]
 
 
 _P1_OR_UNSUPPORTED = {
@@ -379,4 +381,4 @@ def detect_candidates(
     final = merge_candidates(raw, z_by_feature, cfg.merge_gap_s)
     final += pause_candidates  # pauses are never merged; their floor was applied when they were created
     final.sort(key=lambda c: (c.start_s, c.end_s, c.type.value))
-    return CandidateDetectionResult(candidates=final, skipped=skipped)
+    return CandidateDetectionResult(candidates=final, skipped=skipped, config=cfg)
