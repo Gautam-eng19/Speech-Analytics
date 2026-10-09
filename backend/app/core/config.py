@@ -59,5 +59,10 @@ class Settings:
         self.MIN_FLAW_DURATION_S: float = float(os.getenv("MIN_FLAW_DURATION_S", "0.5"))
         self.MERGE_GAP_S: float = float(os.getenv("MERGE_GAP_S", "0.5"))
 
+        # Severity (DEC-P006 Option A as amended by DEC-028). PROPOSED, uncalibrated.
+        self.SEVERITY_Z_MIN: float = float(os.getenv("SEVERITY_Z_MIN", "1.0"))
+        self.SEVERITY_Z_SEVERE: float = float(os.getenv("SEVERITY_Z_SEVERE", "4.0"))
+        self.SEVERITY_DURATION_SEVERE_S: float = float(os.getenv("SEVERITY_DURATION_SEVERE_S", "5.0"))
+
 
 settings = Settings()

@@ -1177,7 +1177,10 @@ No downstream service may add evidence fields. No LLM may add evidence fields.
 
 Severity is a deterministic value in [0.0, 1.0] per `GroundedFlaw`.
 
-**Formula (PROPOSED — two options, team must select before TASK-052):**
+**Selected: Option A, as amended by DEC-028** (flagged-time duration; no duration component for `excessive_pause`;
+duration is not applied a second time in scoring). Option B is kept below for reference only.
+
+**Formula (two options were proposed):**
 
 **Option A — Linear product (simpler, preferred for P0):**
 ```

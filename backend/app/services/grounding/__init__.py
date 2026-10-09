@@ -6,6 +6,7 @@ from .candidates import (
     detect_candidates,
     merge_candidates,
 )
+from .severity import SeverityConfig, compute_severity, severity_components
 from .normalizer import (
     NormalizationError,
     NormalizedFeatureBundle,
@@ -20,6 +21,9 @@ __all__ = [
     "FlawCandidate",
     "detect_candidates",
     "merge_candidates",
+    "SeverityConfig",
+    "compute_severity",
+    "severity_components",
     "NormalizationError",
     "NormalizedFeatureBundle",
     "NormalizedPause",
