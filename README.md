@@ -15,16 +15,21 @@ audio → preprocessing → transcription → forced alignment → feature extra
 
 ## Status (2026-10-09)
 
-Working and tested (487 tests):
+Working and tested (810 tests, on synthetic speech):
 
 - audio preprocessing with source-time provenance, Whisper transcription, WhisperX alignment and validation
 - features: pitch (pYIN), MFCC, energy (dBFS), rolling-window speech rate, pauses (energy VAD + alignment gaps)
 - baseline statistics (record, builder script, provider) and baseline-relative z-score normalization
-- flaw candidates with start/end times: `too_fast`, `too_slow`, `low_energy`, `high_energy`, `excessive_pause`
+- flaws with start/end times, severity and typed evidence: `too_fast`, `too_slow`, `low_energy`, `high_energy`, `excessive_pause`
+- deterministic scoring that leaves unevaluated dimensions out (pitch is currently "not scored")
+- template explanations and recommendations whose numbers are checked by an independent guard (no LLM is called)
+- `POST /api/v1/analyze` runs the whole pipeline; `GET /api/v1/status/{id}` and `GET /api/v1/result/{id}` return stored results
+  (deterministic ids, file cache), with a `notes` list that states everything not evaluated or uncalibrated
 
-Not done yet: severity, scoring, explanations, the orchestrated `POST /api/v1/analyze` (it only validates uploads),
-result caching, `flat_pitch` detection, and the frontend. There are **no recordings** in the repository, so detection
-thresholds are uncalibrated starting values and nothing has been evaluated on real speech. See `PROJECT_STATE.md`.
+Not done yet: `flat_pitch` detection, an LLM explanation provider, and the frontend. There are **no recordings** in the repository,
+so detection thresholds and weights are uncalibrated starting values and nothing has been evaluated on real speech. The real
+Whisper/WhisperX models were not run in the development sandbox: the pipeline is tested end to end with stand-ins for those two
+models, and `python -m pytest -m smoke` (run it on a machine that can download them) is the first thing to do. See `PROJECT_STATE.md`.
 
 ## Quickstart
 
@@ -34,7 +39,15 @@ python -m pip install -r requirements.txt
 python -m pytest
 ```
 
-Details and options: [`docs/setup.md`](docs/setup.md).
+Run the API and analyse a recording (needs a baseline statistics file, see [`docs/setup.md`](docs/setup.md) §4):
+
+```bash
+python -m uvicorn app.main:app --app-dir backend
+curl -F participant_audio=@take.wav -F baseline_id=p001 -F passage_id=p001 http://127.0.0.1:8000/api/v1/analyze
+curl http://127.0.0.1:8000/api/v1/result/<analysis_id>      # the stored result, also after a restart
+```
+
+Details and options: [`docs/setup.md`](docs/setup.md); the response is documented in [`docs/architecture/api-contract.md`](docs/architecture/api-contract.md).
 
 ## Repository map
 

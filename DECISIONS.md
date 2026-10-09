@@ -813,6 +813,65 @@ Date: 2026-10-09
 
 ---
 
+## DEC-032 — Pipeline Orchestration, Analysis Identity and Result Retrieval (amends DEC-016, DEC-026)
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- ONE orchestrator, `services/pipeline.py` (`AnalysisPipeline.analyze`), runs the canonical pipeline of AGENTS.md §2 in order:
+  preprocess -> baseline lookup -> cache check -> transcribe -> align + validate -> features -> normalize -> detect -> severity /
+  evidence -> score -> convert to source time -> explain -> assemble -> store. It contains no analytics; it wires stages, converts
+  times once (DEC-029) and states in `notes` what was not evaluated or limited. Whisper / WhisperX are injected, or created lazily.
+- BASELINE LOOKUP (resolves the open `baseline_id` / `passage_id` question; refines DEC-015). `baseline_id` is the name of a
+  statistics file (`BaselineProvider.get(baseline_id, passage_id=...)`; by default the passage id, which is what the builder writes);
+  the record must describe the requested `passage_id`, so several baselines (for example different baseline speakers) can exist for
+  one passage but a baseline can never be applied to another passage.
+- ANALYSIS IDENTITY. `analysis_id` is a UUIDv5 of the SHA-256 of the canonical JSON of every input that can change the stored
+  result: the audio hash (trimmed samples only), the trim offset and the source duration (the hash does not cover them), the baseline
+  id and its content hash, the passage id and the passage-text hash, the `speaker_gender` hint, the manual-transcript hash, the
+  config / pipeline / API-contract versions, a fingerprint of every analytical constant in effect, and the installed versions of the
+  numeric libraries. The stored result - notes included - is a pure function of this key, so a cache hit equals a fresh run.
+- STORAGE. Each result is one JSON file `<CACHE_DIR>/<analysis_id>.json`, written atomically. A repeated request is answered from it
+  (`processing_meta.cached = true`); `GET /status/{id}` and `GET /result/{id}` read the same store, so results survive restarts.
+  A missing, unreadable, corrupt or mismatched file counts as absent and is recomputed. Ids are validated before touching the disk.
+- CONCURRENCY. One analysis at a time (a lock): the models are shared and the work is CPU-bound. The endpoint stays synchronous
+  (DEC-016) but runs the analysis in a worker thread so health and status requests remain responsive.
+- ERRORS. Every failure becomes a public `ErrorCode`: undecodable audio -> UNSUPPORTED_AUDIO_FORMAT; too long -> AUDIO_TOO_LONG;
+  silent audio, an empty transcript, speech that cannot be aligned, or a baseline that describes another passage -> VALIDATION_ERROR;
+  unknown baseline -> BASELINE_NOT_FOUND; model, alignment-validation, baseline-integrity and analytical-stage failures ->
+  PROCESSING_ERROR. A `detail` is built only from this project's own validation messages and the client's own identifiers; text
+  raised by third-party code (decoders, models, the file system) and server paths are logged, never returned. Unexpected exceptions
+  become a generic PROCESSING_ERROR. A failed analysis stores nothing. If only the final write of a SUCCESSFUL result fails, the
+  result is still returned, with the note `result_not_stored`, instead of discarding the analysis.
+- NOTES (machine-readable codes with a message) state: uncalibrated thresholds, a thin baseline (few rate windows / within-phrase
+  pauses), a very quiet recording, a transcript that does not match the passage text (or no passage text), alignment warnings,
+  unavailable or unscored features (with the reason), pauses that could not be compared, words left out for missing timing, an ignored
+  `speaker_gender`, an unavailable MFCC summary, a result that could not be stored, and an explanation provider that is not
+  implemented or fell back.
+- AMENDS DEC-026: an energy run is clipped to the span covered by the frame centres (0 to the end of the audio). The nominal
+  "half a hop before the first frame" would give a flaw touching the start of a recording a NEGATIVE start time, which the public
+  contract rejects; a recording that begins loud therefore failed the whole analysis. Found by the pipeline tests.
+
+Reason:
+A judge must be able to re-open a result, and the same input must give the same result (AGENTS.md §6.1). Each key component prevents
+a specific wrong answer: without the trim offset two recordings with the same speech but different leading silence would share a
+result whose timestamps are wrong for one of them; without the baseline content hash a rebuilt baseline would be answered from a
+stale entry; without the hint and passage text the stored notes could contradict the request. Mapping failures to documented codes
+keeps the frontend free of guesswork, and withholding internals follows the security rules (AGENTS.md §22).
+
+Impact:
+- Wires the finished stages (ARCHITECTURE.md §4, §23) and adds `/status` and `/result`. Partly advances TASK-063, TASK-101,
+  TASK-106 (determinism, cache and error-path tests on synthetic speech) and TASK-107 (invalid input); none of them is complete
+  without real recordings.
+- The real Whisper / WhisperX path is covered only by the deselected smoke tests; everything else is tested with exact-timing
+  stand-ins. Detection thresholds and weights remain uncalibrated (the result says so).
+- Open: a single analysis at a time limits throughput; stored results are never evicted (add a retention policy if the cache grows).
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-09
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been

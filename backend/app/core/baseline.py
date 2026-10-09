@@ -43,6 +43,10 @@ class BaselineIntegrityError(BaselineError, ValueError):
     """A baseline statistics file exists but is unreadable, invalid, or fails verification."""
 
 
+class BaselinePassageMismatchError(BaselineIntegrityError):
+    """The requested baseline exists but describes a different passage than the one requested."""
+
+
 class BaselineProvider:
     """Read-only provider of per-passage `BaselineStatsRecord` objects."""
 
@@ -71,17 +75,24 @@ class BaselineProvider:
             p.stem for p in self.directory.glob("*.json") if re.match(ID_PATTERN, p.stem)
         )
 
-    def get(self, passage_id: str) -> BaselineStatsRecord:
-        """Return verified baseline statistics for `passage_id`.
+    def get(self, baseline_id: str, *, passage_id: Optional[str] = None) -> BaselineStatsRecord:
+        """Return verified baseline statistics.
+
+        `baseline_id` selects the statistics file (``<baseline_id>.json``). The builder names its output after the
+        passage, so by default ``baseline_id`` IS the passage id (DEC-015: ``get(passage_id)``). When the caller also
+        names the passage it is analysing, the file must describe exactly that passage: several baselines (e.g.
+        different baseline speakers) can then exist for one passage, but a baseline can never be applied to another one.
 
         Raises:
-            BaselineNotFoundError: invalid identifier or no stats file for the passage.
-            BaselineIntegrityError: file unreadable, schema-invalid, for another passage,
-                or with a `sha256` that does not match its content.
+            BaselineNotFoundError: invalid identifier or no stats file for it.
+            BaselinePassageMismatchError: the file describes a different passage than expected.
+            BaselineIntegrityError: file unreadable, schema-invalid, or with a `sha256` that does not match its content.
         """
-        path = self.path_for(passage_id)
+        if passage_id is not None and (not isinstance(passage_id, str) or not re.match(ID_PATTERN, passage_id)):
+            raise BaselineNotFoundError(f"invalid passage_id {passage_id!r}")
+        path = self.path_for(baseline_id)
         if not path.is_file():
-            raise BaselineNotFoundError(f"no baseline statistics for passage '{passage_id}' in {self.directory}")
+            raise BaselineNotFoundError(f"no baseline statistics '{baseline_id}' in {self.directory}")
 
         try:
             text = path.read_text(encoding="utf-8")
@@ -93,9 +104,10 @@ class BaselineProvider:
         except ValidationError as exc:
             raise BaselineIntegrityError(f"invalid baseline file {path}: {exc}") from exc
 
-        if record.passage_id != passage_id:
-            raise BaselineIntegrityError(
-                f"baseline file {path} describes passage '{record.passage_id}', expected '{passage_id}'"
+        expected = passage_id if passage_id is not None else baseline_id
+        if record.passage_id != expected:
+            raise BaselinePassageMismatchError(
+                f"baseline file {path} describes passage '{record.passage_id}', expected '{expected}'"
             )
         if not record.verify_sha256():
             raise BaselineIntegrityError(

@@ -19,7 +19,10 @@ Intervals:
       rolling window makes rate findings window-resolution (several seconds); finer location is
       a P1 refinement. Overlapping flagged windows merge into one interval.
     * energy: a run of consecutive flagged frames, from half a hop before the first frame to
-      half a hop after the last. Frames the baseline statistic does not cover (NaN z, e.g. pauses)
+      half a hop after the last, clipped to the span the frame centres cover (frames are centred, so
+      the first centre is at 0 and the last at the end of the audio; without the clip a run touching
+      either end would reach half a hop outside the recording and produce a negative start).
+      Frames the baseline statistic does not cover (NaN z, e.g. pauses)
       are never flagged and break a run, so silence is not reported as "low energy".
     * pause: the pause event itself.
 
@@ -239,6 +242,7 @@ def _energy_candidates(nb: NormalizedFeatureBundle, cfg: DetectionConfig) -> Lis
         return []
     hop = nb.energy_hop_s
     times = nb.energy_times_s
+    span_start, span_end = float(times[0]), float(times[-1])    # frames are centred: this is the audio's extent
     covered = np.flatnonzero(~np.isnan(z))
     out: List[FlawCandidate] = []
     for ftype, mask in (
@@ -263,8 +267,11 @@ def _energy_candidates(nb: NormalizedFeatureBundle, cfg: DetectionConfig) -> Lis
         minimum = cfg.min_duration_s[ftype]
         for members in groups:
             pieces = _contiguous_pieces(members)
-            intervals = [(times[a] - hop / 2.0, times[b] + hop / 2.0) for a, b in pieces]
-            if _long_enough(sum(e - s for s, e in intervals), minimum):
+            intervals = [
+                (max(span_start, times[a] - hop / 2.0), min(span_end, times[b] + hop / 2.0)) for a, b in pieces
+            ]
+            intervals = [(s, e) for s, e in intervals if e > s]       # a lone frame on a one-frame timeline has no extent
+            if intervals and _long_enough(sum(e - s for s, e in intervals), minimum):
                 out.append(
                     _candidate(ftype, intervals[0][0], intervals[-1][1], z, members, "energy_z", flagged=intervals)
                 )

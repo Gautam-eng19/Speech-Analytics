@@ -15,6 +15,7 @@ import pytest
 from app.core.baseline import (
     BaselineIntegrityError,
     BaselineNotFoundError,
+    BaselinePassageMismatchError,
     BaselineProvider,
 )
 from app.core.config import settings
@@ -208,3 +209,35 @@ def test_list_and_exists(tmp_path):
     assert provider.list_passages() == ["p001", "p002"]
     assert provider.exists("p001") and not provider.exists("p003")
     assert BaselineProvider(tmp_path / "missing").list_passages() == []
+
+
+# ----------------------------------------------------- baseline_id vs passage_id
+def test_baseline_id_selects_the_file_and_the_record_must_describe_the_requested_passage(tmp_path):
+    male = _record(passage_id="p001")
+    female = _record(passage_id="p001", f0_voiced_hz_mean=210.0)
+    _write(tmp_path, male, name="p001_male.json")
+    _write(tmp_path, female, name="p001_female.json")
+    provider = BaselineProvider(tmp_path)
+    assert provider.get("p001_male", passage_id="p001") == male
+    assert provider.get("p001_female", passage_id="p001").f0_voiced_hz_mean == 210.0
+
+
+def test_a_baseline_cannot_be_applied_to_another_passage(tmp_path):
+    _write(tmp_path, _record(passage_id="p001"), name="p001_male.json")
+    provider = BaselineProvider(tmp_path)
+    with pytest.raises(BaselinePassageMismatchError, match="describes passage 'p001', expected 'p002'"):
+        provider.get("p001_male", passage_id="p002")
+    assert issubclass(BaselinePassageMismatchError, BaselineIntegrityError)
+
+
+def test_without_a_passage_the_baseline_id_must_equal_the_recorded_passage(tmp_path):
+    _write(tmp_path, _record(passage_id="p001"), name="p001_male.json")
+    with pytest.raises(BaselinePassageMismatchError):
+        BaselineProvider(tmp_path).get("p001_male")                                  # DEC-015 form: id is the passage id
+
+
+def test_unsafe_passage_ids_are_rejected(tmp_path):
+    _write(tmp_path, _record())
+    for bad in ("../p001", "", "p 1", None.__class__):
+        with pytest.raises(BaselineNotFoundError):
+            BaselineProvider(tmp_path).get("p001", passage_id=bad)

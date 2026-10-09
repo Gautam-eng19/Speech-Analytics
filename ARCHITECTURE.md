@@ -1441,6 +1441,12 @@ Analysis results are stored in the file-based cache (see §7.10).
 `GET /api/v1/result/{analysis_id}` reads from this cache.
 Results persist across server restarts.
 
+> **Implemented (DEC-032):** `services/pipeline.py` (`AnalysisPipeline.analyze`) orchestrates the canonical pipeline of §4 and
+> is the only code that wires the stages together; `POST /analyze` validates the upload, then runs it in a worker thread (one
+> analysis at a time). Results are stored as `<CACHE_DIR>/<analysis_id>.json`; `GET /status/{id}` and `GET /result/{id}` read the
+> same store. Failures map to the public error codes (`docs/architecture/api-contract.md`); unexpected exceptions are returned
+> only as a generic `PROCESSING_ERROR`. `baseline_id` selects a baseline file that must describe `passage_id`.
+
 ---
 
 ## 24. Dataset Architecture
@@ -1625,6 +1631,12 @@ cache_key = sha256(
 
 Any change to configuration increments `config_version` → new cache key → cache miss → recompute.
 This guarantees the cache can never return a stale result silently.
+
+> **Amended by DEC-032:** `participant_audio_sha256` covers only the trimmed samples, and a stored result also contains source-time
+> timestamps and notes, so the implemented key additionally covers the trim offset and the source duration, the passage id and its
+> text hash, the `speaker_gender` hint, a manual-transcript hash, `api_contract_version`, a fingerprint of every analytical constant
+> in effect (so a threshold changed without a `config_version` bump still misses), and the installed numeric library versions
+> (§26.5). `analysis_id` is the UUIDv5 of that key.
 
 ### 26.5 Library version pinning
 

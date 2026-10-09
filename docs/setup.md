@@ -48,7 +48,7 @@ python -m pytest                                  # whole suite; real-model smok
 python scripts/dataset/validate_dataset.py        # dataset schema check (the committed files are fixtures)
 ```
 
-Expected: all tests pass (487 on 2026-10-09) and dataset validation reports `PASSED`.
+Expected: all tests pass (810 on 2026-10-09; 2 smoke tests deselected) and dataset validation reports `PASSED`.
 
 Real-model smoke tests (downloads the Whisper base model and the English wav2vec2 alignment model):
 ```bash
@@ -60,7 +60,25 @@ These have not been run in the 2026-10-09 verification environment.
 ```bash
 python -m uvicorn app.main:app --app-dir backend --reload
 ```
-`GET /api/v1/health` works. `POST /api/v1/analyze` currently only validates the upload; the analysis pipeline is not yet orchestrated behind it.
+Interactive documentation: `http://127.0.0.1:8000/docs`.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/v1/health` | versions of the service |
+| `POST /api/v1/analyze` | multipart upload (`participant_audio` WAV/MP3, `baseline_id`, `passage_id`, optional `manual_transcript`, `speaker_gender`, `config_version`); runs the whole pipeline synchronously and returns the `AnalysisResult` |
+| `GET /api/v1/status/{analysis_id}` | `done` or `not_found` |
+| `GET /api/v1/result/{analysis_id}` | the stored result, or 404 `RESULT_NOT_FOUND` |
+
+Notes for the first real run:
+- The first analysis loads the Whisper model and downloads the WhisperX alignment model (this can take a while on a slow
+  connection; the time has not been measured); later analyses reuse them. The server analyses one recording at a time.
+- `baseline_id` is the name of a file `data/processed/baseline_stats/<baseline_id>.json` (normally the passage id, see §4), and it
+  must describe `passage_id`; without it the endpoint answers 404 `BASELINE_NOT_FOUND`.
+- Results are stored as `<CACHE_DIR>/<analysis_id>.json` (default `data/processed/cache/`). The id is derived from the audio, the
+  baseline, the passage text, the configuration and the library versions, so the same request returns the same id and the
+  stored result; delete the folder to clear it.
+- `THRESHOLDS_CALIBRATED` stays `false` until the thresholds have been calibrated on recordings; every result then carries the
+  note `thresholds_uncalibrated`. Variable names are listed in `.env.example`.
 
 ---
 

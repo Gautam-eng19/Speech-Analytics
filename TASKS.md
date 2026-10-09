@@ -302,7 +302,7 @@ Status: DONE
 Priority: P0
 
 Delivered:
-Upload validation only (a1b8048): extension, content type, size, config_version. POST /api/v1/analyze does NOT run the analysis pipeline yet; see PROJECT_STATE.md.
+Upload validation (a1b8048): extension, content type, size, config_version. POST /api/v1/analyze now runs the orchestrated pipeline in a worker thread and maps every failure to a public error code (DEC-032).
 
 \## TASK-013 — Audio Preprocessing
 
@@ -311,7 +311,7 @@ Status: DONE
 Priority: P0
 
 Delivered:
-Deterministic mono/16 kHz/peak-normalised preprocessing with silence trimming (f1a0836). Gap: all-silence input returns an empty array that downstream extractors reject.
+Deterministic mono/16 kHz/peak-normalised preprocessing with silence trimming (f1a0836). The preprocessor still returns an empty array for all-silence input; the pipeline rejects it with VALIDATION_ERROR (DEC-032).
 
 \## TASK-013A — Preserve source-time provenance when trimming audio
 
@@ -332,12 +332,12 @@ PreprocessedAudio.trim_start_s and source_duration_s plus find_active_span() (33
 
 \## TASK-020 — Transcript Input
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
 Delivered:
-Not implemented. The API accepts `manual_transcript` but no pipeline code consumes it, and no manual-transcript alignment path exists (AlignmentMethod.MANUAL is never produced).
+The pipeline uses `manual_transcript` instead of Whisper (`processing_meta.transcript_source` = manual) and aligns it with WhisperX, which wraps text without segments into one segment spanning the audio. `AlignmentMethod.MANUAL` is still never produced (alignment is always by the aligner). Not verified with the real WhisperX model in this environment.
 
 \## TASK-021 — Transcription Integration
 
@@ -499,27 +499,30 @@ Same-type window merging in candidates.py (d1268c5); excessive pauses are delibe
 
 \## TASK-052 — Flaw Severity
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-
+Delivered:
+services/grounding/severity.py (c0e351b), DEC-028: severity = clip((|mean z| - 1) / 3, 0, 1) x clip(flagged seconds / 5, 0, 1); `excessive_pause` has no duration component. All constants are in core/config.py and PROPOSED (uncalibrated). Merged 2026-10-09; awaiting teammate review.
 
 \## TASK-053 — Evidence Attachment
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-
+Delivered:
+services/grounding/flaws.py (c0b53d2): typed evidence (rate, energy, pause) computed from the normalized bundle, the baseline record and the alignment, with the detection rule and the covered words. Every number is derived deterministically; pitch evidence does not exist because flat_pitch is not implemented. Awaiting teammate review.
 
 \## TASK-054 — Final Timestamped Flaw Schema
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-
+Delivered:
+Public `Flaw` with start/end/duration, severity, reliability, typed evidence, `rule`, `affected_words`, `warnings`, explanation, recommendation (c0b53d2). API contract 1.1.0 (DEC-029) adds only optional fields. `reliability` is the constant 1.0 and `low_confidence` is false at P0 (not measured). Awaiting teammate review.
 
 \---
 
@@ -531,27 +534,30 @@ Priority: P0
 
 \## TASK-060 — Feature Scoring Rules
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-
+Delivered:
+services/scoring/scoring.py (8ab467a), DEC-030: penalty = BASE_PENALTY (30) x severity x reliability per flaw, mapped to its feature (rate -> speech_rate, pauses, energy). Constants PROPOSED, uncalibrated.
 
 \## TASK-061 — Score Normalization
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-
+Delivered:
+Sub-score = max(0, 100 - penalty total), rounded to 2 dp (8ab467a, DEC-030). A feature that could not be evaluated (flat_pitch not implemented -> pitch; unavailable features) is omitted, never scored 100 or 0, and its reason is returned.
 
 \## TASK-062 — Overall Score
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-
+Delivered:
+Composite = weighted mean of the EVALUATED sub-scores with renormalised effective weights (0.4 / 0.333333 / 0.266667 while pitch is unevaluated) so it can be re-derived from the response (8ab467a, DEC-030). It measures deviation from the baseline, not speech quality, and is uncalibrated.
 
 \## TASK-063 — Reproducibility Validation
 
@@ -559,7 +565,8 @@ Status: BACKLOG
 
 Priority: P0
 
-
+Progress (task NOT complete):
+Determinism is verified on synthetic speech: identical `deterministic_json()` across independent pipeline instances, a cache key covering every input and a configuration fingerprint (tests/test_pipeline_e2e.py, backend/tests/test_pipeline.py; DEC-032). Not yet verified on real recordings, with the real Whisper/WhisperX models, or across machines.
 
 \---
 
@@ -571,27 +578,30 @@ Priority: P0
 
 \## TASK-070 — Evidence-to-Explanation Mapping
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-
+Delivered:
+services/explanation/ (d79feb8), DEC-031: a per-flaw fact sheet is the only source of numbers; deterministic templates per flaw type insert fact-sheet strings only.
 
 \## TASK-071 — Recommendation Generation
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P1
 
-
+Delivered:
+Template recommendations per flaw type built from the same fact sheet (d79feb8). They state a direction and, where the baseline provides it, a target value; no advice is generated without evidence.
 
 \## TASK-072 — LLM Explanation Guardrails
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-
+Delivered:
+services/explanation/guard.py (d79feb8), DEC-031: an independent check that every number in a text is in the fact sheet and that no spelled-out quantity appears; failing texts fall back to a minimal statement. Only the template provider exists; the LLM call itself is NOT implemented (an LLM provider must pass this same guard).
 
 \---
 
@@ -687,7 +697,8 @@ Status: BACKLOG
 
 Priority: P0
 
-
+Progress (task NOT complete):
+tests/test_flaw_detection_e2e.py and tests/test_pipeline_e2e.py run the real preprocessing, features, detection, scoring, explanation and cache on synthetic speech with injected flaws at known times (Whisper and WhisperX replaced by exact-timing stand-ins). No test uses real speech or the real models.
 
 \## TASK-102 — Speaker Variation Test
 
@@ -727,7 +738,8 @@ Status: BACKLOG
 
 Priority: P0
 
-
+Progress (task NOT complete):
+Repeated and independent runs give an identical result on synthetic speech (tests/test_pipeline_e2e.py). Not run on real recordings or on a second machine.
 
 \## TASK-107 — Invalid Input Test
 
@@ -735,7 +747,8 @@ Status: BACKLOG
 
 Priority: P1
 
-
+Progress (task NOT complete):
+Invalid input paths are tested: bad extension/type/size, empty upload, undecodable audio, audio too long, silent audio, unknown or mismatched baseline, empty transcript, unalignable speech, model failures, and that no internal text is returned (backend/tests/test_api_analyze.py, test_pipeline.py). Still open: corrupted-but-decodable audio and noise-only recordings against the real models.
 
 \---
 
