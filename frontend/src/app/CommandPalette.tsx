@@ -8,7 +8,7 @@ import { fmtNum } from '@/lib/format';
 import { flawsByTime } from '@/lib/result';
 import { updateSettings } from '@/lib/settings';
 import { closeAnalysis, loadSamples, useCurrent } from '@/state/analysis';
-import { exportResultJson, goToFlaw, setTheme, stepFlaw, toggleSidebar, togglePlayback, toggleTheme } from '@/state/actions';
+import { copyPageLink, exportFindingsCsv, exportResultJson, goToFlaw, setTheme, stepFlaw, toggleSidebar, togglePlayback, toggleTheme } from '@/state/actions';
 import { useHistory } from '@/state/history';
 import { setOverlay, useOverlays } from '@/state/ui';
 import { analysisPath, navigate, type AnalysisView } from './router';
@@ -91,10 +91,12 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
         { id: 'act-next', group: 'Actions', label: 'Next flaw', icon: 'skip-forward', hint: ']', run: () => stepFlaw(1) },
         { id: 'act-prev', group: 'Actions', label: 'Previous flaw', icon: 'skip-back', hint: '[', run: () => stepFlaw(-1) },
         { id: 'act-export', group: 'Actions', label: 'Export result as JSON', icon: 'download', hint: 'E', run: exportResultJson },
+        { id: 'act-csv', group: 'Actions', label: 'Export findings as CSV', icon: 'download', keywords: 'spreadsheet excel table', run: exportFindingsCsv },
         { id: 'act-close', group: 'Actions', label: 'Close this analysis', icon: 'x', run: () => { closeAnalysis(); navigate('/'); } },
       );
     }
     list.push(
+      { id: 'act-link', group: 'Actions', label: 'Copy a link to this page', icon: 'link', keywords: 'share url address', run: () => void copyPageLink() },
       { id: 'act-theme', group: 'Appearance', label: 'Toggle light and dark', icon: 'moon', hint: 'T', run: toggleTheme },
       { id: 'theme-light', group: 'Appearance', label: 'Theme: light', icon: 'sun', run: () => setTheme('light') },
       { id: 'theme-dark', group: 'Appearance', label: 'Theme: dark', icon: 'moon', run: () => setTheme('dark') },

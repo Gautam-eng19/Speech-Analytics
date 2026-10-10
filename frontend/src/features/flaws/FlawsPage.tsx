@@ -15,7 +15,7 @@ import { useStore } from '@/lib/store';
 import { windowAround } from '@/lib/time';
 import { useMedia } from '@/lib/useMedia';
 import { analysisPath, navigate } from '@/app/router';
-import { goToFlaw } from '@/state/actions';
+import { exportFindingsCsv, goToFlaw } from '@/state/actions';
 import type { LoadedAnalysis } from '@/state/analysis';
 import { clearRange, playerStore, seek } from '@/state/player';
 import { flawsFilterStore, selectFlaw, setFlawsFilter } from '@/state/ui';
@@ -262,6 +262,7 @@ export function FlawsPage({ analysis, flawId }: { analysis: LoadedAnalysis; flaw
         eyebrow="Findings"
         title={`${plural(result.flaws.length, 'finding')}`}
         meta={<span>Each one ties a time interval to measured evidence, a reason and a recommendation.</span>}
+        actions={<Button variant="secondary" icon="download" onClick={exportFindingsCsv}>Export CSV</Button>}
       />
       <div className="flaws">
         {showList ? <FlawList analysis={analysis} flaws={visible} activeId={active?.flaw_id ?? null} order={order} /> : null}
