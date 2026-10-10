@@ -12,7 +12,7 @@ export type IconName =
   | 'panel-left' | 'clock' | 'filter' | 'sort' | 'eye' | 'eye-off' | 'zoom-in' | 'zoom-out' | 'fit'
   | 'g-fast' | 'g-slow' | 'g-pause' | 'g-quiet' | 'g-loud' | 'g-flat' | 'g-unstable' | 'g-clarity'
   | 'mic' | 'file-audio' | 'refresh' | 'bar-chart' | 'hash' | 'shield-check' | 'book' | 'keyboard' | 'printer'
-  | 'menu' | 'arrow-right' | 'arrow-left' | 'flask' | 'target' | 'volume' | 'link' | 'database' | 'cpu';
+  | 'stop' | 'menu' | 'arrow-right' | 'arrow-left' | 'flask' | 'target' | 'volume' | 'link' | 'database' | 'cpu';
 
 const stroke = (d: string, key?: string): ReactNode => <path key={key ?? d} d={d} />;
 
@@ -77,6 +77,7 @@ const GLYPHS: Record<IconName, ReactNode> = {
   book: <>{stroke('M5 4.5h10.5A2.5 2.5 0 0 1 18 7v13H8a3 3 0 0 1-3-3z')}{stroke('M5 17a3 3 0 0 1 3-3h10')}</>,
   keyboard: <><rect x="2" y="6" width="20" height="12" rx="2.2" />{stroke('M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10')}</>,
   printer: <>{stroke('M7 8.2V3.8h10v4.4')}{stroke('M7 17H5.2a1.2 1.2 0 0 1-1.2-1.2v-5.4A1.2 1.2 0 0 1 5.2 9.2h13.6A1.2 1.2 0 0 1 20 10.4v5.4a1.2 1.2 0 0 1-1.2 1.2H17')}<rect x="7" y="13.6" width="10" height="6.6" rx="0.8" /></>,
+  stop: <rect x="6" y="6" width="12" height="12" rx="1.8" fill="currentColor" />,
   menu: stroke('M4 7h16M4 12h16M4 17h16'),
   'arrow-right': stroke('M5 12h14M13 6l6 6-6 6'),
   'arrow-left': stroke('M19 12H5M11 6l-6 6 6 6'),
