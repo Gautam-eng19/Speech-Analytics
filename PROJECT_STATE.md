@@ -121,6 +121,11 @@ None.
 - Flat pitch: BaselineStats has only the pooled global F0 std; a valid detector needs a baseline statistic of
   F0 variation within a window (record-contract change). Until then pitch is reported as "not scored".
 - Team-leader confirmation requested for the agent decisions DEC-024 to DEC-032 (all made under delegated authority).
+- **Loudness normalisation (amends the still-proposed DEC-P003) — decide BEFORE recordings and baselines are built.** Scaling each
+  recording by its peak (−3 dBFS) makes a loud stretch define the scale: on synthetic speech a +6 dB stretch was not detected and five
+  false "low energy" flags appeared on normal speech. Scaling by the median speech level fixed the false flags and gave correct
+  z-scores, but the frame-by-frame energy rule still fired only for changes of +12 dB or more. Details, numbers and the proposed
+  algorithm: `docs/methodology/recording-protocol.md` §8. Not changed in code yet.
 
 ---
 
@@ -178,6 +183,9 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
 - Single-reference baselines: the rate (and pause) spread rests on very few observations and can be tiny,
   making z-scores hypersensitive; results carry `baseline_thin_*` notes. Cross-sentence pauses need a baseline with at
   least two such pauses to be comparable (otherwise `pauses_not_comparable`).
+- Energy detection (low/high energy) judges single 10 ms frames against a wide baseline spread and breaks a run at any in-range frame,
+  so it is probably too fragile for real speech; moderate loudness changes are unlikely to be found until the rule is smoothed over
+  about 0.5–1 s windows and calibrated on real data (measured on synthetic speech only).
 - Rate flaws are window-resolution: with 8 s windows a `too_fast` interval can begin several seconds before the fast words
   (about 4 s in the synthetic test) and overlapping flagged windows merge. Temporal precision for rate is therefore coarse.
 - `reliability` is the constant 1.0 and `low_confidence` is always false at P0; neither is a measured confidence.
@@ -198,8 +206,8 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
 
 # 12. NEXT PRIORITIES
 
-1. Collect a small controlled recording set (TASK-122), build a real baseline, and run the real-model smoke tests and
-   one real recording through /analyze; fix whatever the real models reveal.
+1. Collect a small controlled recording set (TASK-122) following `docs/methodology/recording-protocol.md` (pilot first), build a
+   real baseline, and run the real-model smoke tests and one real recording through /analyze; fix whatever the real models reveal.
 2. Calibrate thresholds, severity and weights on the controlled flaws (TASK-100 to TASK-107 on real data), then set
    `THRESHOLDS_CALIBRATED=true`, bump CONFIG_VERSION and freeze.
 3. Decide the within-window F0-variation baseline statistic and implement flat pitch.

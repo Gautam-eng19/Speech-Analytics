@@ -780,7 +780,8 @@ Status: BACKLOG
 
 Priority: P0
 
-
+Progress (task NOT complete):
+A step-by-step recording, labelling and usage protocol is drafted in docs/methodology/recording-protocol.md (proposed, awaiting team-leader confirmation of its decisions). No recordings exist yet. Recording tools (plan sheet, quality check, registration/alignment, label conversion, evaluation) are not written; see §14 of the protocol.
 
 \## TASK-123 — Demo Video
 
