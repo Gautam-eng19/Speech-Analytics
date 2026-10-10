@@ -286,4 +286,12 @@ describe('HelpPage', () => {
     expect(screen.getByText('Search and jump to anything (⌘K on Mac)')).toBeInTheDocument();
     expect(screen.getByText('Is anything written by an AI?')).toBeInTheDocument();
   });
+  it('says how to record in the browser and how to export the findings', async () => {
+    await renderAsync(<HelpPage />);
+    const record = screen.getByText('How should I record a take in the browser?').closest('div') as HTMLElement;
+    expect(record).toHaveTextContent('echo cancellation, noise suppression and automatic gain off');
+    expect(record).toHaveTextContent('https:// or localhost');
+    const exported = screen.getByText('Can I take the findings into a spreadsheet?').closest('div') as HTMLElement;
+    expect(exported).toHaveTextContent('Export CSV');
+  });
 });

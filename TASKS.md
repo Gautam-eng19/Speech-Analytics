@@ -703,12 +703,15 @@ Delivered:
 
 \## TASK-090 — In-Browser Recording
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P1
 
-Notes:
-Record a reading with the passage shown as a prompt, encode WAV, hand it to the upload form. Chromium's fake media device allows an automated test.
+Delivered:
+`frontend/src/recording/` and `features/analyze/RecorderPanel.tsx` (DEC-035): "Record now" beside "Upload a file", with the passage shown as the prompt, a level scope and clipping warning (capture aids only), device choice, a 5-minute limit and a preview. The microphone is requested with echo cancellation, noise suppression and automatic gain control off; raw samples are converted to 16 kHz mono by a deterministic windowed-sinc resampler and written as a 16-bit WAV that goes into the ordinary upload form. 22 tests with a scripted audio graph, 12 for the converter and WAV writer, 11 for the panel; `npm run smoke` records from Chromium's fake microphone and inspects the uploaded WAV header.
+
+Known limitation:
+Never tried with a real microphone, in Safari or Firefox, or on a phone. The first real recording session is the test.
 
 \## TASK-091 — Waveform View
 
@@ -718,6 +721,27 @@ Priority: P2
 
 Notes:
 Needs audio decoded in the browser; the loudness timeline covers the need until then (DEC-033).
+
+\## TASK-092 — Findings Export and Page Link
+
+Status: REVIEW
+
+Priority: P2
+
+Delivered:
+"Export CSV" (Flaws page, command palette): one row per finding in time order, backend values unrounded, evidence flattened to `evidence.<field>` columns, RFC 4180 with a UTF-8 byte-order mark. "Copy a link to this page" (top bar, command palette). `lib/csv.ts`, `tests/export.test.ts` (13 tests, parsed back with a small RFC 4180 reader).
+
+\## TASK-093 — Track frontend/src/lib
+
+Status: REVIEW
+
+Priority: P0
+
+Delivered:
+The Python template rule `lib/` in `.gitignore` had hidden `frontend/src/lib/` from git, so PR #13 reached `main` without eleven modules and a fresh clone could not type-check or build the frontend. Fixed in PR #14 with a negation in `.gitignore` and the modules committed; a fresh clone of `main` now installs, type-checks (0 errors), passes its tests and builds.
+
+Lesson:
+Verify a PR from a fresh clone of its branch before merging, not from the working copy that produced it.
 
 \---
 

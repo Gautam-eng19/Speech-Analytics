@@ -15,7 +15,7 @@ audio → preprocessing → transcription → forced alignment → feature extra
 
 ## Status (2026-10-10)
 
-Working and tested (838 backend and 231 dashboard tests, on synthetic speech):
+Working and tested (838 backend and 290 dashboard tests, on synthetic speech):
 
 - audio preprocessing with source-time provenance, Whisper transcription, WhisperX alignment and validation
 - features: pitch (pYIN), MFCC, energy (dBFS), rolling-window speech rate, pauses (energy VAD + alignment gaps)
@@ -26,12 +26,13 @@ Working and tested (838 backend and 231 dashboard tests, on synthetic speech):
 - `POST /api/v1/analyze` runs the whole pipeline; `GET /api/v1/status/{id}` and `GET /api/v1/result/{id}` return stored results
   (deterministic ids, file cache), with a `notes` list that states everything not evaluated or uncalibrated; `GET /api/v1/baselines`
   lists the baselines that can be used
-- the **dashboard** (`frontend/`, light and dark): upload and baseline choice, overview with the score and its dimensions, a timeline
-  with every signal on one time axis, findings with their evidence, explanation and recommendation, signals, transcript, baseline and
-  method, a printable report, a library, settings and a command palette. It renders backend output only and ships four demo samples
+- the **dashboard** (`frontend/`, light and dark): upload or in-browser recording and baseline choice, overview with the score and its
+  dimensions, a timeline with every signal on one time axis, findings with their evidence, explanation and recommendation (exportable as
+  CSV), signals, transcript, baseline and method, a printable report, a library, settings and a command palette. It renders backend output only and ships four demo samples
   (synthetic voice, deliberate flaws, analysed by the real pipeline) that open without a baseline
 
-Not done yet: `flat_pitch` detection, an LLM explanation provider, in-browser recording. There are **no recordings** in the repository,
+Not done yet: `flat_pitch` detection, an LLM explanation provider. The in-browser recorder has only been tried with Chromium's fake
+microphone, not with a real microphone, Safari, Firefox or a phone. There are **no recordings** in the repository,
 so detection thresholds and weights are uncalibrated starting values and nothing has been evaluated on real speech. The real
 Whisper/WhisperX models were not run in the development sandbox: the pipeline is tested end to end with stand-ins for those two
 models, and `python -m pytest -m smoke` (run it on a machine that can download them) is the first thing to do. See `PROJECT_STATE.md`.

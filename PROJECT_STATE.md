@@ -4,10 +4,10 @@ Last updated:
 2026-10-10
 
 Updated by:
-Coding agent (dashboard delivered and control files synchronised, delegated by the team leader)
+Coding agent (in-browser recording, findings export and a repository fix delivered; control files synchronised, delegated by the team leader)
 
 All statements below were checked against the repository and full test runs on 2026-10-10
-(838 backend tests passed, 2 smoke tests deselected; 231 dashboard tests passed; see section 9).
+(838 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -27,8 +27,8 @@ explanation ✅ (templates + number guard; no LLM) → API orchestration ✅ →
 over HTTP on SYNTHETIC speech with injected flaws at known times, with Whisper and WhisperX replaced by exact-timing
 stand-ins. It has never run on a real recording or with the real models.
 
-The dashboard (`frontend/`, DEC-033) is served by the API at `/` and renders only backend output: upload, overview and score,
-timeline, findings with evidence, signals, transcript, baseline and method, printable report, library, settings, help, light and dark
+The dashboard (`frontend/`, DEC-033) is served by the API at `/` and renders only backend output: upload or in-browser recording (DEC-035), overview and score,
+timeline, findings with evidence (exportable as CSV), signals, transcript, baseline and method, printable report, library, settings, help, light and dark
 themes. Four synthetic demo samples (DEC-034) open without a baseline. `GET /api/v1/baselines` (API contract 1.2.0) feeds the upload form.
 
 ---
@@ -39,7 +39,8 @@ Overall:
 🟡 Complete backend chain and dashboard on synthetic data; no real recordings, no real-model run
 
 Repository:
-🟢 main is current; all work is merged through pull requests
+🟢 main is current; all work is merged through pull requests. PR #14 fixed a `.gitignore` rule that had kept `frontend/src/lib/` out of PR #13:
+main now installs, type-checks, tests and builds from a fresh clone (verified)
 
 Architecture:
 🟢 ARCHITECTURE.md canonical (notes added for DEC-023, 028, 030, 031, 032)
@@ -48,7 +49,8 @@ Backend:
 🟢 All 11 backend stages, the cache and the three analysis endpoints are implemented and tested
 
 Frontend:
-🟢 Dashboard implemented and tested (231 tests, 27 injected bugs all caught); never run against the real models or a real recording
+🟢 Dashboard implemented and tested (290 tests; 50 injected bugs all caught); never run against the real models or a real recording; the recorder
+has only met Chromium's fake microphone
 
 Dataset:
 🔴 No recordings. data/ holds schema fixtures only (zero SHA-256 hashes, no audio); the baseline
@@ -59,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch detection is missing
 
 Testing:
-🟢 838 backend + 231 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 838 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -111,7 +113,8 @@ evidence + final flaw schema / API contract 1.1.0 (c0b53d2), scoring (8ab467a), 
 pipeline orchestration + result cache + /status + /result (the pull request that updated this file).
 
 Added 2026-10-10: dashboard (TASK-080 to TASK-089), API contract 1.2.0 with `GET /api/v1/baselines`, CORS and static serving of
-`frontend/dist`, OpenAPI snapshot with a drift test, synthetic demo samples (DEC-033, DEC-034).
+`frontend/dist`, OpenAPI snapshot with a drift test, synthetic demo samples (DEC-033, DEC-034); in-browser recording and CSV export of findings
+(DEC-035, TASK-090, TASK-092); `frontend/src/lib/` finally tracked in git (PR #14, TASK-093).
 
 ---
 
@@ -128,7 +131,7 @@ None.
   machine with the models: `python -m pytest -m smoke`, then one real recording through /analyze.
 - Flat pitch: BaselineStats has only the pooled global F0 std; a valid detector needs a baseline statistic of
   F0 variation within a window (record-contract change). Until then pitch is reported as "not scored".
-- Team-leader confirmation requested for the agent decisions DEC-024 to DEC-034 (all made under delegated authority). DEC-033 also
+- Team-leader confirmation requested for the agent decisions DEC-024 to DEC-035 (all made under delegated authority). DEC-033 also
   supersedes the proposed DEC-P009 (no chart / HTTP / waveform / CSS-framework library).
 - **Loudness normalisation (amends the still-proposed DEC-P003) — decide BEFORE recordings and baselines are built.** Scaling each
   recording by its peak (−3 dBFS) makes a loud stretch define the scale: on synthetic speech a +6 dB stretch was not detected and five
@@ -141,7 +144,7 @@ None.
 # 8. ACTIVE TASKS
 
 None. Candidates: collect recordings (TASK-122), calibration and evaluation (TASK-100 to TASK-107 on real data), flat pitch
-(after the baseline-statistic decision), in-browser recording (TASK-090), the loudness-normalisation decision (section 7).
+(after the baseline-statistic decision), a first real recording session that also tries the in-browser recorder, the loudness-normalisation decision (section 7).
 
 ---
 
@@ -158,7 +161,17 @@ None. Candidates: collect recordings (TASK-122), calibration and evaluation (TAS
   sample fetch was shown as an error); a duration of 119.6 s was written "1 min 60 s"; minute-long tick labels lacked zero padding.
 - Colour tokens were adjusted to meet WCAG AA in both themes and a test now guards them; an axe-core audit of every page and interactive
   state (44 combinations, both themes) found and removed several accessibility defects and now passes (`npm run a11y`).
-- Full runs: 838 backend tests (2 smoke deselected) and 231 dashboard tests passed.
+- In-browser recording (TASK-090, DEC-035): "Record now" on the New analysis page takes raw samples with the browser's voice processing requested off,
+  converts them to a 16 kHz mono WAV with a deterministic resampler and hands the file to the upload form; level and clipping indicators are
+  capture aids only. "Export CSV" of the findings and "Copy a link to this page" were added (TASK-092). `npm run smoke` (29 checks in Chromium, incl.
+  a take from the fake microphone) joined `npm run a11y`, which now covers 50 combinations including the recorder states.
+- A mutation check of the new code (23 injected bugs in the recorder, converter, WAV writer and CSV writer) found one gap, the converted length when
+  the last output sample is incomplete; a test now covers it and all are caught.
+- **Repository defect found and fixed:** the Python-template rule `lib/` in `.gitignore` had hidden `frontend/src/lib/` from git, so PR #13 reached main
+  without eleven modules and a fresh clone failed to type-check (234 errors) or build. The working copy that produced the PR still had the files,
+  which is why local checks passed. Fixed in PR #14 (negation in `.gitignore`, modules committed). From now on a PR is verified from a fresh clone
+  of its branch before it is merged.
+- Full runs: 838 backend tests (2 smoke deselected) and 290 dashboard tests passed.
 
 2026-10-09:
 - TASK-013A, 032, 033, 034, 040, 041, 043/050/051 implemented and merged (see section 5).
@@ -175,7 +188,7 @@ None. Candidates: collect recordings (TASK-122), calibration and evaluation (TAS
 
 # 10. CURRENT TECHNICAL DECISIONS
 
-Accepted decisions DEC-001 to DEC-022 are unchanged. Added 2026-10-09 and 2026-10-10 (DEC-023 to DEC-034 are agent decisions under delegated
+Accepted decisions DEC-001 to DEC-022 are unchanged. Added 2026-10-09 and 2026-10-10 (DEC-023 to DEC-035 are agent decisions under delegated
 authority and await team-leader confirmation):
 
 - Source-time provenance of trimming; conversion applied once at response assembly (DEC-023)
@@ -190,6 +203,7 @@ authority and await team-leader confirmation):
 - Orchestrator, analysis identity covering every input, result store, error mapping, notes (DEC-032)
 - Dashboard stack, boundary (renders backend output only), contract 1.2.0, serving, honest-presentation and accessibility rules (DEC-033)
 - Demo samples: synthetic voice, exact word timings, real pipeline, published selection rule, labelled everywhere (DEC-034)
+- In-browser recording as raw samples with voice processing off, a deterministic 16 kHz WAV, 5-minute limit; CSV export of findings (DEC-035)
 
 Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weights (DEC-P007). Results say so
 (`thresholds_uncalibrated` note) until `THRESHOLDS_CALIBRATED=true` is set after calibration.
@@ -222,6 +236,12 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
   `npm audit --omit=dev` is clean, so nothing shipped is affected. Revisit when the team standardises on Node 22+.
 - Dashboard: never run against the real models or a real recording; upload was tested in a real browser against a MOCKED API and in
   component tests. Charts are SVG (fine for minutes of audio after thinning, not for hours). A result opened by id has no audio.
+- The recorder (DEC-035) has been exercised with test doubles and Chromium's fake microphone only: a real microphone, Safari, Firefox and phones are
+  untested, and so is how real room noise and input gain behave with the unchanged analysis. A browser may ignore the request to disable voice
+  processing; the panel warns when it reports that.
+- `.gitignore` is a Python template: its generic names (`lib/`, `build/`, `parts/`, `var/`, `env/`, `eggs/`, `downloads/`, `wheels/`, `sdist/`) match a
+  directory of that name anywhere in the repository and silently exclude it (this hid `frontend/src/lib/` once). Check `git status --ignored` when
+  adding a folder. It has no rule for audio, so recordings of people must be kept out of git by hand (AGENTS.md section 22) until the team decides.
 - Detector findings from building the demo samples (synthetic speech; see DEC-034): the per-event pause rule (z > 2 over about twenty
   pauses) flagged 6 of 10 CLEAN takes, so the false-flag rate must be calibrated below about 10 %; the frame-level energy rule missed a
   20 dB quieter sentence in all 40 candidate takes; the absolute -50 dBFS pause threshold splits quiet speech into false pauses; peak
@@ -244,7 +264,7 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
 2. Calibrate thresholds, severity and weights on the controlled flaws (TASK-100 to TASK-107 on real data), then set
    `THRESHOLDS_CALIBRATED=true`, bump CONFIG_VERSION and freeze.
 3. Decide the within-window F0-variation baseline statistic and implement flat pitch.
-4. Run the dashboard against real API output (needs priority 1), then decide on in-browser recording (TASK-090) and a waveform (TASK-091).
+4. Run the dashboard against real API output (needs priority 1), try the in-browser recorder with a real microphone, then decide on a waveform (TASK-091).
 5. Optional: an LLM explanation provider that receives only the fact sheet and passes the existing guard.
 
 ---
