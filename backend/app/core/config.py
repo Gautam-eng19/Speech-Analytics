@@ -41,6 +41,14 @@ class Settings:
         self.CACHE_DIR: Path = Path(os.getenv("CACHE_DIR", "data/processed/cache"))
         self.DATA_DIR: Path = Path(os.getenv("DATA_DIR", "data"))
 
+        # Dashboard serving (DEC-033): browser origins allowed to call the API, and the built dashboard to serve at "/".
+        self.CORS_ORIGINS: list[str] = [
+            origin.strip()
+            for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+            if origin.strip()
+        ]
+        self.FRONTEND_DIST_DIR: Path = Path(os.getenv("FRONTEND_DIST_DIR", "frontend/dist"))
+
         # Audio limits (ARCHITECTURE.md §10, §23)
         self.MAX_UPLOAD_BYTES: int = int(os.getenv("MAX_UPLOAD_BYTES", "10485760"))  # 10 MB
         self.MAX_DURATION_S: float = float(os.getenv("MAX_DURATION_S", "300.0"))  # 5 minutes

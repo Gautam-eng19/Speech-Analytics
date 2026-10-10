@@ -168,7 +168,8 @@ def test_the_result_endpoints_are_plain_functions_so_disk_reads_never_block_the_
 def test_openapi_documents_all_endpoints_and_the_result_model():
     spec = app.openapi()
     assert set(spec["paths"]) == {
-        "/api/v1/health", "/api/v1/analyze", "/api/v1/status/{analysis_id}", "/api/v1/result/{analysis_id}"}
+        "/api/v1/health", "/api/v1/analyze", "/api/v1/status/{analysis_id}", "/api/v1/result/{analysis_id}",
+        "/api/v1/baselines"}
     ok = spec["paths"]["/api/v1/analyze"]["post"]["responses"]["200"]["content"]["application/json"]["schema"]
     assert ok["$ref"].endswith("/AnalysisResult")
     schemas = spec["components"]["schemas"]
