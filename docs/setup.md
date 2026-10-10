@@ -11,7 +11,7 @@
 - **OS:** Windows, macOS or Linux (the commands below are given for PowerShell and for bash).
 - **Python:** 3.10 – 3.13 (the 2026-10-09 verification used 3.13).
 - **Git.**
-- **Node.js ≥ 18 / npm ≥ 9** — only for the future frontend (React + Vite + TypeScript, DEC-002). `frontend/` is still a placeholder.
+- **Node.js ≥ 20.19 / npm ≥ 10** — only to build or develop the dashboard (React + Vite + TypeScript, DEC-002, DEC-033). Not needed to run the API or its tests.
 - **ffmpeg is NOT required.** MP3 decoding uses PyAV (`av`), and Whisper receives NumPy arrays directly.
 - **Disk / network:** `openai-whisper` pulls in PyTorch (several GB). The first real Whisper/WhisperX run downloads model weights.
 
@@ -68,6 +68,23 @@ Interactive documentation: `http://127.0.0.1:8000/docs`.
 | `POST /api/v1/analyze` | multipart upload (`participant_audio` WAV/MP3, `baseline_id`, `passage_id`, optional `manual_transcript`, `speaker_gender`, `config_version`); runs the whole pipeline synchronously and returns the `AnalysisResult` |
 | `GET /api/v1/status/{analysis_id}` | `done` or `not_found` |
 | `GET /api/v1/result/{analysis_id}` | the stored result, or 404 `RESULT_NOT_FOUND` |
+
+### Run the dashboard
+
+```bash
+cd frontend && npm ci && npm run build        # once: writes frontend/dist
+cd .. && python -m uvicorn app.main:app --app-dir backend
+```
+
+Open `http://127.0.0.1:8000/`: the API serves the built dashboard at `/` and itself at `/api/v1`, so there is one origin and no CORS to
+configure. The four demo samples (synthetic voice, `frontend/public/samples/`) open without a baseline or the real models; analysing your
+own recording needs a baseline (§4). For development run `npm run dev` in `frontend/` (port 5173, proxies `/api` to port 8000).
+`FRONTEND_DIST_DIR` (default `frontend/dist`) and `CORS_ORIGINS` (default the Vite dev server) are in `.env.example`.
+`npm test` runs the dashboard's tests; `npm run shots` takes screenshots of every page (see `docs/architecture/frontend.md`).
+
+| Extra endpoint | What it does |
+|---|---|
+| `GET /api/v1/baselines` | usable baselines with their passage text and whether their statistics are thin; unusable files listed with a reason code |
 
 Notes for the first real run:
 - The first analysis loads the Whisper model and downloads the WhisperX alignment model (this can take a while on a slow

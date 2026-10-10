@@ -613,67 +613,111 @@ services/explanation/guard.py (d79feb8), DEC-031: an independent check that ever
 
 \## TASK-080 — Frontend Skeleton
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-
+Delivered:
+`frontend/`: Vite + React 19 + strict TypeScript (DEC-002, DEC-033); hash routes, small stores, a typed API client whose types are generated from `frontend/openapi.json` (exported from the FastAPI app, drift-tested), design tokens with light and dark themes, a custom icon set, the application shell (sidebar, top bar, whole-recording ribbon, playback bar, command palette, keyboard shortcuts, toasts) and a Vitest suite. The API serves the build at `/` (`backend/app/main.py`, `GET /api/v1/baselines`, CORS; API contract 1.2.0). Docs: `docs/architecture/frontend.md`.
 
 \## TASK-081 — Audio Upload UI
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-
+Delivered:
+`features/analyze`: drag and drop, WAV/MP3 check, preview player, baseline and passage chosen from the live catalogue (thin-statistics warning, passage to read), optional manual transcript, offline and empty-catalogue states, API errors shown with their own detail. Exercised in a real browser against a MOCKED API and in component tests; not run against the real Whisper/WhisperX models.
 
 \## TASK-082 — Analysis Progress UI
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P1
 
-
+Delivered:
+Upload progress in bytes, then an indeterminate "analysing" state with elapsed time and a cancel button. The API is synchronous (DEC-016) and reports nothing finer, and the page says so instead of inventing stages.
 
 \## TASK-083 — Overall Score Card
 
+Status: REVIEW
+
+Priority: P1
+
+Delivered:
+Overview: the deviation score (exact backend value), a readout from `overall_summary`, the score by dimension with effective weights and penalties, a "not scored" row with the backend's reason for any dimension that was left out, every note grouped by category, and a provenance panel (ids, hashes, versions).
+
+\## TASK-084 — Feature Visualization
+
+Status: REVIEW
+
+Priority: P0
+
+Delivered:
+Signals page and the shared plot (`frontend/src/charts/`): speech rate, loudness, pitch (context only) and pauses against the baseline's mean and spread, with linked zoom, tables of the values, the pause table and the MFCC summary. Charts only draw backend series (long ones thinned, extremes kept).
+
+\## TASK-085 — Temporal Flaw Timeline
+
+Status: REVIEW
+
+Priority: P0
+
+Delivered:
+Timeline ("scope"): every signal and the findings on one time axis, zoom, pan and fit, crosshair with the values under the pointer, playback with a playhead and an optional follow mode, lane toggles, and for demo samples the injected ground truth with detected and missed flaws. The whole-recording ribbon is on every analysis page.
+
+\## TASK-086 — Flaw Detail Panel
+
+Status: REVIEW
+
+Priority: P0
+
+Delivered:
+Flaws page: filterable list and, for one finding, a close-up of the moment, the evidence, the explanation, the recommendation, the detection rule in words, warnings and affected words, with play, loop and keyboard navigation.
+
+\## TASK-087 — Evidence Visualization
+
+Status: REVIEW
+
+Priority: P0
+
+Delivered:
+Evidence table and gauge (`components/EvidenceView.tsx`): the participant value against the baseline mean and spread in the measurement's own unit, the z-score and where the finding's rule flags. All numbers are the backend's.
+
+\## TASK-088 — Report, Library, Settings and Help Pages
+
+Status: REVIEW
+
+Priority: P1
+
+Delivered:
+An A4 printable report (print stylesheet), a library of the demo samples and of the analyses opened in this browser, settings (theme, density, motion, time format, timeline, API address, versions), and help (guide, glossary, shortcuts, questions).
+
+\## TASK-089 — Demo Samples
+
+Status: REVIEW
+
+Priority: P1
+
+Delivered:
+`scripts/demo/build_demo_samples.py` and `frontend/public/samples/` (DEC-034): four synthetic recordings with the results the real pipeline produced for them, labelled as synthetic everywhere, with the selection rule, ground truth and calibration diagnostics in `index.json`. `tests/test_demo_samples.py` guards their integrity.
+
+\## TASK-090 — In-Browser Recording
+
 Status: BACKLOG
 
 Priority: P1
 
+Notes:
+Record a reading with the passage shown as a prompt, encode WAV, hand it to the upload form. Chromium's fake media device allows an automated test.
 
-
-\## TASK-084 — Feature Visualization
-
-Status: BACKLOG
-
-Priority: P0
-
-
-
-\## TASK-085 — Temporal Flaw Timeline
+\## TASK-091 — Waveform View
 
 Status: BACKLOG
 
-Priority: P0
+Priority: P2
 
-
-
-\## TASK-086 — Flaw Detail Panel
-
-Status: BACKLOG
-
-Priority: P0
-
-
-
-\## TASK-087 — Evidence Visualization
-
-Status: BACKLOG
-
-Priority: P0
-
-
+Notes:
+Needs audio decoded in the browser; the loudness timeline covers the need until then (DEC-033).
 
 \---
 

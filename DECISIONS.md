@@ -872,6 +872,109 @@ Date: 2026-10-09
 
 ---
 
+## DEC-033 — Dashboard: Stack, Boundary and Backend Support (builds on DEC-002; supersedes DEC-P009)
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- STACK: React 19 + Vite + strict TypeScript (DEC-002), tested with Vitest, Testing Library and jsdom. NO chart, UI-kit, HTTP-client,
+  icon or CSS-framework library (this supersedes DEC-P009: recharts, wavesurfer.js, axios, tailwindcss). Charts are SVG/HTML drawn
+  by project code (`frontend/src/charts/`), the icon set and the design system (`frontend/src/styles/`) are project code, and
+  `fetch` / `XMLHttpRequest` (for upload progress) are used directly. Runtime dependencies: `react`, `react-dom` and three
+  self-hosted font packages (`@fontsource` IBM Plex Sans, IBM Plex Mono, Newsreader; SIL Open Font License 1.1). Development only:
+  `vite`, `typescript`, `vitest`, `jsdom`, `@testing-library/*`, `openapi-typescript`, `playwright-core` (screenshot and accessibility
+  scripts) and `axe-core` (MPL-2.0; the accessibility audit). `npm audit --omit=dev` reports no advisory; the current `vitest` 3 line
+  carries advisories in its test runner (`tinypool`, `@vitest/mocker`) whose fix is vitest 5, which needs Node 22.12 or newer, so
+  it was not taken; they affect the development machine only and not the shipped bundle.
+- BOUNDARY (AGENTS.md section 9): the dashboard renders the backend's `AnalysisResult` and computes no analytics. It may LOOK UP values
+  (the nearest frame, the pause that contains a time, the word being spoken), order and filter lists, format numbers with fixed
+  decimals, choose axis ranges and thin long series for drawing (the minimum and maximum of every pixel column are kept). Two pieces
+  of drawing geometry are derived from backend numbers and are labelled as such: the baseline bands (the baseline mean plus and
+  minus one and two standard deviations) and the dashed "where the rule flags" line on the evidence gauge (the mean plus the finding's
+  own `rule.threshold_z` times the standard deviation). Scores, severities, reliabilities, z-scores, rates, pause lengths and
+  deviations are only ever read. Tests compare displayed numbers with the result.
+- CONTRACT: `frontend/src/api/schema.d.ts` is generated from `frontend/openapi.json`, which `scripts/export_openapi.py` exports from the
+  FastAPI app; a backend test fails when the snapshot and the app differ. API contract 1.2.0 adds `GET /api/v1/baselines` (usable
+  baselines with their passage and whether their statistics are thin; unusable files are listed with a reason code, never a path),
+  which the upload form needs so the user compares a recording with a baseline of the same passage.
+- SERVING: FastAPI serves `frontend/dist` at `/` (mounted last and only when `index.html` exists, so API routes win and a missing build
+  never breaks the API). `CORS_ORIGINS` allows a separate dev server (GET, POST, OPTIONS; no credentials). `npm run dev` proxies `/api`.
+- ROUTING AND STATE: hash routes (`#/a/<analysis id>/<view>[/<finding id>]`) so a result can be linked and no server rewrite is needed.
+  State is a few small external stores; the playhead has its own store so only the overlays redraw at animation-frame rate. Settings
+  and a list of opened analyses (id, title, score; never audio or results) are kept in localStorage; a result is always fetched again
+  from the API or the sample files. A request that was replaced by a newer one can no longer change the state.
+- HONEST PRESENTATION: synthetic samples are labelled wherever they appear (chip, banner, report); a dimension that was not scored is
+  a row that says why (the backend's note), never 100 and never blank; every backend note is shown; a finding keeps its rule,
+  warnings and low-confidence flag; the score is described as a deviation from the baseline, not as a grade; when audio is not
+  available (a result opened by id) the page says so; the colour of a finding type is always paired with a glyph.
+- ACCESSIBILITY: text and component colours meet WCAG 2.1 AA in both themes (asserted by `frontend/tests/tokens.test.ts`); everything
+  is operable by keyboard with a visible focus ring and a shortcut list; reduced motion is honoured (operating-system setting or a
+  switch); charts have text alternatives (labels, tables of the values); there is a skip link and landmarks. `npm run a11y` runs
+  axe-core (WCAG 2.1 A and AA) in a real browser on every page and on the interactive states (palette, dialog, selection, collapsed
+  sidebar, phone drawer) in both themes: 44 combinations, no violations on 2026-10-10.
+
+Reason:
+The dashboard is the judges' view of the project (AGENTS.md section 26), so the evidence trail has to be visible and exact. A chart
+library would have drawn the picture but not the interaction this work needs (a shared time axis, zoom and pan on every lane, a
+crosshair across lanes, a playhead that moves 60 times a second without re-rendering the page), and each added dependency is cost
+that AGENTS.md section 19 asks to justify: the application code is about 100 kB gzipped (fonts excluded), has no runtime network
+dependency (it works in a lab without internet) and the fonts are bundled. wavesurfer.js decodes audio to draw a waveform; a waveform is not an
+analytic measurement, and the backend's loudness timeline is a better picture of the same thing. Serving the build from the API
+keeps one origin (no CORS in the normal case) and one command to demonstrate.
+
+Impact:
+- TASK-080 to TASK-087 (see TASKS.md), `frontend/`, `backend/app/main.py`, `backend/app/api/routes/catalog.py`, `scripts/export_openapi.py`,
+  `docs/architecture/frontend.md`.
+- Limits: the dashboard has never run against the real Whisper/WhisperX models or a real recording (none exist yet); upload E2E is
+  tested with a mocked API in the browser and with stand-in models on the backend. There is no waveform view and no in-browser
+  recording yet. Charts are SVG, which is comfortable to roughly a few thousand points per lane after thinning; a recording of many
+  minutes would call for canvas.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-10
+
+---
+
+## DEC-034 — Demo Samples: Synthetic Recordings and What They Claim
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- `frontend/public/samples/` ships four recordings (`clean-delivery`, `rushed-explanation`, `hesitant-delivery`, `mixed-flaws`) with the
+  `AnalysisResult` the real pipeline produced for each, and an `index.json`. `scripts/demo/build_demo_samples.py` builds them
+  (`npm run samples`). The voice is a speech synthesiser (ffmpeg `libflite`, voice `slt`) reading the passage word by word, so the
+  word timings are exact by construction; Whisper and WhisperX are replaced by stand-ins that return those timings
+  (`processing_meta.whisper_model` says `demo-exact-timings`). Every other number comes from the real analysis code. The baseline is
+  built from five synthetic takes (seeds 11 to 15).
+- Flaws are injected on purpose (a rate change, an inserted silence, a level change) at known times; the index stores them as
+  ground truth together with whether the pipeline detected each one, computed when the sample was built.
+- Selection rule, stated in the index: each sample is the first take (seeds from 200 upward) that fits its description (the clean
+  take has no finding; each flawed take has its injected findings detected, with at most two additional findings). One documented
+  exception: the quiet sentence of `mixed-flaws` is NOT detected by the current frame-level energy rule and is kept as a visible miss.
+- The index records a diagnostic that must stay visible in the UI: of ten clean synthetic takes, six were flagged by the current
+  uncalibrated thresholds.
+- The samples illustrate the interface and the evidence trail. They are not evidence of detection accuracy, they contain no human
+  speech, and they say so in the index, in the dashboard banner and in the printable report.
+
+Reason:
+The dashboard has to be demonstrable before real recordings exist, and a demonstration must not pretend to be a measurement.
+Choosing "the first take that fits" with the rule published, and keeping a missed flaw and the false-flag rate on screen, stops the
+samples from being curated into looking better than the detector is.
+
+Impact:
+- `tests/test_demo_samples.py` checks that each committed result is a valid contract result for exactly the WAV shipped next to it, that
+  ground truth lies inside the recording, that the synthetic nature is stated and that the generator is deterministic for a seed.
+- Regenerate the samples after any change that alters analysis output or the contract / configuration versions (the ids are derived
+  from them); a stale sample would show numbers the current backend no longer produces.
+- Findings recorded while building them (open work, see PROJECT_STATE.md): per-event z > 2 over about twenty pauses flags 6 of 10 clean
+  takes; the energy rule missed a 20 dB quieter sentence in every candidate take; a peak-normalised recording makes a louder stretch
+  hard to detect; quiet speech is split into false pauses by the absolute -50 dBFS pause threshold; rate findings are window-resolution.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-10
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been
@@ -1041,7 +1144,7 @@ Date: pending
 
 ## DEC-P009 — Frontend Libraries
 
-Status: PROPOSED
+Status: SUPERSEDED by DEC-033 (no chart, HTTP, audio-waveform or CSS-framework library was adopted)
 
 Decision:
 Charts: recharts
