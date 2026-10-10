@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { SampleIndex } from '@/api/types';
 import { isSupportedAudioName, type ApiErrorCode } from '@/api/client';
 import { Icon } from '@/components/Icon';
 import { PageHead } from '@/components/page';
-import { Button, Chip, Panel } from '@/components/ui';
+import { Button, Chip, Panel, Segmented } from '@/components/ui';
 import { fmtBytes, fmtDuration, fmtNum, fmtRelative, plural } from '@/lib/format';
 import { safeStorage } from '@/lib/store';
 import { analysisPath, navigate } from '@/app/router';
 import { analysisStore, analyzeFile, cancelLoading, dismissError, loadSamples, useAnalysis } from '@/state/analysis';
 import { refreshCatalog, useCatalog, useConnection } from '@/state/connection';
 import { useHistory } from '@/state/history';
-import { PreviewPlayer } from './PreviewPlayer';
+import { FileDrop } from './FileDrop';
+import { RecorderPanel } from './RecorderPanel';
 import { SampleCard } from './SampleCard';
 
 const LAST_BASELINE = 'sa.lastBaseline';
@@ -27,26 +28,6 @@ const ERROR_TITLE: Partial<Record<ApiErrorCode, string>> = {
   BAD_RESPONSE: 'The API answered unexpectedly',
   HTTP_ERROR: 'The server reported an error',
 };
-
-/** A static, decorative trace behind the drop area. It carries no data. */
-function ScopeBackdrop() {
-  const d = useMemo(() => {
-    let path = '';
-    for (let i = 0; i <= 240; i++) {
-      const x = (i / 240) * 600;
-      const env = Math.sin((i / 240) * Math.PI) ** 1.4;
-      const y = 60 + env * (Math.sin(i * 0.9) * 22 + Math.sin(i * 2.3) * 9 + Math.sin(i * 0.31) * 14);
-      path += `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
-    }
-    return path;
-  }, []);
-  return (
-    <svg className="drop__scope" viewBox="0 0 600 120" preserveAspectRatio="none" aria-hidden="true">
-      {[30, 60, 90].map((y) => <line key={y} x1={0} x2={600} y1={y} y2={y} />)}
-      <path d={d} />
-    </svg>
-  );
-}
 
 function Progress() {
   const state = useAnalysis();
@@ -86,14 +67,12 @@ export function AnalyzePage() {
   const history = useHistory();
   const [file, setFile] = useState<File | null>(null);
   const [fileProblem, setFileProblem] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
   const [baselineId, setBaselineId] = useState<string>(() => safeStorage.get(LAST_BASELINE) ?? '');
   const [useManual, setUseManual] = useState(false);
   const [manual, setManual] = useState('');
   const [showPassage, setShowPassage] = useState(false);
+  const [source, setSource] = useState<'file' | 'record'>('file');
   const [samples, setSamples] = useState<SampleIndex | null>(null);
-  const picker = useRef<HTMLInputElement>(null);
-  const dragDepth = useRef(0);
 
   useEffect(() => {
     if (catalog.status === 'idle' || catalog.status === 'error') void refreshCatalog();
@@ -145,39 +124,21 @@ export function AnalyzePage() {
 
       <div className="grid-split">
         <div className="steps">
-          <Panel eyebrow="Step 1" title="Recording">
-            <div
-              className={`drop ${dragging ? 'is-over' : ''} ${file ? 'has-file' : ''}`}
-              onDragEnter={(e) => { e.preventDefault(); dragDepth.current += 1; setDragging(true); }}
-              onDragOver={(e) => e.preventDefault()}
-              onDragLeave={() => { dragDepth.current = Math.max(0, dragDepth.current - 1); if (dragDepth.current === 0) setDragging(false); }}
-              onDrop={(e) => { e.preventDefault(); dragDepth.current = 0; setDragging(false); accept(e.dataTransfer.files[0]); }}
-            >
-              <span className="drop__corner drop__corner--tl" /><span className="drop__corner drop__corner--tr" /><span className="drop__corner drop__corner--bl" /><span className="drop__corner drop__corner--br" />
-              <ScopeBackdrop />
-              {file ? (
-                <div className="drop__file">
-                  <div className="drop__file-head">
-                    <Icon name="file-audio" size={22} />
-                    <div className="drop__file-meta">
-                      <div className="drop__file-name truncate" title={file.name}>{file.name}</div>
-                      <div className="muted num">{fmtBytes(file.size)}</div>
-                    </div>
-                    <Button size="sm" variant="ghost" onClick={() => picker.current?.click()}>Replace</Button>
-                    <Button size="sm" variant="ghost" icon="x" onClick={() => { setFile(null); setFileProblem(null); }} aria-label="Remove the file" />
-                  </div>
-                  <PreviewPlayer file={file} />
-                </div>
-              ) : (
-                <div className="drop__prompt">
-                  <div className="drop__icon"><Icon name="upload" size={22} /></div>
-                  <div className="drop__title">Drop a WAV or MP3 here</div>
-                  <p className="drop__hint">or <button type="button" className="link-btn" onClick={() => picker.current?.click()}>choose a file</button>. The audio is analysed in memory and is not saved; only the result is kept.</p>
-                </div>
-              )}
-              <input ref={picker} className="sr-only" type="file" aria-label="Choose an audio file (WAV or MP3)" accept=".wav,.mp3,audio/wav,audio/x-wav,audio/mpeg" tabIndex={-1} onChange={(e) => { accept(e.target.files?.[0]); e.target.value = ''; }} />
-            </div>
-            {fileProblem ? <p className="form-error" role="alert"><Icon name="alert-circle" size={15} /> {fileProblem}</p> : null}
+          <Panel
+            eyebrow="Step 1"
+            title="Recording"
+            actions={<Segmented label="Where the recording comes from" size="sm" value={source} onChange={setSource} options={[{ value: 'file', label: 'Upload a file', icon: 'upload' }, { value: 'record', label: 'Record now', icon: 'mic' }]} />}
+          >
+            {source === 'record' ? (
+              <RecorderPanel
+                passage={selected?.passage_text ? { title: selected.passage_title ?? selected.passage_id, text: selected.passage_text } : null}
+                disabled={busy}
+                onUse={(recorded) => { accept(recorded); setSource('file'); }}
+              />
+            ) : (
+              <FileDrop file={file} onFile={accept} onClear={() => { setFile(null); setFileProblem(null); }} />
+            )}
+            {source === 'file' && fileProblem ? <p className="form-error" role="alert"><Icon name="alert-circle" size={15} /> {fileProblem}</p> : null}
           </Panel>
 
           <Panel

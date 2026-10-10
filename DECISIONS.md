@@ -975,6 +975,52 @@ Date: 2026-10-10
 
 ---
 
+## DEC-035 — In-Browser Recording and Findings Export
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- The New analysis page offers "Record now" beside "Upload a file". A take ends as an ordinary `File` handed to the existing upload form and
+  analysed through `POST /api/v1/analyze`. There is no new endpoint, no contract change and no change to the pipeline (DEC-033 boundary).
+- Capture asks for one channel with the browser's echo cancellation, noise suppression and automatic gain control switched OFF. They
+  rewrite the signal the features are measured on (automatic gain erases the level changes the energy rule looks for; noise
+  suppression reshapes the spectrum the MFCC and clarity proxies read). If the browser reports that it applied any of them anyway, the
+  panel says so before the take is used.
+- Samples are taken raw through an AudioWorklet (inline module; a ScriptProcessor fallback), not through `MediaRecorder`, which would
+  hand back a lossy Opus or AAC stream whose container differs by browser and would be decoded and re-encoded before analysis.
+- The take is converted from the context's native rate (usually 44.1 or 48 kHz) to 16 kHz mono by the dashboard's own windowed-sinc
+  resampler (`src/recording/resample.ts`: Blackman window, eight zero crossings, cut-off at the lower Nyquist frequency) and written
+  as a 16-bit PCM WAV (`wav.ts`). 16 kHz is what the backend converts to anyway (`TARGET_SAMPLE_RATE`), and it keeps a five-minute take
+  at 9.6 MB, inside the default upload limit of 10 MiB; at 48 kHz the limit would be reached after about 110 seconds. A hand-written
+  converter (instead of the browser's offline audio context) gives the same bytes for the same samples in every browser and can be tested
+  without one.
+- The longest take is 300 seconds, the API's default `MAX_DURATION_S`. The server remains the authority and answers with its own limit if
+  it was configured differently.
+- Boundary: the level bar and the clipping warning (a peak at or above 0.99) are capture aids for setting up the microphone. They are not
+  analysis, are not sent to the backend and are not stored. Nothing is kept by the dashboard: audio leaves the browser only through the
+  same upload as a chosen file. Recordings of people stay out of git (AGENTS.md section 22).
+- "Export findings as CSV" (Flaws page, command palette) writes one row per finding in time order with every value exactly as the backend
+  returned it (nothing rounded, evidence fields flattened as `evidence.<field>`), RFC 4180 quoting, CRLF line ends and a UTF-8 byte-order mark
+  so a spreadsheet reads the typographic punctuation of the explanations. "Copy a link to this page" copies the address of the current view; it
+  opens the same analysis for anyone who reaches the same server while that server still holds the result.
+
+Alternatives rejected:
+- `MediaRecorder`: lossy re-encoding before analysis, browser-dependent container and codec.
+- Upload at the native rate: over the size limit after about 110 seconds of speech, and the backend would discard the extra bandwidth.
+- `OfflineAudioContext` for resampling: filter and rounding differ between browsers, so the same take could analyse differently.
+
+Impact:
+- Verified with fakes (a scripted audio graph, 22 tests; the panel, 11; the converter and the WAV writer, 12; the export, 13) and in
+  Chromium with its fake microphone, where a take was recorded, converted to a valid 16 kHz mono WAV and accepted by the upload form
+  (`npm run smoke`). It has NOT been tried with a real microphone, in Safari or Firefox, or on a phone; the first real recording session
+  is the test. Microphone access needs `https://` or `localhost`, and the panel says so when the page is served otherwise.
+- The recorder adds no dependency and no stored data; browser permission is requested only when "Start" is pressed.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-10
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been

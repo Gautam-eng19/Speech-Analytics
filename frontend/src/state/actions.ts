@@ -1,4 +1,5 @@
 import type { Flaw } from '@/api/types';
+import { findingsCsv } from '@/lib/csv';
 import { settingsStore, resolveTheme, updateSettings } from '@/lib/settings';
 import { adjacentFlaw, flawsByTime, recordingDuration } from '@/lib/result';
 import { windowAround } from '@/lib/time';
@@ -73,11 +74,41 @@ function download(blob: Blob, filename: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+function fileStem(): { stem: string; id: string } | null {
+  const current = analysisStore.get().current;
+  if (!current) return null;
+  const safe = current.title.replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').slice(0, 48) || 'analysis';
+  return { stem: safe, id: current.result.analysis_id.slice(0, 8) };
+}
+
 /** The result exactly as the API returned it (reproducible evidence; nothing is added). */
 export function exportResultJson(): void {
   const current = analysisStore.get().current;
-  if (!current) return;
-  const safe = current.title.replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').slice(0, 48) || 'analysis';
-  download(new Blob([JSON.stringify(current.result, null, 2)], { type: 'application/json' }), `${safe}.${current.result.analysis_id.slice(0, 8)}.json`);
+  const name = fileStem();
+  if (!current || !name) return;
+  download(new Blob([JSON.stringify(current.result, null, 2)], { type: 'application/json' }), `${name.stem}.${name.id}.json`);
   pushToast('Result saved as JSON.', 'success', 2200);
+}
+
+/** The findings as a spreadsheet table (one row each, backend values unrounded). */
+export function exportFindingsCsv(): void {
+  const current = analysisStore.get().current;
+  const name = fileStem();
+  if (!current || !name) return;
+  if (current.result.flaws.length === 0) {
+    pushToast('This analysis has no findings to export.', 'info', 2600);
+    return;
+  }
+  download(new Blob([findingsCsv(current.result)], { type: 'text/csv;charset=utf-8' }), `${name.stem}.${name.id}.findings.csv`);
+  pushToast('Findings saved as CSV.', 'success', 2200);
+}
+
+/** A link to the page that is showing. It opens the same analysis for anyone who can reach the same server. */
+export async function copyPageLink(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(window.location.href);
+    pushToast('Link copied to the clipboard.', 'success', 2000);
+  } catch {
+    pushToast('The browser did not allow copying. The address bar has the link.', 'error');
+  }
 }

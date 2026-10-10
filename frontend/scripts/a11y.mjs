@@ -51,13 +51,17 @@ const STATES = [
   ['timeline, finding selected', sample('mixed-flaws', 'timeline'), {}, async (page) => { await page.locator('.flawband').first().click(); }],
   ['timeline, zoomed', sample('mixed-flaws', 'timeline'), {}, async (page) => { await page.keyboard.press('+'); await page.keyboard.press('+'); }],
   ['sidebar collapsed', sample('mixed-flaws', 'overview'), {}, async (page) => { await page.keyboard.press('b'); }],
+  ['recorder, idle', '#/', {}, async (page) => { await page.getByRole('radio', { name: 'Record now' }).click(); }],
+  ['recorder, live', '#/', {}, async (page) => { await page.getByRole('radio', { name: 'Record now' }).click(); await page.getByRole('button', { name: 'Start recording' }).click(); await page.waitForSelector('.rec__live'); await page.waitForTimeout(900); }],
+  ['recorder, take ready', '#/', {}, async (page) => { await page.getByRole('radio', { name: 'Record now' }).click(); await page.getByRole('button', { name: 'Start recording' }).click(); await page.waitForSelector('.rec__live'); await page.waitForTimeout(900); await page.getByRole('button', { name: 'Stop' }).click(); await page.waitForSelector('.rec__take'); }],
   ['phone, navigation drawer', '#/', { width: 390, height: 844 }, async (page) => { await page.getByRole('button', { name: 'Open navigation' }).click(); }],
   ['phone, overview', sample('hesitant-delivery', 'overview'), { width: 390, height: 844 }, async () => {}],
   ['phone, timeline', sample('mixed-flaws', 'timeline'), { width: 390, height: 844 }, async () => {}],
   ['phone, finding', sample('mixed-flaws', 'flaws') + '/flaw_001', { width: 390, height: 844 }, async () => {}],
 ];
 
-const browser = await chromium.launch({ executablePath: findChrome(), args: ['--no-sandbox'] });
+// The browser is started with a fake microphone so the recorder can be exercised without hardware.
+const browser = await chromium.launch({ executablePath: findChrome(), args: ['--no-sandbox', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
 let total = 0;
 
 async function audit(page, theme, name) {
@@ -72,7 +76,7 @@ async function audit(page, theme, name) {
 }
 
 for (const theme of ['light', 'dark']) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: theme });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: theme, permissions: ['microphone'] });
   await context.addInitScript((t) => { try { localStorage.setItem('sa.settings.v1', JSON.stringify({ theme: t })); } catch {} }, theme);
   const page = await context.newPage();
   for (const [name, hash] of PAGES) {

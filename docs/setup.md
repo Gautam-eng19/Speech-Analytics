@@ -80,7 +80,13 @@ Open `http://127.0.0.1:8000/`: the API serves the built dashboard at `/` and its
 configure. The four demo samples (synthetic voice, `frontend/public/samples/`) open without a baseline or the real models; analysing your
 own recording needs a baseline (§4). For development run `npm run dev` in `frontend/` (port 5173, proxies `/api` to port 8000).
 `FRONTEND_DIST_DIR` (default `frontend/dist`) and `CORS_ORIGINS` (default the Vite dev server) are in `.env.example`.
-`npm test` runs the dashboard's tests; `npm run shots` takes screenshots of every page (see `docs/architecture/frontend.md`).
+`npm test` runs the dashboard's tests; `npm run shots` takes screenshots of every page, `npm run a11y` audits every page and state with
+axe-core and `npm run smoke` drives the running app in Chromium, including a recording with a fake microphone (the last three need the
+server running and a Chromium; see `docs/architecture/frontend.md`).
+
+**Recording in the browser** (New analysis, "Record now") needs a secure page: `http://127.0.0.1:8000/` and `http://localhost:...` count as
+secure, a plain `http://` address on another machine does not (the browser refuses microphone access there, and the panel says so).
+The take is saved as a 16 kHz mono WAV and handed to the upload form; keep recordings of people out of git.
 
 | Extra endpoint | What it does |
 |---|---|

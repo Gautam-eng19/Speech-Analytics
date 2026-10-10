@@ -2,7 +2,7 @@ import { Icon } from '@/components/Icon';
 import { IconButton, Kbd } from '@/components/ui';
 import { resolveTheme, useSettings } from '@/lib/settings';
 import { useCurrent } from '@/state/analysis';
-import { exportResultJson, toggleTheme } from '@/state/actions';
+import { copyPageLink, exportResultJson, toggleTheme } from '@/state/actions';
 import { setOverlay } from '@/state/ui';
 import { analysisPath, navigate, useRoute, VIEW_LABEL } from './router';
 
@@ -42,6 +42,7 @@ export function Topbar() {
       </button>
       {current && route.name === 'analysis' ? (
         <>
+          <IconButton icon="link" label="Copy a link to this page" onClick={() => void copyPageLink()} />
           <IconButton icon="download" label="Export result as JSON (E)" onClick={exportResultJson} />
           <IconButton icon="printer" label="Open the printable report" onClick={() => navigate(analysisPath(current.id, 'report'))} active={route.view === 'report'} />
         </>
