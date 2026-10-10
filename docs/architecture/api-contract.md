@@ -11,6 +11,8 @@ Frontend TypeScript types must be derived from these models (never hand-extended
 - History: **1.0.0** initial contract (TASK-002). **1.1.0** adds `Flaw.rule`, `Flaw.affected_words`, `Flaw.warnings`,
   `AudioInfo.trim_start_s` / `source_duration_s`, `AnalysisResult.notes` and `config_fingerprint` (all optional with
   defaults, so 1.0.0 payloads remain valid) and checks flaw bounds against the analysed audio in source time.
+  **1.2.0** adds `GET /baselines` with `BaselineSummary`, `UnavailableBaseline` and `BaselineListResponse` (DEC-033); no existing
+  field changed.
 - Independent of `config_version` (analytical parameters) and `pipeline_version` (pipeline structure).
 - All models use `extra="forbid"`.
 
@@ -18,6 +20,7 @@ Frontend TypeScript types must be derived from these models (never hand-extended
 | Method | Path | Success | Errors |
 |---|---|---|---|
 | GET | `/api/v1/health` | 200 `HealthResponse` | – |
+| GET | `/api/v1/baselines` | 200 `BaselineListResponse` | – |
 | POST | `/api/v1/analyze` | 200 `AnalysisResult` (sync, DEC-016) | 400, 404, 422, 500 `ErrorResponse` |
 | GET | `/api/v1/status/{analysis_id}` | 200 `StatusResponse` (`done`/`not_found`) | – |
 | GET | `/api/v1/result/{analysis_id}` | 200 `AnalysisResult` | 404 `RESULT_NOT_FOUND` |
@@ -29,6 +32,24 @@ Frontend TypeScript types must be derived from these models (never hand-extended
 
 `status` values `processing`/`failed` are reserved for the DEC-016 async upgrade and are not
 emitted at P0.
+
+### Baseline catalogue (1.2.0, DEC-033)
+`GET /baselines` lists what an analysis can be run against, so a client can offer a choice instead of asking for ids:
+- `baselines[]`: `baseline_id` (the value to send), `passage_id`, `dataset_version`, `sha256`, `n_baseline_recordings`, `n_rate_windows`,
+  `n_pauses_within_phrase`, `thin_rate_statistics` / `thin_pause_statistics` (the same rules that produce the `baseline_thin_*`
+  analysis notes) and, when the passage catalog knows the passage, `passage_title`, `passage_text`, `passage_word_count`.
+  Sorted by `passage_id`, then `baseline_id`.
+- `unavailable[]`: baseline files that exist but cannot be used, as `{baseline_id, reason}` with `reason` one of `unreadable`,
+  `invalid_file`, `integrity_check_failed`. Server paths and exception text are never included.
+- An empty list is a normal answer (no baseline has been built yet), not an error.
+
+### Browsers and the dashboard (DEC-033)
+- **CORS:** only the origins in `CORS_ORIGINS` (default: the Vite dev server on port 5173) may read API responses from a browser; methods
+  `GET`/`POST`/`OPTIONS`; no credentials. Setting it empty switches CORS off.
+- **Serving the dashboard:** if `FRONTEND_DIST_DIR` (default `frontend/dist`) contains an `index.html`, the same server serves it at
+  `/`, after all API routes, so `/api/v1/*`, `/docs` and `/openapi.json` always win. Without a build, `/` is simply 404.
+- **Types:** `frontend/openapi.json` is a committed snapshot of the API's OpenAPI document (`python scripts/export_openapi.py`); the
+  dashboard's TypeScript types are generated from it and a test fails if the snapshot is out of date.
 
 ### Analysis identity and result retrieval (DEC-032)
 - `analysis_id` is deterministic: a UUIDv5 of everything that can change the stored result (the audio, its trim offset and

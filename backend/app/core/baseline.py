@@ -40,11 +40,24 @@ class BaselineNotFoundError(BaselineError, LookupError):
 
 
 class BaselineIntegrityError(BaselineError, ValueError):
-    """A baseline statistics file exists but is unreadable, invalid, or fails verification."""
+    """A baseline statistics file exists but is unreadable, invalid, or fails verification.
+
+    `code` is a short machine-readable reason that is safe to show to clients (the message itself names server paths):
+    ``unreadable``, ``invalid_file``, ``integrity_check_failed`` or ``passage_mismatch``.
+    """
+
+    code = "integrity_error"
+
+    def __init__(self, message: str, code: Optional[str] = None) -> None:
+        super().__init__(message)
+        if code is not None:
+            self.code = code
 
 
 class BaselinePassageMismatchError(BaselineIntegrityError):
     """The requested baseline exists but describes a different passage than the one requested."""
+
+    code = "passage_mismatch"
 
 
 class BaselineProvider:
@@ -75,6 +88,38 @@ class BaselineProvider:
             p.stem for p in self.directory.glob("*.json") if re.match(ID_PATTERN, p.stem)
         )
 
+    def list_baselines(self) -> List[str]:
+        """Baseline ids (file stems) that have a stats file, sorted; the same list as `list_passages` (kept for DEC-015)."""
+        return self.list_passages()
+
+    def load(self, baseline_id: str) -> BaselineStatsRecord:
+        """Return the verified record stored under `baseline_id`, WITHOUT requiring it to describe a particular passage.
+
+        Raises:
+            BaselineNotFoundError: invalid identifier or no stats file for it.
+            BaselineIntegrityError: file unreadable, schema-invalid, or with a `sha256` that does not match its content.
+        """
+        path = self.path_for(baseline_id)
+        if not path.is_file():
+            raise BaselineNotFoundError(f"no baseline statistics '{baseline_id}' in {self.directory}")
+
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            raise BaselineIntegrityError(f"cannot read baseline file {path}: {exc}", code="unreadable") from exc
+
+        try:
+            record = BaselineStatsRecord.model_validate_json(text)
+        except ValidationError as exc:
+            raise BaselineIntegrityError(f"invalid baseline file {path}: {exc}", code="invalid_file") from exc
+
+        if not record.verify_sha256():
+            raise BaselineIntegrityError(
+                f"baseline file {path} fails sha256 verification (content changed since it was built)",
+                code="integrity_check_failed",
+            )
+        return record
+
     def get(self, baseline_id: str, *, passage_id: Optional[str] = None) -> BaselineStatsRecord:
         """Return verified baseline statistics.
 
@@ -90,27 +135,20 @@ class BaselineProvider:
         """
         if passage_id is not None and (not isinstance(passage_id, str) or not re.match(ID_PATTERN, passage_id)):
             raise BaselineNotFoundError(f"invalid passage_id {passage_id!r}")
-        path = self.path_for(baseline_id)
-        if not path.is_file():
-            raise BaselineNotFoundError(f"no baseline statistics '{baseline_id}' in {self.directory}")
-
-        try:
-            text = path.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as exc:
-            raise BaselineIntegrityError(f"cannot read baseline file {path}: {exc}") from exc
-
-        try:
-            record = BaselineStatsRecord.model_validate_json(text)
-        except ValidationError as exc:
-            raise BaselineIntegrityError(f"invalid baseline file {path}: {exc}") from exc
-
+        record = self.load(baseline_id)
         expected = passage_id if passage_id is not None else baseline_id
         if record.passage_id != expected:
             raise BaselinePassageMismatchError(
-                f"baseline file {path} describes passage '{record.passage_id}', expected '{expected}'"
-            )
-        if not record.verify_sha256():
-            raise BaselineIntegrityError(
-                f"baseline file {path} fails sha256 verification (content changed since it was built)"
+                f"baseline file {self.path_for(baseline_id)} describes passage '{record.passage_id}', expected '{expected}'"
             )
         return record
+
+
+def rate_statistics_thin(record: BaselineStatsRecord) -> bool:
+    """True if the baseline's speech-rate statistics rest on very few rolling windows (rate z-scores can be over-sensitive)."""
+    return record.n_rate_windows < settings.BASELINE_THIN_RATE_WINDOWS
+
+
+def pause_statistics_thin(record: BaselineStatsRecord) -> bool:
+    """True if the baseline's pause statistics rest on very few within-phrase pauses (pause z-scores can be over-sensitive)."""
+    return record.n_pauses_within_phrase < settings.BASELINE_THIN_PAUSES

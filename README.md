@@ -13,9 +13,9 @@ audio → preprocessing → transcription → forced alignment → feature extra
       → API → dashboard
 ```
 
-## Status (2026-10-09)
+## Status (2026-10-10)
 
-Working and tested (810 tests, on synthetic speech):
+Working and tested (838 backend and 231 dashboard tests, on synthetic speech):
 
 - audio preprocessing with source-time provenance, Whisper transcription, WhisperX alignment and validation
 - features: pitch (pYIN), MFCC, energy (dBFS), rolling-window speech rate, pauses (energy VAD + alignment gaps)
@@ -24,9 +24,14 @@ Working and tested (810 tests, on synthetic speech):
 - deterministic scoring that leaves unevaluated dimensions out (pitch is currently "not scored")
 - template explanations and recommendations whose numbers are checked by an independent guard (no LLM is called)
 - `POST /api/v1/analyze` runs the whole pipeline; `GET /api/v1/status/{id}` and `GET /api/v1/result/{id}` return stored results
-  (deterministic ids, file cache), with a `notes` list that states everything not evaluated or uncalibrated
+  (deterministic ids, file cache), with a `notes` list that states everything not evaluated or uncalibrated; `GET /api/v1/baselines`
+  lists the baselines that can be used
+- the **dashboard** (`frontend/`, light and dark): upload and baseline choice, overview with the score and its dimensions, a timeline
+  with every signal on one time axis, findings with their evidence, explanation and recommendation, signals, transcript, baseline and
+  method, a printable report, a library, settings and a command palette. It renders backend output only and ships four demo samples
+  (synthetic voice, deliberate flaws, analysed by the real pipeline) that open without a baseline
 
-Not done yet: `flat_pitch` detection, an LLM explanation provider, and the frontend. There are **no recordings** in the repository,
+Not done yet: `flat_pitch` detection, an LLM explanation provider, in-browser recording. There are **no recordings** in the repository,
 so detection thresholds and weights are uncalibrated starting values and nothing has been evaluated on real speech. The real
 Whisper/WhisperX models were not run in the development sandbox: the pipeline is tested end to end with stand-ins for those two
 models, and `python -m pytest -m smoke` (run it on a machine that can download them) is the first thing to do. See `PROJECT_STATE.md`.
@@ -37,6 +42,13 @@ models, and `python -m pytest -m smoke` (run it on a machine that can download t
 python -m venv .venv && source .venv/bin/activate        # PowerShell: .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
 python -m pytest
+```
+
+Build and open the dashboard (the four demo samples need nothing else; Node 20.19+):
+
+```bash
+(cd frontend && npm ci && npm run build)
+python -m uvicorn app.main:app --app-dir backend         # then open http://127.0.0.1:8000/
 ```
 
 Run the API and analyse a recording (needs a baseline statistics file, see [`docs/setup.md`](docs/setup.md) §4):
@@ -57,8 +69,9 @@ Details and options: [`docs/setup.md`](docs/setup.md); the response is documente
 | `backend/tests/`, `tests/` | unit/API tests and integration/end-to-end tests |
 | `scripts/dataset/` | dataset validator and baseline-statistics builder |
 | `data/` | dataset metadata schema fixtures (no audio yet) |
-| `docs/` | architecture proposal, API contract, dataset methodology, setup |
-| `frontend/` | placeholder (React + Vite + TypeScript planned) |
+| `docs/` | architecture proposal, API contract, dashboard, dataset methodology, setup |
+| `frontend/` | the dashboard (React + Vite + TypeScript), its tests and the demo samples; see [`docs/architecture/frontend.md`](docs/architecture/frontend.md) |
+| `scripts/demo/` | builds the synthetic demo samples |
 
 Project control documents: `AGENTS.md` (rules), `ARCHITECTURE.md` (canonical design), `DECISIONS.md`, `TASKS.md`, `PROJECT_STATE.md`.
 

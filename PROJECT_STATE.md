@@ -1,38 +1,42 @@
 # Project State
 
 Last updated:
-2026-10-09
+2026-10-10
 
 Updated by:
-Coding agent (control-file synchronization with verified code state, delegated by the team leader)
+Coding agent (dashboard delivered and control files synchronised, delegated by the team leader)
 
-All statements below were checked against the repository and a full test run on 2026-10-09
-(810 tests passed, 0 failed, 2 smoke tests deselected; real pytest/scipy/librosa/av/openai-whisper; see section 9).
+All statements below were checked against the repository and full test runs on 2026-10-10
+(838 backend tests passed, 2 smoke tests deselected; 231 dashboard tests passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
 
 # 1. CURRENT PHASE
 
-Analytical core and orchestration complete on synthetic speech; waiting for real data.
+Analytical core, orchestration and dashboard complete on synthetic speech; waiting for real data.
 
 Pipeline status (ARCHITECTURE.md §4):
 preprocessing ✅ → transcription ✅ → forced alignment ✅ → feature extraction ✅ (F0, MFCC, energy,
 rate, pauses; clarity P1 ❌) → baseline statistics ✅ → normalization ✅ → contrastive comparison ✅
 (delta = z) → flaw candidates ✅ (flat pitch ❌) → severity ✅ → evidence ✅ → scoring ✅ →
-explanation ✅ (templates + number guard; no LLM) → API orchestration ✅ → dashboard ❌.
+explanation ✅ (templates + number guard; no LLM) → API orchestration ✅ → dashboard ✅ (demo samples; never run on a real recording).
 
 `POST /api/v1/analyze` now runs the whole pipeline and returns the contract-valid `AnalysisResult` (API contract 1.1.0);
 `GET /api/v1/status/{id}` and `GET /api/v1/result/{id}` read the stored result. This is verified end to end
 over HTTP on SYNTHETIC speech with injected flaws at known times, with Whisper and WhisperX replaced by exact-timing
 stand-ins. It has never run on a real recording or with the real models.
 
+The dashboard (`frontend/`, DEC-033) is served by the API at `/` and renders only backend output: upload, overview and score,
+timeline, findings with evidence, signals, transcript, baseline and method, printable report, library, settings, help, light and dark
+themes. Four synthetic demo samples (DEC-034) open without a baseline. `GET /api/v1/baselines` (API contract 1.2.0) feeds the upload form.
+
 ---
 
 # 2. PROJECT HEALTH
 
 Overall:
-🟡 Complete backend chain on synthetic data; no real recordings, no frontend, no real-model run
+🟡 Complete backend chain and dashboard on synthetic data; no real recordings, no real-model run
 
 Repository:
 🟢 main is current; all work is merged through pull requests
@@ -44,7 +48,7 @@ Backend:
 🟢 All 11 backend stages, the cache and the three analysis endpoints are implemented and tested
 
 Frontend:
-⚪ Not started (placeholder directory)
+🟢 Dashboard implemented and tested (231 tests, 27 injected bugs all caught); never run against the real models or a real recording
 
 Dataset:
 🔴 No recordings. data/ holds schema fixtures only (zero SHA-256 hashes, no audio); the baseline
@@ -52,20 +56,20 @@ builder correctly refuses them, and /analyze answers BASELINE_NOT_FOUND until a 
 This is the main blocker for any real result.
 
 Analysis pipeline:
-🟢 11 of 12 stages implemented; flat_pitch and the dashboard are missing
+🟢 12 of 12 stages implemented; flat_pitch detection is missing
 
 Testing:
-🟢 810 tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 838 backend + 231 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
-⚪ Not started
+🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
 
 ---
 
 # 3. CURRENT OBJECTIVE
 
 Turn the synthetic-speech proof into a real one: record the controlled dataset, build a baseline, run the real
-models (`pytest -m smoke`), calibrate thresholds and weights on the injected flaws, then build the dashboard.
+models (`pytest -m smoke`), calibrate thresholds and weights on the injected flaws, and show the real results in the dashboard.
 
 ---
 
@@ -73,6 +77,7 @@ models (`pytest -m smoke`), calibrate thresholds and weights on the injected fla
 
 Milestone M0 — Foundation: complete except the three-machine environment check.
 Milestone M1 — Analytical core: complete on synthetic data; calibration and real data outstanding.
+Milestone M2 — Dashboard: complete on synthetic data (demo samples); real data outstanding.
 
 M1 success criteria:
 
@@ -105,6 +110,9 @@ normalization (8777964), flaw candidates (d1268c5), control-document sync (0e1d0
 evidence + final flaw schema / API contract 1.1.0 (c0b53d2), scoring (8ab467a), explanations + guard (d79feb8),
 pipeline orchestration + result cache + /status + /result (the pull request that updated this file).
 
+Added 2026-10-10: dashboard (TASK-080 to TASK-089), API contract 1.2.0 with `GET /api/v1/baselines`, CORS and static serving of
+`frontend/dist`, OpenAPI snapshot with a drift test, synthetic demo samples (DEC-033, DEC-034).
+
 ---
 
 # 6. IN PROGRESS
@@ -120,7 +128,8 @@ None.
   machine with the models: `python -m pytest -m smoke`, then one real recording through /analyze.
 - Flat pitch: BaselineStats has only the pooled global F0 std; a valid detector needs a baseline statistic of
   F0 variation within a window (record-contract change). Until then pitch is reported as "not scored".
-- Team-leader confirmation requested for the agent decisions DEC-024 to DEC-032 (all made under delegated authority).
+- Team-leader confirmation requested for the agent decisions DEC-024 to DEC-034 (all made under delegated authority). DEC-033 also
+  supersedes the proposed DEC-P009 (no chart / HTTP / waveform / CSS-framework library).
 - **Loudness normalisation (amends the still-proposed DEC-P003) — decide BEFORE recordings and baselines are built.** Scaling each
   recording by its peak (−3 dBFS) makes a loud stretch define the scale: on synthetic speech a +6 dB stretch was not detected and five
   false "low energy" flags appeared on normal speech. Scaling by the median speech level fixed the false flags and gave correct
@@ -131,12 +140,25 @@ None.
 
 # 8. ACTIVE TASKS
 
-None. Candidates: collect recordings (TASK-122), calibration and evaluation (TASK-100 to TASK-107 on real data),
-the frontend (TASK-080+), flat pitch (after the baseline-statistic decision).
+None. Candidates: collect recordings (TASK-122), calibration and evaluation (TASK-100 to TASK-107 on real data), flat pitch
+(after the baseline-statistic decision), in-browser recording (TASK-090), the loudness-normalisation decision (section 7).
 
 ---
 
 # 9. RECENT CHANGES
+
+2026-10-10:
+- Dashboard implemented (React + Vite + TypeScript, no chart/UI library; DEC-033): application shell with a sidebar, whole-recording
+  ribbon, playback bar and command palette; light and dark themes; pages for new analysis, library, overview, timeline, findings,
+  signals, transcript, baseline and method, printable report, settings and help. It computes no analytics.
+- Backend support: API contract 1.2.0 (`GET /api/v1/baselines`), CORS from `CORS_ORIGINS`, static serving of `frontend/dist` at `/`,
+  OpenAPI snapshot (`frontend/openapi.json`) exported by `scripts/export_openapi.py` and guarded by a drift test.
+- Synthetic demo samples with the real pipeline's results and ground truth (DEC-034).
+- Found and fixed by the dashboard tests: a request replaced by a newer one could still overwrite the open analysis (and an aborted
+  sample fetch was shown as an error); a duration of 119.6 s was written "1 min 60 s"; minute-long tick labels lacked zero padding.
+- Colour tokens were adjusted to meet WCAG AA in both themes and a test now guards them; an axe-core audit of every page and interactive
+  state (44 combinations, both themes) found and removed several accessibility defects and now passes (`npm run a11y`).
+- Full runs: 838 backend tests (2 smoke deselected) and 231 dashboard tests passed.
 
 2026-10-09:
 - TASK-013A, 032, 033, 034, 040, 041, 043/050/051 implemented and merged (see section 5).
@@ -153,7 +175,7 @@ the frontend (TASK-080+), flat pitch (after the baseline-statistic decision).
 
 # 10. CURRENT TECHNICAL DECISIONS
 
-Accepted decisions DEC-001 to DEC-022 are unchanged. Added 2026-10-09 (DEC-023 to DEC-032 are agent decisions under delegated
+Accepted decisions DEC-001 to DEC-022 are unchanged. Added 2026-10-09 and 2026-10-10 (DEC-023 to DEC-034 are agent decisions under delegated
 authority and await team-leader confirmation):
 
 - Source-time provenance of trimming; conversion applied once at response assembly (DEC-023)
@@ -166,6 +188,8 @@ authority and await team-leader confirmation):
 - Scoring: penalty = 30 x severity x reliability; unevaluated features are omitted and weights renormalised (DEC-030)
 - Explanations from a fact sheet, checked by an independent number guard; minimal fallback (DEC-031)
 - Orchestrator, analysis identity covering every input, result store, error mapping, notes (DEC-032)
+- Dashboard stack, boundary (renders backend output only), contract 1.2.0, serving, honest-presentation and accessibility rules (DEC-033)
+- Demo samples: synthetic voice, exact word timings, real pipeline, published selection rule, labelled everywhere (DEC-034)
 
 Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weights (DEC-P007). Results say so
 (`thresholds_uncalibrated` note) until `THRESHOLDS_CALIBRATED=true` is set after calibration.
@@ -192,8 +216,17 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
 - Baseline-relative normalization is not speaker adaptation (pitch/loudness offsets of the participant remain).
 - Test-split leakage question: whether test-speaker baselines may feed statistics for test participants is undecided
   (the builder requires an explicit --splits).
-- One analysis runs at a time and stored results are never evicted (no retention policy); there is no authentication and no CORS
-  configuration yet (the frontend will need CORS).
+- One analysis runs at a time and stored results are never evicted (no retention policy); there is no authentication. CORS allows only
+  the origins in `CORS_ORIGINS` (default: the Vite dev server); the API serves the dashboard itself in the normal case.
+- Dev tooling: `npm audit` reports advisories in the vitest 3 test runner (`tinypool`, `@vitest/mocker`; fixed only by vitest 5, which needs Node 22.12+);
+  `npm audit --omit=dev` is clean, so nothing shipped is affected. Revisit when the team standardises on Node 22+.
+- Dashboard: never run against the real models or a real recording; upload was tested in a real browser against a MOCKED API and in
+  component tests. Charts are SVG (fine for minutes of audio after thinning, not for hours). A result opened by id has no audio.
+- Detector findings from building the demo samples (synthetic speech; see DEC-034): the per-event pause rule (z > 2 over about twenty
+  pauses) flagged 6 of 10 CLEAN takes, so the false-flag rate must be calibrated below about 10 %; the frame-level energy rule missed a
+  20 dB quieter sentence in all 40 candidate takes; the absolute -50 dBFS pause threshold splits quiet speech into false pauses; peak
+  normalisation makes a louder stretch hard to detect (see the loudness-normalisation item in section 7); rate findings are
+  window-resolution and long pauses inflate `too_slow`. The demo samples show a miss and the false-flag diagnostic on purpose.
 - MP3 decoder delay is not measured; MP3 timestamps may be offset by a few tens of ms.
 - Dependencies are `>=` ranges without a lockfile; WhisperX is not installed in the verification environment. Library
   versions are part of the analysis identity, so a changed environment produces new ids rather than stale results.
@@ -211,7 +244,7 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
 2. Calibrate thresholds, severity and weights on the controlled flaws (TASK-100 to TASK-107 on real data), then set
    `THRESHOLDS_CALIBRATED=true`, bump CONFIG_VERSION and freeze.
 3. Decide the within-window F0-variation baseline statistic and implement flat pitch.
-4. Frontend (TASK-080+) against the real API output (add CORS).
+4. Run the dashboard against real API output (needs priority 1), then decide on in-browser recording (TASK-090) and a waveform (TASK-091).
 5. Optional: an LLM explanation provider that receives only the fact sheet and passes the existing guard.
 
 ---

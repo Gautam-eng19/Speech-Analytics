@@ -14,8 +14,9 @@ from pydantic import BaseModel, ConfigDict
 #   - MAJOR on breaking changes (URL prefix /api/v1 -> /api/v2 as well)
 #   - MINOR on backward-compatible additions (new optional fields)
 # History: 1.0.0 initial contract (TASK-002); 1.1.0 adds Flaw.rule / affected_words / warnings,
-#          AudioInfo.trim_start_s / source_duration_s, AnalysisResult.notes / config_fingerprint.
-API_CONTRACT_VERSION = "1.1.0"
+#          AudioInfo.trim_start_s / source_duration_s, AnalysisResult.notes / config_fingerprint;
+#          1.2.0 adds GET /baselines (BaselineSummary, BaselineListResponse) for the dashboard.
+API_CONTRACT_VERSION = "1.2.0"
 
 
 class ContractModel(BaseModel):

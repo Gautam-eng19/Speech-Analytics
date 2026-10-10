@@ -34,6 +34,7 @@ __all__ = [
     "HealthResponse", "StatusResponse", "ErrorResponse", "AnalysisResult",
     "AudioInfo", "BaselineInfo", "AlignedWord", "FeatureSet", "BaselineStats",
     "Flaw", "DetectionRule", "ScoreSummary", "FeatureScore", "ProcessingMeta", "AnalysisNote",
+    "BaselineSummary", "UnavailableBaseline", "BaselineListResponse",
 ]
 
 _Unit = Field(ge=0.0, le=1.0)
@@ -404,6 +405,42 @@ class AnalysisNote(ContractModel):
 
     code: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     message: str = Field(min_length=1)
+
+
+# --------------------------------------------------------------------------
+# Baseline catalogue (1.2.0): what the dashboard offers before an analysis is run
+# --------------------------------------------------------------------------
+class BaselineSummary(ContractModel):
+    """A usable baseline and the passage it describes (GET /api/v1/baselines)."""
+
+    baseline_id: str = Field(min_length=1)
+    passage_id: str = Field(min_length=1)
+    dataset_version: str
+    sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    n_baseline_recordings: int = Field(ge=0)
+    n_rate_windows: int = Field(ge=0)
+    n_pauses_within_phrase: int = Field(ge=0)
+    # Same rules as the `baseline_thin_*` analysis notes: the statistics rest on very few observations.
+    thin_rate_statistics: bool
+    thin_pause_statistics: bool
+    # From the passage catalog (null if the catalog has no entry for the passage).
+    passage_title: Optional[str] = None
+    passage_text: Optional[str] = None
+    passage_word_count: Optional[int] = Field(default=None, ge=0)
+
+
+class UnavailableBaseline(ContractModel):
+    """A baseline file that exists but cannot be used; `reason` is a short code, never a server path."""
+
+    baseline_id: str = Field(min_length=1)
+    reason: Literal["unreadable", "invalid_file", "integrity_check_failed", "integrity_error"]
+
+
+class BaselineListResponse(ContractModel):
+    """GET /api/v1/baselines"""
+
+    baselines: list[BaselineSummary] = Field(default_factory=list)
+    unavailable: list[UnavailableBaseline] = Field(default_factory=list)
 
 
 # --------------------------------------------------------------------------

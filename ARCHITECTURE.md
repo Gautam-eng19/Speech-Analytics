@@ -1400,6 +1400,9 @@ GET /api/v1/result/{analysis_id}
 
 GET /api/v1/status/{analysis_id}
   Response: { "status": "done" | "not_found" }
+
+GET /api/v1/baselines                      (API contract 1.2.0, DEC-033)
+  Response: usable baselines with their passage, plus unusable baseline files with a reason code
 ```
 
 ### Synchronous vs asynchronous
@@ -1699,6 +1702,12 @@ Appropriate to hackathon scope. No production security hardening is required.
 
 Frontend receives `ExplanationResult` from the backend and renders it.
 It has no other source of analytical truth.
+
+Implemented 2026-10-10 (DEC-033, `docs/architecture/frontend.md`): the dashboard only reads backend values; lookups (nearest frame,
+containing pause, word at a time), ordering, number formatting, axis choice and thinning of long series for drawing are display
+logic. Two labelled pieces of drawing geometry use backend numbers: the baseline mean plus/minus one and two standard deviations,
+and the position of a finding's own rule threshold (`mean + rule.threshold_z * std`) on the evidence gauge. It adds no analytical
+value to any result.
 
 ---
 

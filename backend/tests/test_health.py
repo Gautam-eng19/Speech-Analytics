@@ -6,6 +6,7 @@ import json
 from typing import Any, Dict, Tuple
 
 import pytest
+from app.schemas.common import API_CONTRACT_VERSION
 from app.main import app
 from app.schemas.response import HealthResponse
 
@@ -51,7 +52,7 @@ async def asgi_request(
 def test_app_startup_and_metadata():
     """Verify application can be instantiated and exposes correct metadata."""
     assert app.title == "Speech Analytics API"
-    assert app.version == "1.0.0"
+    assert app.version == API_CONTRACT_VERSION        # the OpenAPI document carries the contract version
 
 
 def test_health_endpoint():
@@ -64,7 +65,7 @@ def test_health_endpoint():
     assert health.status == "ok"
     assert health.config_version == "1.0.0"
     assert health.pipeline_version == "1.0.0"
-    assert health.api_contract_version == "1.1.0"
+    assert health.api_contract_version == "1.2.0"
 
 
 def test_validation_error_handler():

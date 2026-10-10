@@ -42,6 +42,8 @@ from app.core.baseline import (
     BaselineNotFoundError,
     BaselinePassageMismatchError,
     BaselineProvider,
+    pause_statistics_thin,
+    rate_statistics_thin,
 )
 from app.core.cache import ResultCache, analysis_id_for_key, make_cache_key
 from app.core.config import settings
@@ -488,11 +490,11 @@ class AnalysisPipeline:
             add("thresholds_uncalibrated",
                 "Detection thresholds and score weights are initial values that have not been calibrated on recorded data; "
                 "treat findings and scores as indicative.")
-        if record.n_rate_windows < settings.BASELINE_THIN_RATE_WINDOWS:
+        if rate_statistics_thin(record):
             add("baseline_thin_rate",
                 f"The baseline speech-rate statistics rest on only {record.n_rate_windows} rolling window(s); speech-rate "
                 "z-scores can be over-sensitive.")
-        if record.n_pauses_within_phrase < settings.BASELINE_THIN_PAUSES:
+        if pause_statistics_thin(record):
             add("baseline_thin_pauses",
                 f"The baseline pause statistics rest on only {record.n_pauses_within_phrase} within-phrase pause(s); "
                 "pause z-scores can be over-sensitive.")
