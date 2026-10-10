@@ -17,7 +17,8 @@
     "gen:types": "openapi-typescript openapi.json -o src/api/schema.d.ts",
     "samples": "python ../scripts/demo/build_demo_samples.py",
     "shots": "node scripts/screenshots.mjs",
-    "a11y": "node scripts/a11y.mjs"
+    "a11y": "node scripts/a11y.mjs",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@fontsource-variable/ibm-plex-sans": "^5.2.0",
