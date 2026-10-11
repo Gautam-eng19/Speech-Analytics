@@ -9,7 +9,9 @@ import pytest
 from app.core.config import settings
 from app.main import app
 from app.schemas.common import ErrorCode
-from app.schemas.response import ErrorResponse
+from app.schemas.response import AnalysisResult, ErrorResponse
+from api_helpers import FakePipeline, install
+from test_api_contract import valid_result_dict
 
 
 def build_multipart(
@@ -87,31 +89,38 @@ async def asgi_post_multipart(
 # Tests
 # --------------------------------------------------------------------------
 
-def test_valid_audio_upload_wav():
-    """Verify that a valid WAV upload passes validation and returns 200."""
+def _canned() -> AnalysisResult:
+    return AnalysisResult.model_validate(valid_result_dict())
+
+
+def test_valid_audio_upload_wav_runs_the_pipeline_and_returns_its_result():
+    """A valid WAV upload passes validation, reaches the pipeline with the parsed request, and returns 200 + AnalysisResult."""
+    fake = install(FakePipeline(result=_canned()))
     fields = {"baseline_id": "b_test_01", "passage_id": "p001"}
-    files = {"participant_audio": ("test_sample.wav", b"RIFFfake1234WAVEfmt ", "audio/wav")}
+    audio = b"RIFFfake1234WAVEfmt "
+    files = {"participant_audio": ("test_sample.wav", audio, "audio/wav")}
 
     status, resp = asyncio.run(asgi_post_multipart("/api/v1/analyze", fields, files))
     assert status == 200
-    assert resp["status"] == "valid"
-    assert resp["filename"] == "test_sample.wav"
-    assert resp["content_type"] == "audio/wav"
-    assert resp["baseline_id"] == "b_test_01"
-    assert resp["passage_id"] == "p001"
-    assert resp["size_bytes"] == len(b"RIFFfake1234WAVEfmt ")
+    assert AnalysisResult.model_validate(resp) == _canned()
+    assert len(fake.calls) == 1
+    sent_bytes, sent_request = fake.calls[0]
+    assert sent_bytes == audio
+    assert (sent_request.baseline_id, sent_request.passage_id) == ("b_test_01", "p001")
+    assert sent_request.manual_transcript is None and sent_request.speaker_gender is None
 
 
-def test_valid_audio_upload_mp3():
-    """Verify that a valid MP3 upload passes validation and returns 200."""
-    fields = {"baseline_id": "b_test_01", "passage_id": "p001"}
+def test_valid_audio_upload_mp3_is_accepted_and_forwards_optional_fields():
+    """A valid MP3 upload passes validation; optional fields are parsed and forwarded."""
+    fake = install(FakePipeline(result=_canned()))
+    fields = {"baseline_id": "b_test_01", "passage_id": "p001", "manual_transcript": "hello world",
+              "speaker_gender": "female", "config_version": settings.CONFIG_VERSION}
     files = {"participant_audio": ("sample.mp3", b"ID3fake1234data", "audio/mpeg")}
 
     status, resp = asyncio.run(asgi_post_multipart("/api/v1/analyze", fields, files))
-    assert status == 200
-    assert resp["status"] == "valid"
-    assert resp["filename"] == "sample.mp3"
-    assert resp["content_type"] == "audio/mpeg"
+    assert status == 200 and resp["analysis_id"] == _canned().analysis_id
+    request = fake.calls[0][1]
+    assert request.manual_transcript == "hello world" and request.speaker_gender.value == "female"
 
 
 def test_missing_audio_file():

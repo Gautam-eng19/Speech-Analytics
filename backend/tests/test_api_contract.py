@@ -227,3 +227,85 @@ def test_error_models_and_http_mapping():
     assert set(ERROR_HTTP_STATUS) == set(ErrorCode)
     assert ERROR_HTTP_STATUS[ErrorCode.BASELINE_NOT_FOUND] == 404
     assert ERROR_HTTP_STATUS[ErrorCode.PROCESSING_ERROR] == 500
+
+
+# ------------------------------------------------- contract 1.1.0 additions
+def _with_extras(d: dict) -> dict:
+    d["flaws"][0].update(
+        rule={"feature": "rate_z", "direction": "above", "threshold_z": 2.0, "min_duration_s": 0.5},
+        affected_words=["transformative", "capability"],
+        warnings=["Speech rate is measured over rolling windows, so the interval is approximate."],
+    )
+    d["audio"].update(trim_start_s=2.0, source_duration_s=23.5)
+    d["notes"] = [{"code": "pitch_not_evaluated", "message": "Flat-pitch detection is not available."}]
+    d["config_fingerprint"] = "c" * 64
+    return d
+
+
+def test_contract_version_reflects_the_additive_change():
+    assert API_CONTRACT_VERSION == "1.1.0"
+    assert AnalysisResult.model_validate(valid_result_dict()).api_contract_version == "1.1.0"
+
+
+def test_1_0_payloads_remain_valid_and_get_empty_defaults():
+    res = AnalysisResult.model_validate(valid_result_dict())          # no new fields supplied
+    flaw = res.flaws[0]
+    assert flaw.rule is None and flaw.affected_words == [] and flaw.warnings == []
+    assert res.audio.trim_start_s == 0.0 and res.audio.source_duration_s is None
+    assert res.notes == [] and res.config_fingerprint is None
+
+
+def test_new_fields_roundtrip_and_are_part_of_the_deterministic_json():
+    res = AnalysisResult.model_validate(_with_extras(valid_result_dict()))
+    assert res.flaws[0].rule.direction == "above" and res.flaws[0].affected_words[0] == "transformative"
+    assert res.notes[0].code == "pitch_not_evaluated" and res.config_fingerprint == "c" * 64
+    assert AnalysisResult.model_validate_json(res.model_dump_json()) == res
+    det = json.loads(res.deterministic_json())
+    assert det["notes"] and det["config_fingerprint"] == "c" * 64 and det["audio"]["trim_start_s"] == 2.0
+    other = _with_extras(valid_result_dict())
+    other["notes"][0]["message"] = "Different."
+    assert AnalysisResult.model_validate(other).deterministic_json() != res.deterministic_json()
+
+
+@pytest.mark.parametrize("mutator", [
+    lambda d: d["flaws"][0]["rule"].update(direction="sideways"),
+    lambda d: d["flaws"][0]["rule"].update(threshold_z=float("nan")),
+    lambda d: d["flaws"][0]["rule"].update(threshold_z=float("inf")),
+    lambda d: d["flaws"][0]["rule"].update(min_duration_s=-0.1),
+    lambda d: d["flaws"][0]["rule"].update(feature=""),
+    lambda d: d["flaws"][0]["rule"].update(unknown=1),
+    lambda d: d["flaws"][0]["rule"].pop("threshold_z"),
+    lambda d: d["flaws"][0].update(affected_words=[5]),
+    lambda d: d["flaws"][0].update(affected_words="word"),
+    lambda d: d["flaws"][0].update(warnings=[None]),
+    lambda d: d["audio"].update(trim_start_s=-0.5),
+    lambda d: d["audio"].update(trim_start_s=float("nan")),
+    lambda d: d["audio"].update(source_duration_s=-1.0),
+    lambda d: d["audio"].update(trim_start_s=5.0, source_duration_s=23.5),      # 5 + 20 > 23.5
+    lambda d: d["notes"][0].update(code="Bad Code"),
+    lambda d: d["notes"][0].update(code=""),
+    lambda d: d["notes"][0].update(message=""),
+    lambda d: d["notes"].append({"code": "x"}),
+    lambda d: d.update(config_fingerprint="xyz"),
+    lambda d: d.update(config_fingerprint="C" * 64),
+])
+def test_invalid_new_fields_rejected(mutator):
+    d = _with_extras(valid_result_dict())
+    mutator(d)
+    with pytest.raises(ValidationError):
+        AnalysisResult.model_validate(d)
+
+
+def test_flaw_bounds_are_checked_in_source_time():
+    # Analysed audio spans [trim_start, trim_start + duration] = [2.0, 22.0] in source time.
+    d = _with_extras(valid_result_dict())
+    d["flaws"][0].update(start_s=19.0, end_s=21.5, duration_s=2.5)             # beyond 20.0 but inside 22.0: valid
+    assert AnalysisResult.model_validate(d).flaws[0].end_s == 21.5
+    d["flaws"][0].update(start_s=19.0, end_s=22.5, duration_s=3.5)             # beyond 22.0: invalid
+    with pytest.raises(ValidationError, match="beyond audio duration"):
+        AnalysisResult.model_validate(d)
+    # Without a trim offset the original bound still applies.
+    d2 = valid_result_dict()
+    d2["flaws"][0].update(start_s=19.0, end_s=21.5, duration_s=2.5)
+    with pytest.raises(ValidationError, match="beyond audio duration"):
+        AnalysisResult.model_validate(d2)

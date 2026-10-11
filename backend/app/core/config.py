@@ -48,5 +48,36 @@ class Settings:
         self.TARGET_PEAK_DBFS: float = float(os.getenv("TARGET_PEAK_DBFS", "-3.0"))
         self.VAD_ENERGY_THRESHOLD_DBFS: float = float(os.getenv("VAD_ENERGY_THRESHOLD_DBFS", "-50.0"))
 
+        # Flaw-detection thresholds (DEC-P005, ARCHITECTURE.md §17). PROPOSED starting values:
+        # NOT calibrated on a dev split and not empirically validated (no recordings exist yet).
+        # They must be calibrated, then frozen with a CONFIG_VERSION bump (DEC-014).
+        self.Z_RATE_FAST: float = float(os.getenv("Z_RATE_FAST", "2.0"))
+        self.Z_RATE_SLOW: float = float(os.getenv("Z_RATE_SLOW", "2.0"))
+        self.Z_ENERGY: float = float(os.getenv("Z_ENERGY", "2.0"))
+        self.Z_PAUSE_WITHIN: float = float(os.getenv("Z_PAUSE_WITHIN", "2.0"))
+        self.Z_PAUSE_CROSS: float = float(os.getenv("Z_PAUSE_CROSS", "2.5"))
+        self.MIN_FLAW_DURATION_S: float = float(os.getenv("MIN_FLAW_DURATION_S", "0.5"))
+        self.MERGE_GAP_S: float = float(os.getenv("MERGE_GAP_S", "0.5"))
+
+        # Severity (DEC-P006 Option A as amended by DEC-028). PROPOSED, uncalibrated.
+        self.SEVERITY_Z_MIN: float = float(os.getenv("SEVERITY_Z_MIN", "1.0"))
+        self.SEVERITY_Z_SEVERE: float = float(os.getenv("SEVERITY_Z_SEVERE", "4.0"))
+        self.SEVERITY_DURATION_SEVERE_S: float = float(os.getenv("SEVERITY_DURATION_SEVERE_S", "5.0"))
+
+        # Pipeline honesty flags and baseline/content checks (DEC-032). PROPOSED, uncalibrated.
+        self.THRESHOLDS_CALIBRATED: bool = os.getenv("THRESHOLDS_CALIBRATED", "false").strip().lower() in ("1", "true", "yes")
+        self.PASSAGE_MATCH_MIN_RATIO: float = float(os.getenv("PASSAGE_MATCH_MIN_RATIO", "0.6"))
+        self.BASELINE_THIN_RATE_WINDOWS: int = int(os.getenv("BASELINE_THIN_RATE_WINDOWS", "5"))
+        self.BASELINE_THIN_PAUSES: int = int(os.getenv("BASELINE_THIN_PAUSES", "3"))
+
+        # Scoring (DEC-014 as amended by DEC-030; weights DEC-P007). PROPOSED, uncalibrated.
+        self.BASE_PENALTY: float = float(os.getenv("BASE_PENALTY", "30.0"))
+        self.SCORE_WEIGHT_SPEECH_RATE: float = float(os.getenv("SCORE_WEIGHT_SPEECH_RATE", "0.30"))
+        self.SCORE_WEIGHT_PITCH: float = float(os.getenv("SCORE_WEIGHT_PITCH", "0.25"))
+        self.SCORE_WEIGHT_PAUSES: float = float(os.getenv("SCORE_WEIGHT_PAUSES", "0.25"))
+        self.SCORE_WEIGHT_ENERGY: float = float(os.getenv("SCORE_WEIGHT_ENERGY", "0.20"))
+        self.SCORE_WEIGHT_MFCC: float = float(os.getenv("SCORE_WEIGHT_MFCC", "0.0"))
+        self.SCORE_WEIGHT_CLARITY: float = float(os.getenv("SCORE_WEIGHT_CLARITY", "0.0"))
+
 
 settings = Settings()
