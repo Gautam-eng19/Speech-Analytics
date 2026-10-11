@@ -676,7 +676,8 @@ Status: ACCEPTED (agent decision under delegated authority; leader may revise)
 
 Decision:
 - Energy: librosa RMS with pinned zero padding, 512-sample (32 ms) window, 160-sample (10 ms) hop, dBFS with a
-  1e-9 floor. Values are relative loudness after peak normalization, not absolute levels.
+  1e-9 floor. Values are relative loudness after the loudness scaling of preprocessing (typical speech level, DEC-036; originally peak
+  normalization), not absolute levels.
 - Speech rate (DEC-020): window k covers [k*step, k*step+window); a word belongs to a window by its start time
   (start inclusive, end exclusive); each value is timestamped at the midpoint of its effective span; fewer than
   min_windows valid windows -> the analysis is marked skipped with a reason.
@@ -967,8 +968,8 @@ Impact:
 - Regenerate the samples after any change that alters analysis output or the contract / configuration versions (the ids are derived
   from them); a stale sample would show numbers the current backend no longer produces.
 - Findings recorded while building them (open work, see PROJECT_STATE.md): per-event z > 2 over about twenty pauses flags 6 of 10 clean
-  takes; the energy rule missed a 20 dB quieter sentence in every candidate take; a peak-normalised recording makes a louder stretch
-  hard to detect; quiet speech is split into false pauses by the absolute -50 dBFS pause threshold; rate findings are window-resolution.
+  takes; the energy rule missed a 20 dB quieter sentence in every candidate take; a peak-normalised recording made a louder stretch
+  hard to detect (replaced by DEC-036 on 2026-10-11, which regenerated these samples); quiet speech is split into false pauses by the absolute -50 dBFS pause threshold; rate findings are window-resolution.
 
 Approved by: Team leader (delegated to coding agent)
 Date: 2026-10-10
@@ -1018,6 +1019,89 @@ Impact:
 
 Approved by: Team leader (delegated to coding agent)
 Date: 2026-10-10
+
+---
+
+## DEC-036 — Loudness Scaling by Typical Speech Level (amends DEC-P003 and DEC-027)
+
+Status: ACCEPTED (explicit approval by the team leader, 2026-10-11)
+
+Decision:
+- Preprocessing no longer scales a recording so that its loudest sample is -3 dBFS. After trimming, it scales the recording by ONE gain so
+  that the **typical speech level** is `TARGET_SPEECH_LEVEL_DBFS = -26.0` dBFS. The speech level is the median loudness of the speaking
+  frames: frame loudness is the energy feature's own (`frame_energy_db`: 32 ms RMS frames, 10 ms hop; one shared definition), and the
+  speaking frames are those within `SPEECH_LEVEL_WINDOW_DB = 30` dB of the 95th-percentile frame loudness.
+- The gain is capped so that the loudest sample never exceeds `MAX_PEAK_DBFS = -1.0` dBFS (a safety limit). Empty or digitally silent
+  audio is returned unchanged with `peak_dbfs = -100`.
+- The step runs identically for baseline recordings and participant recordings. `peak_dbfs` in the response keeps its meaning (the
+  measured peak after scaling); it is no longer -3. No API field changed, so the API contract version is unchanged.
+- The three constants are in `app/core/config.py`, replace `TARGET_PEAK_DBFS`, and are part of the analysis fingerprint (so cached results
+  and analysis ids change) and of the baseline builder's configuration snapshot. They are starting values, not calibrated.
+- The energy warning shown with energy findings now says that the recording is scaled to the baseline's typical speech level and that
+  energy shows louder or quieter stretches inside the recording, not how loud the speaker was overall.
+
+Reason:
+Scaling by the loudest sample lets one loud stretch define the scale. Measured end to end (synthetic voice, one sentence of 17 words
+changed, baseline built the same way; `energy_db` z-score of the changed sentence, and the level of the rest of the take against the
+baseline mean):
+
+| Injected change | Old: z of the sentence / rest of take | New: z of the sentence / rest of take |
+|---|---|---|
+| +6 dB | +0.22 / -3.4 dB | +0.53 / -0.7 dB |
+| +9.5 dB | +0.22 / -6.2 dB | +0.86 / -1.0 dB |
+| +12 dB | +0.22 / -8.1 dB | +0.98 / -2.2 dB |
+| +18 dB | +0.22 / -12.4 dB | +0.98 / -6.6 dB |
+| -12 dB | -0.95 / -0.2 dB | -0.85 / +1.4 dB |
+| -20 dB | -1.49 / -0.2 dB | -1.51 / +1.1 dB |
+
+The old method made every loud sentence look normal (the same z whatever the loudness) and pushed the rest of the take down by up to 12 dB.
+The new one gives the loud sentence a z-score that grows with its loudness and leaves the rest of the take close to the baseline. (The +12 and
++18 dB rows are limited by clipping in the synthetic file; the median also moves a little when a large part of a take is louder.)
+
+What this does NOT do (stated so nobody relies on it): the frame-level energy rule still did not flag any of these changes, because the
+baseline's frame-to-frame spread is wide (std 8.6 dB, so z > 2 needs about 17 dB) and one 10 ms frame must exceed the threshold. Detecting
+moderate loudness flaws needs the energy rule to compare windowed levels (about 0.5 to 1 s) instead of single frames, and a calibration
+on real recordings; that is open work (TASK-128), to be decided with the leader. The demo sample "Mixed flaws" therefore still shows the
+20 dB quiet sentence as a miss. Whole-take gain differences remain invisible by design (only differences inside a recording are measured),
+and a recording that is mostly loud or mostly quiet looks like a recording at another gain.
+
+Impact:
+- Backend: `speech_level_dbfs` / `speech_level_normalize` replace `peak_normalize` in `app/services/audio/preprocessor.py`; `frame_energy_db` is
+  factored out of `energy.py`. Tests for preprocessing, the pipeline and the baseline builder were updated, and new tests pin the level, the
+  preservation of differences inside a recording, independence of the overall gain, the cap, edge cases and determinism.
+- The four demo samples were regenerated (new analysis ids, new baseline hash; the audio files are unchanged); dashboard wording that
+  described peak normalisation was changed, and four dashboard tests now read their expected numbers from the sample instead of fixing them.
+- Any baseline built before this change is invalid for the new analysis (none existed). Baselines must be built after it.
+- The recording instructions do not depend on this decision. The recording checker's "loudest point" gates describe the raw recording
+  (headroom), not the scaled one.
+- Not verified: behaviour on real recordings and with the real Whisper/WhisperX models (their input level now differs).
+
+Approved by: Team leader (explicit approval, 2026-10-11)
+Date: 2026-10-11
+
+---
+
+## DEC-037 — Dataset Collection Plan v1
+
+Status: ACCEPTED (the team leader's answers of 2026-10-11 to the recording protocol's open decisions; the rest follows the protocol)
+
+Decision:
+- **Speakers:** four, anonymous: `spk_dev_01` and `spk_dev_02` (dev: baseline takes and tuning) and `spk_test_01` and `spk_test_02` (test: sealed until
+  the settings are frozen, DEC-017). The assignment is fixed before the first recording and never changed.
+- **Passages:** `p001` "Project talk" (123 words) and `p002` "Morning market" (118 words), `data/plan/passages_v1.json`. The pilot and the minimum tier use `p001` only.
+- **Equipment:** one USB headset for every speaker, Audacity, WAV mono 16-bit at the same rate (48 kHz or 44.1 kHz) for every recording, one quiet room.
+- **Plan:** nested tiers generated by `scripts/dataset/make_plan.py` (pilot 9 takes of `spk_dev_01`, minimum 36, recommended 112). The pilot comes first; the tier after it
+  is chosen from the time left. The generated files are `data/plan/pilot/` and `data/plan/v1/`; after the pilot a personal plan that skips the recorded takes is made with `--done`.
+- **Storage and consent:** audio stays out of git (`data/raw/*` and `data/incoming/` are ignored); every speaker signs the consent form (`docs/methodology/consent-form-template.md`),
+  kept with the name-to-id table outside the repository.
+- **Labels:** the planned stretch is turned into exact times after alignment (TASK-126) and confirmed by ear; for test speakers by a person who did not perform the take.
+- **Loudness:** DEC-036 (approved the same day).
+- **People:** one data owner runs the scripts with step-by-step help; speakers need only Audacity and a web browser.
+
+Not decided yet (asked again after the pilot): the tier after the pilot, the deadline, the recording schedule and who annotates.
+
+Approved by: Team leader (explicit answers, 2026-10-11)
+Date: 2026-10-11
 
 ---
 
@@ -1077,7 +1161,7 @@ Decision:
 Target sample rate: 16 000 Hz
 Channels: 1 (mono)
 Format: float32 PCM
-Peak normalization: −3 dBFS
+Peak normalization: −3 dBFS (replaced by scaling to the typical speech level, DEC-036, 2026-10-11)
 Silence trimming: energy VAD at −50 dBFS threshold
 Libraries: librosa + soundfile (ffmpeg for MP3)
 

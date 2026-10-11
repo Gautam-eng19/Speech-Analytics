@@ -328,7 +328,7 @@ Responsibilities:
 - Validate format (WAV, MP3), duration (max configurable), sample rate
 - Convert to mono
 - Resample to `TARGET_SAMPLE_RATE` (config, default 16 000 Hz)
-- Peak-normalize to `TARGET_PEAK_DBFS` (config, default −3 dBFS)
+- Scale so the median loudness of the speaking frames is `TARGET_SPEECH_LEVEL_DBFS` (config, default −26 dBFS), gain capped so the peak stays at or below `MAX_PEAK_DBFS` (DEC-036; replaces peak normalization to −3 dBFS)
 - Trim leading/trailing silence using energy VAD (threshold configurable)
 - Compute SHA-256 of the preprocessed PCM bytes
 - Return `PreprocessedAudio`
@@ -741,7 +741,7 @@ overall_summary:   str          — optional overall feedback (LLM or template)
 - Sample rate: `TARGET_SAMPLE_RATE = 16000` Hz (config)
 - Channels: 1 (mono)
 - Format: float32 PCM
-- Peak normalization: `TARGET_PEAK_DBFS = -3.0` dBFS (config)
+- Loudness scaling: median speech level `TARGET_SPEECH_LEVEL_DBFS = -26.0` dBFS, speaking frames within `SPEECH_LEVEL_WINDOW_DB = 30` dB of the 95th percentile, peak cap `MAX_PEAK_DBFS = -1.0` (config; DEC-036, replacing peak normalization to −3 dBFS)
 - Silence trimming: energy VAD with `VAD_ENERGY_THRESHOLD_DBFS = -50.0` (config)
 - Input formats accepted: WAV, MP3 (ffmpeg required for MP3)
 - Max upload size: `MAX_UPLOAD_BYTES = 10_485_760` (10 MB, config)

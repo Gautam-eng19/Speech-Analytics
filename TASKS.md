@@ -849,7 +849,7 @@ Status: BACKLOG
 Priority: P0
 
 Progress (task NOT complete):
-The recording protocol (docs/methodology/recording-protocol.md, proposed, awaiting the team leader's confirmation of its decisions) and a plain-language guide (docs/methodology/dataset-guide.md) exist. The recording kit is built and tested on synthetic audio (TASK-125). No recordings exist yet. Still to do: the team leader's decisions (speakers, tier, equipment, loudness normalisation), the pilot recording, the registration and labelling tools (TASK-126), the evaluation and tuning tools (TASK-127), the full recording, and the use of the data (baseline, measurement, calibration, frozen test run).
+The recording protocol (docs/methodology/recording-protocol.md; the leader confirmed speakers, equipment and loudness on 2026-10-11, DEC-036 and DEC-037) and a plain-language guide (docs/methodology/dataset-guide.md) exist. The recording kit is built and tested on synthetic audio (TASK-125). No recordings exist yet. Still to do: the pilot recording (plan ready in data/plan/pilot/), the tier after it, the registration and labelling tools (TASK-126), the evaluation and tuning tools (TASK-127), the full recording, and the use of the data (baseline, measurement, calibration, frozen test run).
 
 \## TASK-123 — Demo Video
 
@@ -874,10 +874,19 @@ Status: REVIEW
 Priority: P0
 
 Delivered:
-`scripts/dataset/make_plan.py` (deterministic recording plan for any number of speakers and three nested tiers: pilot 9, minimum 36/28, recommended 112/86 takes; plan.csv, one on-screen prompter page per speaker with a setup checklist, highlighted flawed stretch, silent-pause marker and accept/reject tracking, session log), `scripts/dataset/check_recordings.py` (format, size, clipping, level, room noise, silence at the ends, length, mains hum, with plain-language fixes, JSON output and exit codes), `scripts/dataset/passage_text.py` (shared passage rules), final passages `data/plan/passages_v1.json`, `docs/methodology/dataset-guide.md`, `docs/methodology/consent-form-template.md`. 97 tests; 20 injected bugs all caught; the prompter driven in a real Chromium.
+`scripts/dataset/make_plan.py` (deterministic recording plan for any number of speakers and three nested tiers: pilot 9, minimum 36/28, recommended 112/86 takes, `--done` to continue after the pilot; plan files for the team's 2 + 2 speakers in `data/plan/pilot/` and `data/plan/v1/`; plan.csv, one on-screen prompter page per speaker with a setup checklist, highlighted flawed stretch, silent-pause marker and accept/reject tracking, session log), `scripts/dataset/check_recordings.py` (format, size, clipping, level, room noise, silence at the ends, length, mains hum, with plain-language fixes, JSON output and exit codes), `scripts/dataset/passage_text.py` (shared passage rules), final passages `data/plan/passages_v1.json`, `docs/methodology/dataset-guide.md`, `docs/methodology/consent-form-template.md`. 103 tests; 20 injected bugs all caught; the prompter driven in a real Chromium.
 
 Known limitation:
 Tested on synthetic audio only; the checker's thresholds come from the protocol and must be confirmed by the pilot. Target durations in the plan are estimates (150 words a minute).
+
+\## TASK-128 — Windowed Energy Rule
+
+Status: BACKLOG
+
+Priority: P0
+
+Notes:
+The energy rule judges single 10 ms frames against a wide baseline spread (std about 9 dB), so changes of +6 to +18 dB and -12 to -20 dB in a whole sentence are not flagged even after the loudness scaling of DEC-036. Compare levels over 0.5 to 1 s windows with the baseline's distribution of such windows, then calibrate on real recordings. Analytical change: needs the team leader's approval and a decision record.
 
 \## TASK-126 — Registration and Labelling Tools
 
