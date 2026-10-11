@@ -68,6 +68,8 @@ yarn-error.log*
 data/raw/*
 !data/raw/.gitkeep
 data/incoming/
+# Personal copies of the recording plan (for example made with --done after the pilot) are not committed.
+data/plan/local/
 
 # Project Generated / Runtime Cache
 data/processed/cache/*

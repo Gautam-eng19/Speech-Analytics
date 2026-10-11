@@ -120,7 +120,9 @@
   function hash(text) { var h = 5381; for (var i = 0; i < text.length; i++) { h = ((h << 5) + h + text.charCodeAt(i)) | 0; } return (h >>> 0).toString(36); }
   function load() {
     try { var raw = localStorage.getItem(key); if (raw) { var s = JSON.parse(raw); if (s && s.marks) return s; } } catch (e) { /* storage unavailable: progress lasts for this page view only */ }
-    return { marks: {}, attempts: {}, index: 0, checked: [], started: false };
+    var marks = {}, first = -1;   // takes already recorded when the plan was made (make_plan.py --done) start as accepted
+    takes.forEach(function (t, i) { if (t.status === "accepted") marks[t.take_id] = "accepted"; else if (first < 0) first = i; });
+    return { marks: marks, attempts: {}, index: first < 0 ? 0 : first, checked: [], started: false };
   }
   function save() { try { localStorage.setItem(key, JSON.stringify(state)); } catch (e) { /* ignore */ } }
 
