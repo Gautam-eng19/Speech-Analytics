@@ -94,22 +94,38 @@ Write the answers down; I will turn them into the plan.
    also works if every take uses **the same phone in the same position**. One small quiet room for all sessions.
 4. **Where the audio lives.** On a **shared drive or an external disk, not in GitHub**. These are people's voices. Each speaker signs the
    consent form ([`consent-form-template.md`](consent-form-template.md)) first.
-5. **Approve one change I propose** (it needs your yes before any baseline is built): the software should scale each recording by its
-   *typical speech level* instead of its *loudest point*. Today, one loud stretch can make the whole rest of the recording look quiet and
-   cause false alarms. Details: protocol section 8.3. **The recording instructions do not depend on this**, so you can answer later,
-   but before step 8.
+5. **Loudness (approved by you on 2026-10-11, now in the software):** the software scales each recording by its *typical speech level*
+   instead of its *loudest point*. Before, one loud stretch made the whole rest of the recording look quieter (by up to 12 dB in my test).
+   Details: decision DEC-036 and protocol section 8.3. **The recording instructions do not depend on this.** One honest limit: the
+   current loudness detector still cannot find moderate loud or quiet stretches (TASK-128), so the loud and quiet takes are recorded
+   in an exaggerated way and may still be missed until that detector is improved.
 
 ### Step 2: Get the kit onto the recording computer
 
-The speakers only need a web browser and Audacity. **One person (the "data owner") runs three small commands.**
+The speakers only need a web browser and Audacity. **The plan for your team (2 dev + 2 test speakers) is already in the repository**, so after
+`git pull origin main` you can open the pages directly. The data owner needs Python only for the checker:
 
 ```bash
 git pull origin main
 python -m pip install numpy scipy          # all the kit needs; the big speech models are not needed for recording
-python scripts/dataset/make_plan.py --dev 2 --test 2 --tier pilot --out data/plan/pilot
 ```
 
-(Change `--dev 2 --test 2` to your numbers and `--tier pilot` to `minimum` or `recommended`.) This writes, into the folder you named:
+* `data/plan/pilot/` is the **pilot** (9 takes, speaker `spk_dev_01`): open `prompter_spk_dev_01.html`.
+* `data/plan/v1/` is the **whole plan** (112 takes, four speakers, two passages): `prompter_spk_dev_01.html` ... `prompter_spk_test_02.html`.
+
+If your numbers change (3 speakers, only one passage), make a new plan with the same tool, for example:
+
+```bash
+python scripts/dataset/make_plan.py --dev 2 --test 1 --tier minimum --out data/plan/mine
+```
+
+**After the pilot**, make a personal plan that skips the nine recorded takes (the files must keep the names the prompter showed):
+
+```bash
+python scripts/dataset/make_plan.py --dev 2 --test 2 --tier recommended --done path/to/pilot/folder --out data/plan/local
+```
+
+Each plan folder contains:
 
 * `plan.csv`: every take, in recording order, with its instruction;
 * `prompter_spk_dev_01.html` (one per speaker): **double-click it** to open it in a browser. It shows the passage, highlights the

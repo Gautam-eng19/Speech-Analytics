@@ -53,7 +53,13 @@ class Settings:
         self.MAX_UPLOAD_BYTES: int = int(os.getenv("MAX_UPLOAD_BYTES", "10485760"))  # 10 MB
         self.MAX_DURATION_S: float = float(os.getenv("MAX_DURATION_S", "300.0"))  # 5 minutes
         self.TARGET_SAMPLE_RATE: int = int(os.getenv("TARGET_SAMPLE_RATE", "16000"))
-        self.TARGET_PEAK_DBFS: float = float(os.getenv("TARGET_PEAK_DBFS", "-3.0"))
+        # Loudness scaling (DEC-036): every recording is scaled so the median loudness of its speaking frames is the target level.
+        # Speaking frames are those within SPEECH_LEVEL_WINDOW_DB of the 95th-percentile frame loudness; the gain is capped so the
+        # loudest sample never exceeds MAX_PEAK_DBFS. PROPOSED starting values (the target is the level the thresholds below were
+        # explored at); changing them changes every energy value, so they are part of the analysis fingerprint.
+        self.TARGET_SPEECH_LEVEL_DBFS: float = float(os.getenv("TARGET_SPEECH_LEVEL_DBFS", "-26.0"))
+        self.SPEECH_LEVEL_WINDOW_DB: float = float(os.getenv("SPEECH_LEVEL_WINDOW_DB", "30.0"))
+        self.MAX_PEAK_DBFS: float = float(os.getenv("MAX_PEAK_DBFS", "-1.0"))
         self.VAD_ENERGY_THRESHOLD_DBFS: float = float(os.getenv("VAD_ENERGY_THRESHOLD_DBFS", "-50.0"))
 
         # Flaw-detection thresholds (DEC-P005, ARCHITECTURE.md §17). PROPOSED starting values:

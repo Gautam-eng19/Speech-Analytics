@@ -49,7 +49,7 @@ The five rules:
 | 1 | Speakers and split | 4 speakers: 2 dev + 2 test. With 3: 2 dev + 1 test (§2) | Baseline needs more than one voice; test must be unseen voices |
 | 2 | Passages | Pilot with 1, then 2 passages of 100–130 words (§4) | Variety without exploding the workload |
 | 3 | Where the audio lives | **Outside git** (shared drive); git keeps metadata, annotations, alignments, baseline statistics | Size (about 5 MB per take) and consent; `data/raw/` is *not* git-ignored today |
-| 4 | Loudness normalisation in the software | Approve the change described in §8.3 | Today a loud stretch cannot be detected and causes false alarms |
+| 4 | Loudness normalisation in the software | **Approved and implemented 2026-10-11 (DEC-036)**, see §8.3 | Peak scaling made a loud stretch look normal and pushed the rest of the take down |
 | 5 | Who annotates test takes | Someone who did not perform the take | Avoids the performer marking what they meant instead of what is audible |
 | 6 | `flat_pitch` takes | Optional now | The detector is not implemented yet; recording them costs little and the data stays useful |
 | 7 | Consent and sharing | Written consent from every speaker (§13) | Voices are personal data (`AGENTS.md` §22) |
@@ -342,8 +342,8 @@ The microphone and conditions also go into the manifest (`microphone`, `recordin
 - The software scales every file, baseline and participant alike, in its preprocessing step. That is the only place loudness is
   adjusted, so that the baseline and the participant are always treated identically.
 
-### 8.2 What the software does today, and what I measured (synthetic speech)
-Today each recording is scaled so that its **loudest sample is −3 dBFS**. Consequences, measured on synthetic speech with one stretch
+### 8.2 What the software did until 2026-10-11, and what I measured (synthetic speech)
+Until DEC-036 each recording was scaled so that its **loudest sample is −3 dBFS**. Consequences, measured on synthetic speech with one stretch
 of six words changed (baseline built the same way):
 
 | Scenario | Today: peak scaled to −3 dBFS | Proposed: median speech level scaled to −26 dBFS |
@@ -360,7 +360,12 @@ normal. Scaling by the **typical speech level** fixes that: the loud stretch get
 But the current frame-by-frame energy rule still only fires for large changes, because the baseline spread of single frames is wide and
 any in-range frame breaks a run.
 
-### 8.3 Proposed change (needs the team leader's approval — it amends the still-proposed DEC-P003)
+### 8.3 The change (approved by the team leader and implemented on 2026-10-11 as DEC-036; the text below is the proposal it implements)
+
+**Status 2026-10-11:** implemented as described, with the cap added. Measured end to end on synthetic voice (DEC-036 has the table), the new scaling
+keeps the rest of a take within about 1 dB of the baseline while a loud sentence gets a z-score that grows with its loudness (the old scaling gave every
+loud sentence the same z and pushed the rest down by 3 to 12 dB). It does **not** make the current frame-level energy rule detect moderate loudness
+flaws: that needs a windowed energy rule and calibration (TASK-128). The exaggerated loud and quiet takes of §5.4 therefore remain the right plan.
 Replace "scale so the peak is −3 dBFS" by "scale so the typical speech level is −26 dBFS":
 1. Decode, make mono, resample to 16 kHz, trim leading/trailing silence — unchanged.
 2. Compute the loudness (dBFS RMS) of every 32 ms frame, hop 10 ms (the frames the energy feature uses).
@@ -579,7 +584,8 @@ value that maximises F1 while keeping false alarms on clean dev takes under 10 %
 | Evaluation (matching, P/R/F1, boundary error, false-alarm rate, determinism, speaker variation) with a guard against peeking at the test split | agent | `[planned]` `evaluate.py` |
 | Threshold sweep on dev (tables of F1 vs. constant) | agent | `[planned]` `sweep.py` |
 | Synthetic flaws with exact labels (time-stretch, gain change, inserted silence) | agent | `[planned]` `make_synthetic_flaws.py` |
-| Loudness normalisation change (§8.3), energy-rule smoothing if the data demands it | agent | `[planned]`, needs approval |
+| Loudness normalisation change (§8.3) | agent | `[exists]` since 2026-10-11 (DEC-036) |
+| Energy-rule smoothing over 0.5 to 1 s windows (TASK-128) | agent | `[planned]`, needs approval |
 | Update of the fixture test when real data arrives; `.gitignore` for audio if decision 3 is confirmed | agent | `[planned]` |
 
 ---

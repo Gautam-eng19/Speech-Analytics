@@ -12,6 +12,8 @@ Writes into --out:
     session_log.csv          empty session log (protocol 7.6)
 
 Tiers are nested: every take of a smaller tier is also in the larger one, with the same take id, so a pilot is never wasted.
+To continue after a pilot, point --done at the folder with the files already recorded: their takes are marked accepted in the new
+plan and the prompter starts at the first take that is still open.
     pilot        1 passage, the first dev speaker only: 3 baseline + 1 clean + 5 flawed (strong)            =  9 takes
     minimum      1 passage; dev 3 baseline + 2 clean + 5 flawed (strong); test 3 clean + 5 flawed (strong)
     recommended  every passage; as minimum, plus the moderate version of each flawed take and a clean take
@@ -332,6 +334,24 @@ def make_plan(passages: Sequence[Passage], dev: int, test: int, tier: str, seed:
 # Output files
 # ---------------------------------------------------------------------------------------------------------------------------------
 
+def recorded_take_ids(paths: Sequence[Path]) -> List[str]:
+    """Take ids of the WAV files in the given files and folders (file name without extension), sorted."""
+    found = set()
+    for path in paths:
+        files = path.iterdir() if path.is_dir() else [path]
+        found.update(f.stem for f in files if f.is_file() and f.suffix.lower() == ".wav")
+    return sorted(found)
+
+
+def mark_done(rows: Sequence[Dict[str, Any]], recorded: Sequence[str]) -> Tuple[int, List[str]]:
+    """Mark the planned takes that already have a recording as accepted. Returns (how many were marked, recordings that match no take)."""
+    planned = {r["take_id"]: r for r in rows}
+    for take_id in recorded:
+        if take_id in planned:
+            planned[take_id]["status"] = "accepted"
+    return sum(1 for t in recorded if t in planned), [t for t in recorded if t not in planned]
+
+
 def write_csv(path: Path, columns: Sequence[str], rows: Sequence[Dict[str, Any]]) -> None:
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(columns), lineterminator="\n")
@@ -347,7 +367,7 @@ def prompter_html(speaker: str, rows: Sequence[Dict[str, Any]], passages: Sequen
         "speaker_id": speaker, "split": rows[0]["split"], "tier": tier, "checklist": CHECKLIST,
         "passages": [{"passage_id": p.passage_id, "title": p.title, "sentences": [list(s) for s in p.sentences]} for p in used],
         "takes": [{k: r[k] for k in ("order", "take_id", "passage_id", "category", "flaw_type", "intensity", "stretch", "stretch_first_word",
-                                      "stretch_last_word", "pause_after_word", "instruction", "target_duration_s_est")} for r in rows],
+                                      "stretch_last_word", "pause_after_word", "instruction", "target_duration_s_est", "status")} for r in rows],
     }
     blob = json.dumps(data, sort_keys=True, ensure_ascii=True, separators=(",", ":")).replace("<", "\\u003c")
     return template.replace("__SPEAKER__", speaker).replace("__DATA__", blob)
@@ -396,17 +416,25 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--seed", type=int, default=20261011, help="changes the shuffled order of the flawed takes")
     parser.add_argument("--out", type=Path, default=Path("data/plan/v1"))
     parser.add_argument("--overwrite", action="store_true", help="replace an existing plan.csv (it may contain recording progress)")
+    parser.add_argument("--done", nargs="+", type=Path, default=None, metavar="PATH",
+                        help="folder(s) or WAV file(s) already recorded: those takes are marked accepted (continue after the pilot)")
     args = parser.parse_args(argv)
     try:
         passages = load_passages(args.passages, args.passage_ids)
         rows = make_plan(passages, args.dev, args.test, args.tier, args.seed)
+        marked, unmatched = (mark_done(rows, recorded_take_ids(args.done)) if args.done else (0, []))
         written = write_plan(args.out, rows, passages, args.tier, args.overwrite)
     except PlanError as exc:
         print(f"Cannot make the plan: {exc}", file=sys.stderr)
         return 2
     if args.test == 0 and args.tier != "pilot":
         print("Note: no test speakers. Nothing can then be reported as measured on unseen voices.")
-    print(f"Recording plan ({args.tier}):\n{summary(rows)}\nWrote:")
+    print(f"Recording plan ({args.tier}):\n{summary(rows)}")
+    if args.done:
+        print(f"{marked} take(s) already recorded are marked accepted.")
+        if unmatched:
+            print(f"Note: {len(unmatched)} recording(s) match no take of this plan and were ignored: {', '.join(unmatched[:5])}{' ...' if len(unmatched) > 5 else ''}")
+    print("Wrote:")
     for path in written:
         print(f"  {path}")
     return 0

@@ -16,7 +16,8 @@ describe('evidence rows', () => {
   it('shows a pause finding with its boundary type', () => {
     const f = flawOfType(mixedResult, 'excessive_pause');
     const rows = evidenceRows(f);
-    expect(rows[0]).toMatchObject({ label: 'Pause length', value: '3.20' });
+    const e = f.evidence as { pause_duration_s: number };
+    expect(rows[0]).toMatchObject({ label: 'Pause length', value: e.pause_duration_s.toFixed(2) });
     expect(rows.find((r) => r.label === 'Where')?.value).toBe('Cross sentence');
   });
   it('falls back to listing whatever numbers arrive for evidence it does not know', () => {
@@ -45,6 +46,7 @@ describe('evidence gauge', () => {
 describe('evidence headline', () => {
   it('summarises in one line', () => {
     expect(evidenceHeadline(flawOfType(mixedResult, 'too_fast'))).toBe('197 vs 141 words/min');
-    expect(evidenceHeadline(flawOfType(mixedResult, 'excessive_pause'))).toBe('3.20 s vs 0.55 s');
+    const pause = flawOfType(mixedResult, 'excessive_pause').evidence as { pause_duration_s: number; pause_baseline_mean_s: number };
+    expect(evidenceHeadline(flawOfType(mixedResult, 'excessive_pause'))).toBe(`${pause.pause_duration_s.toFixed(2)} s vs ${pause.pause_baseline_mean_s.toFixed(2)} s`);
   });
 });

@@ -61,8 +61,9 @@ WARNING_RATE = (
     "(window-level)."
 )
 WARNING_ENERGY = (
-    "Energy is relative loudness after peak normalization: it depends on the loudest moment of the recording "
-    "and on microphone distance, and is compared with the baseline speaker's speaking level."
+    "Energy is relative loudness: the recording is scaled so that its typical speech level is the same as the baseline's, "
+    "so it shows louder or quieter stretches within the recording, not how loud the speaker was overall, and it depends on "
+    "microphone distance."
 )
 WARNING_PAUSE = "The pause type (within a phrase or between sentences) is inferred from the transcript's punctuation."
 

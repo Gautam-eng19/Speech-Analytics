@@ -20,9 +20,9 @@ Analytical contract:
     2. Timestamped: frame-centre times in seconds (same convention and hop as F0 and
        MFCC, `librosa.times_like`), in processed-audio time.
     3. Units: values are dBFS relative to full-scale float PCM. Because preprocessing
-       peak-normalizes audio (TARGET_PEAK_DBFS), these are *relative loudness* values
-       comparable between recordings that went through the same preprocessing, not
-       absolute sound-pressure levels.
+       scales every recording so that its typical speech level is TARGET_SPEECH_LEVEL_DBFS
+       (DEC-036), these are *relative loudness* values comparable between recordings that
+       went through the same preprocessing, not absolute sound-pressure levels.
     4. Stateless & extraction only: no normalization, baseline comparison, flaw
        detection or scoring happens here.
 """
@@ -122,6 +122,22 @@ class EnergyExtractionResult:
         }
 
 
+def frame_energy_db(audio: np.ndarray, config: EnergyConfig) -> np.ndarray:
+    """Loudness (dBFS RMS, always finite) of every centred analysis frame of a mono float signal.
+
+    The single definition of "frame loudness": the energy timeline is this function plus frame times, and the loudness scaling of
+    the preprocessing step (DEC-036) measures the speech level with the very same frames.
+    """
+    rms = librosa.feature.rms(
+        y=audio,
+        frame_length=config.frame_length,
+        hop_length=config.hop_length,
+        center=True,
+        pad_mode="constant",
+    )[0].astype(np.float64)
+    return 20.0 * np.log10(np.maximum(rms, config.rms_floor))
+
+
 class EnergyExtractor:
     """Deterministic frame-level RMS energy (dBFS) extractor."""
 
@@ -156,17 +172,9 @@ class EnergyExtractor:
                 f"({self.config.sample_rate} Hz). Resample input or configure matching EnergyConfig."
             )
 
-        rms = librosa.feature.rms(
-            y=arr,
-            frame_length=self.config.frame_length,
-            hop_length=self.config.hop_length,
-            center=True,
-            pad_mode="constant",
-        )[0].astype(np.float64)
-
-        values_db = 20.0 * np.log10(np.maximum(rms, self.config.rms_floor))
+        values_db = frame_energy_db(arr, self.config)
         times_s = librosa.times_like(
-            rms,
+            values_db,
             sr=self.config.sample_rate,
             hop_length=self.config.hop_length,
         ).astype(np.float64)

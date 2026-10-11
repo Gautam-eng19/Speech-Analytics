@@ -1,6 +1,7 @@
 import { fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TimelineStack } from '@/charts/TimelineStack';
+import { fmtLevel, fmtNum } from '@/lib/format';
 import { FULL } from '@/lib/time';
 import { hoverStore, selectionStore } from '@/state/ui';
 import { loaded, mixedResult } from './fixtures';
@@ -50,7 +51,8 @@ describe('TimelineStack', () => {
   it('labels each lane from the result, with baseline numbers at fixed decimals', () => {
     const { container } = setup();
     expect(container.querySelector('.glabel--rate')!.textContent).toContain('baseline 141 ± 12');
-    expect(container.querySelector('.glabel--loudness')!.textContent).toContain('baseline −24.2 ± 9.7');
+    const stats = mixedResult.baseline_stats;
+    expect(container.querySelector('.glabel--loudness')!.textContent).toContain(`baseline ${fmtLevel(stats.energy_db_mean, 1)} ± ${fmtNum(stats.energy_db_std, 1)}`);
   });
   it('shows one button per finding that is on screen and reports which was chosen', () => {
     const { container, onSelect } = setup({ view: FULL(duration) });

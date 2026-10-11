@@ -7,7 +7,7 @@ Updated by:
 Coding agent (dataset recording kit delivered; control files synchronised, delegated by the team leader)
 
 All statements below were checked against the repository and full test runs on 2026-10-11
-(935 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
+(949 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -61,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch detection is missing
 
 Testing:
-🟢 935 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 949 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -134,17 +134,16 @@ None.
   F0 variation within a window (record-contract change). Until then pitch is reported as "not scored".
 - Team-leader confirmation requested for the agent decisions DEC-024 to DEC-035 (all made under delegated authority). DEC-033 also
   supersedes the proposed DEC-P009 (no chart / HTTP / waveform / CSS-framework library).
-- **Loudness normalisation (amends the still-proposed DEC-P003) — decide BEFORE recordings and baselines are built.** Scaling each
-  recording by its peak (−3 dBFS) makes a loud stretch define the scale: on synthetic speech a +6 dB stretch was not detected and five
-  false "low energy" flags appeared on normal speech. Scaling by the median speech level fixed the false flags and gave correct
-  z-scores, but the frame-by-frame energy rule still fired only for changes of +12 dB or more. Details, numbers and the proposed
-  algorithm: `docs/methodology/recording-protocol.md` §8. Not changed in code yet.
+- Energy rule too coarse (TASK-128): loudness scaling now uses the typical speech level (DEC-036, approved and implemented 2026-10-11), which keeps
+  the rest of a take at the baseline level and gives a loud sentence a z-score that grows with its loudness, but the single-frame energy rule
+  (z > 2 on 10 ms frames, baseline std about 9 dB) still flags none of +6 to +18 dB or -12 to -20 dB changes. Windowed levels (0.5 to 1 s) and
+  calibration on real recordings are needed; the energy rule is an analytical change for the leader to approve.
 
 ---
 
 # 8. ACTIVE TASKS
 
-Waiting on the team leader: speakers, tier, equipment and consent for the pilot (TASK-122), and the loudness-normalisation decision. Candidates: collect recordings (TASK-122), calibration and evaluation (TASK-100 to TASK-107 on real data), flat pitch
+The team leader decided speakers (2 dev + 2 test), equipment (USB headset) and loudness scaling on 2026-10-11 (DEC-036, DEC-037). Next: the nine-take pilot with `data/plan/pilot/prompter_spk_dev_01.html` and the checker (TASK-122), then TASK-126. Candidates: collect recordings (TASK-122), calibration and evaluation (TASK-100 to TASK-107 on real data), flat pitch
 (after the baseline-statistic decision), a first real recording session that also tries the in-browser recorder, the loudness-normalisation decision (section 7).
 
 ---
@@ -166,6 +165,8 @@ Waiting on the team leader: speakers, tier, equipment and consent for the pilot 
   converts them to a 16 kHz mono WAV with a deterministic resampler and hands the file to the upload form; level and clipping indicators are
   capture aids only. "Export CSV" of the findings and "Copy a link to this page" were added (TASK-092). `npm run smoke` (29 checks in Chromium, incl.
   a take from the fake microphone) joined `npm run a11y`, which now covers 50 combinations including the recorder states.
+- Loudness scaling by typical speech level (DEC-036): replaces peak scaling to -3 dBFS; 8 tests re-based (3 in the pipeline, 1 baseline builder,
+  4 demo-sample integrity), 7 new preprocessing tests replace the one peak test; demo samples regenerated; 4 dashboard tests now read their expected numbers from the sample; end-to-end experiment recorded in DEC-036.
 - A mutation check of the new code (23 injected bugs in the recorder, converter, WAV writer and CSV writer) found one gap, the converted length when
   the last output sample is incomplete; a test now covers it and all are caught.
 - **Repository defect found and fixed:** the Python-template rule `lib/` in `.gitignore` had hidden `frontend/src/lib/` from git, so PR #13 reached main
@@ -177,7 +178,7 @@ Waiting on the team leader: speakers, tier, equipment and consent for the pilot 
 2026-10-11:
 - Dataset recording kit (TASK-125): `scripts/dataset/make_plan.py` (deterministic plan, nested tiers pilot 9 / minimum 36 (28) / recommended 112 (86) takes, per-speaker prompter page,
   session log), `check_recordings.py` (format, size, clipping, level, room noise, silence at the ends, length, hum), shared `passage_text.py`, final passages
-  `data/plan/passages_v1.json`, a plain-language guide `docs/methodology/dataset-guide.md` and a consent form template. 97 tests (935 backend/integration tests in all);
+  `data/plan/passages_v1.json`, a plain-language guide `docs/methodology/dataset-guide.md` and a consent form template. 103 tests (949 backend/integration tests in all);
   20 injected bugs all caught (two gaps found and closed); the prompter was driven in a real Chromium. Registration/labelling (TASK-126) and evaluation tools (TASK-127) are
   not written yet: they follow the pilot on purpose.
 

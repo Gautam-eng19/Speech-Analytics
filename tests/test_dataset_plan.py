@@ -360,3 +360,71 @@ class TestPrompter:
         data = self._data((tmp_path / "prompter_spk_dev_01.html").read_text(encoding="utf-8"))
         p001 = json.loads(PASSAGES_FILE.read_text(encoding="utf-8"))[0]["text"]
         assert " ".join(w for s in data["passages"][0]["sentences"] for w in s) == p001
+
+
+class TestContinueAfterThePilot:
+    """make_plan --done: takes that already have a recording are marked accepted so the bigger plan skips them."""
+
+    def _pilot_folder(self, tmp_path, passages) -> Path:
+        folder = tmp_path / "pilot_wavs"
+        folder.mkdir()
+        for row in plan(passages, 1, 0, "pilot"):
+            (folder / f"{row['take_id']}.wav").write_bytes(b"x")
+        (folder / "notes.txt").write_text("not audio", encoding="utf-8")
+        (folder / "rec_p009_spk_dev_09_base_01.wav").write_bytes(b"x")   # matches no take of any plan
+        return folder
+
+    def test_recorded_take_ids_come_from_wav_names_in_folders_and_files(self, tmp_path, passages):
+        folder = self._pilot_folder(tmp_path, passages)
+        ids = mp.recorded_take_ids([folder])
+        assert len(ids) == 10 and "notes" not in ids and ids == sorted(ids)
+        assert mp.recorded_take_ids([folder / "rec_p009_spk_dev_09_base_01.wav"]) == ["rec_p009_spk_dev_09_base_01"]
+        (tmp_path / "UPPER.WAV").write_bytes(b"x")
+        assert mp.recorded_take_ids([tmp_path / "UPPER.WAV"]) == ["UPPER"]
+        (tmp_path / "empty").mkdir()
+        assert mp.recorded_take_ids([tmp_path / "empty"]) == []
+
+    def test_mark_done_marks_only_matching_takes_and_reports_the_rest(self, passages):
+        rows = plan(passages, 2, 2, "recommended")
+        marked, unmatched = mp.mark_done(rows, ["rec_p001_spk_dev_01_base_01", "rec_p001_spk_dev_01_flaw_fast_02", "rec_p404_spk_dev_01_base_01"])
+        assert marked == 2 and unmatched == ["rec_p404_spk_dev_01_base_01"]
+        assert {r["take_id"] for r in rows if r["status"] == "accepted"} == {"rec_p001_spk_dev_01_base_01", "rec_p001_spk_dev_01_flaw_fast_02"}
+        assert mp.mark_done(rows, []) == (0, [])
+        assert mp.mark_done(rows, ["rec_p001_spk_dev_01_base_01"])[0] == 1   # marking twice changes nothing
+        assert len(by(rows, status="accepted")) == 2
+
+    def test_the_pilot_covers_exactly_nine_takes_of_the_recommended_plan(self, passages, tmp_path):
+        recorded = [r["take_id"] for r in plan(passages, 1, 0, "pilot")]
+        rows = plan(passages, 2, 2, "recommended")
+        marked, unmatched = mp.mark_done(rows, recorded)
+        assert (marked, unmatched) == (9, [])
+
+    def test_cli_marks_the_pilot_in_the_csv_and_in_the_prompter(self, passages, tmp_path, capsys):
+        folder = self._pilot_folder(tmp_path, passages)
+        out = tmp_path / "plan"
+        code = mp.main(["--dev", "2", "--test", "2", "--tier", "recommended", "--passages", str(PASSAGES_FILE), "--out", str(out), "--done", str(folder)])
+        assert code == 0
+        printed = capsys.readouterr().out
+        assert "9 take(s) already recorded are marked accepted." in printed and "rec_p009_spk_dev_09_base_01" in printed
+        with (out / "plan.csv").open(encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        assert len([r for r in rows if r["status"] == "accepted"]) == 9 and len(rows) == 112
+        data = json.loads(re.search(r'<script id="plan-data" type="application/json">(.*?)</script>',
+                                    (out / "prompter_spk_dev_01.html").read_text(encoding="utf-8"), re.S).group(1))
+        assert sum(1 for t in data["takes"] if t["status"] == "accepted") == 9
+        other = json.loads(re.search(r'<script id="plan-data" type="application/json">(.*?)</script>',
+                                     (out / "prompter_spk_test_01.html").read_text(encoding="utf-8"), re.S).group(1))
+        assert {t["status"] for t in other["takes"]} == {"todo"}
+
+    def test_without_done_everything_is_todo_and_the_page_data_has_a_status(self, passages, tmp_path):
+        mp.write_plan(tmp_path, plan(passages), passages, "recommended", False)
+        data = json.loads(re.search(r'<script id="plan-data" type="application/json">(.*?)</script>',
+                                    (tmp_path / "prompter_spk_dev_01.html").read_text(encoding="utf-8"), re.S).group(1))
+        assert {t["status"] for t in data["takes"]} == {"todo"}
+
+    def test_the_same_recordings_give_byte_identical_plans(self, passages, tmp_path):
+        folder = self._pilot_folder(tmp_path, passages)
+        for name in ("a", "b"):
+            assert mp.main(["--dev", "2", "--test", "2", "--passages", str(PASSAGES_FILE), "--out", str(tmp_path / name), "--done", str(folder)]) == 0
+        for file in sorted(p.name for p in (tmp_path / "a").iterdir()):
+            assert (tmp_path / "a" / file).read_bytes() == (tmp_path / "b" / file).read_bytes(), file
