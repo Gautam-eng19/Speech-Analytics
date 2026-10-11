@@ -15,7 +15,7 @@ audio → preprocessing → transcription → forced alignment → feature extra
 
 ## Status (2026-10-10)
 
-Working and tested (838 backend and 290 dashboard tests, on synthetic speech):
+Working and tested (934 backend and 290 dashboard tests, on synthetic speech):
 
 - audio preprocessing with source-time provenance, Whisper transcription, WhisperX alignment and validation
 - features: pitch (pYIN), MFCC, energy (dBFS), rolling-window speech rate, pauses (energy VAD + alignment gaps)
@@ -30,6 +30,9 @@ Working and tested (838 backend and 290 dashboard tests, on synthetic speech):
   dimensions, a timeline with every signal on one time axis, findings with their evidence, explanation and recommendation (exportable as
   CSV), signals, transcript, baseline and method, a printable report, a library, settings and a command palette. It renders backend output only and ships four demo samples
   (synthetic voice, deliberate flaws, analysed by the real pipeline) that open without a baseline
+
+- the **recording kit** for the dataset (`scripts/dataset/make_plan.py`, `check_recordings.py`, final passages in `data/plan/`): a deterministic plan for any number of speakers,
+  a prompter page per speaker and a quality check of the recorded files; start with [`docs/methodology/dataset-guide.md`](docs/methodology/dataset-guide.md)
 
 Not done yet: `flat_pitch` detection, an LLM explanation provider. The in-browser recorder has only been tried with Chromium's fake
 microphone, not with a real microphone, Safari, Firefox or a phone. There are **no recordings** in the repository,
@@ -68,7 +71,7 @@ Details and options: [`docs/setup.md`](docs/setup.md); the response is documente
 |---|---|
 | `backend/app/` | FastAPI app, schemas (`schemas/`), configuration (`core/`), analytical services (`services/`) |
 | `backend/tests/`, `tests/` | unit/API tests and integration/end-to-end tests |
-| `scripts/dataset/` | dataset validator and baseline-statistics builder |
+| `scripts/dataset/` | dataset validator, baseline-statistics builder, recording plan generator with an on-screen prompter, recording quality checker |
 | `data/` | dataset metadata schema fixtures (no audio yet) |
 | `docs/` | architecture proposal, API contract, dashboard, dataset methodology, setup |
 | `frontend/` | the dashboard (React + Vite + TypeScript), its tests and the demo samples; see [`docs/architecture/frontend.md`](docs/architecture/frontend.md) |
