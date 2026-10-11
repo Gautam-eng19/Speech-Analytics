@@ -198,12 +198,12 @@ export function SignalsPage({ analysis }: { analysis: LoadedAnalysis }) {
         lane="loudness"
         height={190}
         title="Loudness"
-        note="Frame loudness in dBFS over time. Zoomed out, each pixel column shows its loudest frame, so dips are genuine quiet stretches. The recording is peak-normalised before analysis: levels describe relative loudness, not absolute volume."
+        note="Frame loudness in dBFS over time. Zoomed out, each pixel column shows its loudest frame, so dips are genuine quiet stretches. The recording is scaled before analysis so that its typical speech level matches the baseline's: levels describe relative loudness inside the recording, not absolute volume."
         facts={(
           <>
             <Fact label="Baseline mean">{fmtLevel(bs.energy_db_mean, 1)} <span className="muted">dBFS</span></Fact>
             <Fact label="Baseline spread">± {fmtNum(bs.energy_db_std, 1)} <span className="muted">dB</span></Fact>
-            <Fact label="Peak after normalising">{fmtLevel(result.audio.peak_dbfs, 1)} <span className="muted">dBFS</span></Fact>
+            <Fact label="Peak after scaling">{fmtLevel(result.audio.peak_dbfs, 1)} <span className="muted">dBFS</span></Fact>
           </>
         )}
       />

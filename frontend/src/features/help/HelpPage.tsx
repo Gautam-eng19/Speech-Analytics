@@ -19,7 +19,7 @@ const GLOSSARY: { term: string; meaning: string }[] = [
   { term: 'Reliability', meaning: 'How much the measurement can be trusted, from 0 to 1 (for example, lower when words are aligned with low confidence).' },
   { term: 'Deviation score', meaning: 'From 0 to 100; 100 means no deviation from the baseline was detected. Each finding subtracts points in proportion to its severity and reliability. It is not a grade of speech quality.' },
   { term: 'Words per minute', meaning: 'Speech rate over a rolling window of words. A long pause inside the window lowers it.' },
-  { term: 'dBFS', meaning: 'Decibels relative to digital full scale. 0 is the loudest a file can hold; speech sits well below. The recording is peak-normalised first, so levels are relative.' },
+  { term: 'dBFS', meaning: 'Decibels relative to digital full scale. 0 is the loudest a file can hold; speech sits well below. Before analysis every recording is scaled so that its typical speech level is the same, so levels are relative: they show louder and quieter stretches inside a recording, not how loudly it was recorded.' },
   { term: 'F0 (pitch)', meaning: 'The fundamental frequency of the voice in hertz, measured only where the voice is voiced.' },
   { term: 'MFCC', meaning: 'Mel-frequency cepstral coefficients: a compact description of the spectral shape of the voice. Shown for reference; not scored.' },
   { term: 'Forced alignment', meaning: 'Matching each transcript word to the moment it was spoken, which gives every finding its start and end time.' },

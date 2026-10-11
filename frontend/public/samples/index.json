@@ -18,14 +18,14 @@
   "baseline": {
     "baseline_id": "demo_talk",
     "takes": 5,
-    "sha256": "9680dcbe67571f45cfc36354465ae75474a70f3f4997b056b27b17050cdc15da"
+    "sha256": "0b78b27682488b8452b71b0fcaaf966770b4194c44b93738f9050aaa891ad0da"
   },
   "samples": [
     {
       "id": "clean-delivery",
       "title": "Clean delivery",
       "description": "A control take: the same voice reading the passage at its normal pace, with no deliberate flaw. It shows what the dashboard looks like when nothing is flagged.",
-      "analysis_id": "8557b6e4-3ac4-5fe3-944d-48b1f48dace1",
+      "analysis_id": "d9def039-c342-5799-8fd6-287652060d67",
       "audio": "clean-delivery.wav",
       "result": "clean-delivery.json",
       "duration_s": 53.144,
@@ -38,7 +38,7 @@
       "id": "rushed-explanation",
       "title": "Rushed explanation",
       "description": "The third sentence is read about 1.8 times faster than the baseline pace; everything else is normal.",
-      "analysis_id": "727cda9e-a579-5be6-b788-89abaa8ed59e",
+      "analysis_id": "c2fca65c-f41d-5d68-a039-927438d3dd4d",
       "audio": "rushed-explanation.wav",
       "result": "rushed-explanation.json",
       "duration_s": 50.075,
@@ -58,7 +58,7 @@
       "id": "hesitant-delivery",
       "title": "Hesitant delivery",
       "description": "A 1.9 s silence inside a phrase in the fourth sentence, and the sixth sentence read at about 0.6 times the normal speed.",
-      "analysis_id": "6f29854f-3cad-52d3-9914-93db9c58e6a8",
+      "analysis_id": "a2f7a5f1-42c4-5aba-948c-eb28d9ddf777",
       "audio": "hesitant-delivery.wav",
       "result": "hesitant-delivery.json",
       "duration_s": 60.749,
@@ -84,7 +84,7 @@
       "id": "mixed-flaws",
       "title": "Mixed flaws",
       "description": "Three deliberate flaws in one take: a fast second sentence, a 3.2 s silence between two sentences, and a seventh sentence 20 dB quieter. The current energy rule does not detect the quiet sentence; the timeline shows that miss.",
-      "analysis_id": "a835d6b8-5981-5072-964d-e117b84cb804",
+      "analysis_id": "642ddbc0-65a4-5d71-8534-7077533e49f7",
       "audio": "mixed-flaws.wav",
       "result": "mixed-flaws.json",
       "duration_s": 53.147,
@@ -108,7 +108,7 @@
           "detected": false
         }
       ],
-      "extra_detections": 1,
+      "extra_detections": 2,
       "seed": 204,
       "candidates_tried": 5
     }

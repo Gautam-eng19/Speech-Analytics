@@ -47,8 +47,8 @@ describe('FlawsPage', () => {
     const chips = screen.getByRole('group', { name: 'Filter by finding type' });
     fireEvent.click(within(chips).getByRole('button', { name: /Excessive pause/ }));
     const options = screen.getAllByRole('option');
-    expect(options).toHaveLength(1);
-    expect(options[0]!.textContent).toContain('Excessive pause');
+    expect(options).toHaveLength(flaws.filter((f) => f.type === 'excessive_pause').length);
+    for (const option of options) expect(option.textContent).toContain('Excessive pause');
     fireEvent.click(within(chips).getByRole('button', { name: /^All/ }));
     expect(screen.getAllByRole('option')).toHaveLength(flaws.length);
   });
