@@ -251,7 +251,8 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
   processing; the panel warns when it reports that.
 - `.gitignore` is a Python template: its generic names (`lib/`, `build/`, `parts/`, `var/`, `env/`, `eggs/`, `downloads/`, `wheels/`, `sdist/`) match a
   directory of that name anywhere in the repository and silently exclude it (this hid `frontend/src/lib/` once). Check `git status --ignored` when
-  adding a folder. It has no rule for audio, so recordings of people must be kept out of git by hand (AGENTS.md section 22) until the team decides.
+  adding a folder. Since 2026-10-11 it ignores `data/raw/*` and `data/incoming/` so recordings of people are not committed by accident (AGENTS.md section 22); audio kept elsewhere in the tree
+  (for example a new folder) is not covered.
 - Detector findings from building the demo samples (synthetic speech; see DEC-034): the per-event pause rule (z > 2 over about twenty
   pauses) flagged 6 of 10 CLEAN takes, so the false-flag rate must be calibrated below about 10 %; the frame-level energy rule missed a
   20 dB quieter sentence in all 40 candidate takes; the absolute -50 dBFS pause threshold splits quiet speech into false pauses; peak

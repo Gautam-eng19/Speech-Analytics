@@ -38,7 +38,22 @@ speak and listen.**
 
 ---
 
-## 3. The plan at a glance
+## 3. What you need
+
+* **A quiet room** and **one microphone** for everybody (a USB headset is best).
+* **Audacity** (free, Windows/macOS/Linux, audacityteam.org) to record and export. Use Audacity for dataset takes, **not** the dashboard's
+  "Record now" button: that recorder is handy for demos but has not been tried with a real microphone yet.
+* **A web browser** to open the prompter pages.
+* **One computer with Python 3.10 to 3.13** for the data owner, who runs the three small commands below. The speakers need nothing else.
+* **A shared drive or external disk** for the audio, and a private folder for the signed consent forms.
+* Later, for step 6: a computer that can run the speech models (about 3 GB of downloads; a graphics card helps but is not required).
+
+Keep exported recordings in a folder **outside the repository**, or in `data/incoming/` (git ignores that folder and `data/raw/`, so voices
+cannot be committed by accident).
+
+---
+
+## 4. The plan at a glance
 
 | Step | What happens | Who | Time |
 |---|---|---|---|
@@ -48,7 +63,7 @@ speak and listen.**
 | 4 | **Pilot:** one person records 9 takes | One speaker | about 45 min |
 | 5 | Check the pilot files with the checker | You, then send me the result | 10 min |
 | 6 | Turn recordings into dataset files (list, hashes, word timing, labels) | **Me** (I write the tools right after your pilot) | |
-| 7 | Everybody records the rest | Speakers | see section 6 |
+| 7 | Everybody records the rest | Speakers | see step 1 (tiers) |
 | 8 | Build the baseline, run the system, measure, tune on dev, freeze, test once | **Me**, with you listening and deciding | |
 
 Why a pilot first: the real speech models have never run on a real recording here. I want to see what they do with nine real
@@ -56,7 +71,7 @@ takes before anyone records a hundred.
 
 ---
 
-## 4. Step by step
+## 5. Step by step
 
 ### Step 1: Decide (you)
 
@@ -174,7 +189,7 @@ I wait for the pilot on purpose: I want to see how the real aligner behaves on r
 
 ---
 
-## 5. Seven rules that protect the dataset
+## 6. Seven rules that protect the dataset
 
 1. **Same text, word for word.** No extra words, no skipped words, no "um".
 2. **Record raw.** No normalising, compression, noise removal or trimming, ever. The software treats every file the same way; hand
@@ -187,7 +202,7 @@ I wait for the pilot on purpose: I want to see how the real aligner behaves on r
 
 ---
 
-## 6. If something goes wrong
+## 7. If something goes wrong
 
 | Problem | Likely cause | What to do |
 |---|---|---|
@@ -202,7 +217,7 @@ More in protocol Appendix B.
 
 ---
 
-## 7. What to send me, and when
+## 8. What to send me, and when
 
 | After | Send |
 |---|---|
@@ -214,7 +229,7 @@ Not the audio files themselves in the chat unless you ask me to look at them: re
 
 ---
 
-## 8. Who does what
+## 9. Who does what
 
 | Task | You and the team | Me |
 |---|---|---|

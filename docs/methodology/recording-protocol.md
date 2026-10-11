@@ -552,6 +552,7 @@ value that maximises F1 while keeping false alarms on clean dev takes under 10 %
 ## 13. Storage, versioning and consent
 
 - **Git** holds: `manifest.json`, `speakers.json`, `passages.json`, annotation JSON, alignment JSON, baseline statistics, this protocol.
+  Since 2026-10-11 `.gitignore` excludes `data/raw/*` and `data/incoming/`, so recordings cannot be committed by accident.
   **Shared drive** holds the WAV files (decision 3). The manifest hashes let anyone verify their copy (`--check-files`).
 - `dataset_version` is `1.0.0` for the first complete release; any later change to audio or annotations after the freeze is a new version
   (a version change invalidates cached analyses).
