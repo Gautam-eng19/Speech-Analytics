@@ -355,7 +355,9 @@ def build_for_passage(
 
     snapshot: Dict[str, Any] = {"splits": ",".join(sorted(set(splits)))}
     snapshot["preprocess.target_sample_rate"] = settings.TARGET_SAMPLE_RATE
-    snapshot["preprocess.target_peak_dbfs"] = settings.TARGET_PEAK_DBFS
+    snapshot["preprocess.target_speech_level_dbfs"] = settings.TARGET_SPEECH_LEVEL_DBFS
+    snapshot["preprocess.speech_level_window_db"] = settings.SPEECH_LEVEL_WINDOW_DB
+    snapshot["preprocess.max_peak_dbfs"] = settings.MAX_PEAK_DBFS
     snapshot["preprocess.vad_energy_threshold_dbfs"] = settings.VAD_ENERGY_THRESHOLD_DBFS
     for prefix, cfg in (
         ("f0", F0Config()), ("energy", EnergyConfig()), ("rate", RateConfig()), ("pause", PauseConfig()),

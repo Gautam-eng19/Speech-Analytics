@@ -277,9 +277,9 @@ def test_end_to_end_build_from_synthetic_dataset(two_recording_dataset):
     assert rec.dataset_version == "1.0.0"
     assert 145.0 < rec.f0_voiced_hz_mean < 155.0            # a 150 Hz tone
     assert rec.f0_voiced_hz_p05 <= rec.f0_voiced_hz_mean <= rec.f0_voiced_hz_p95
-    # Preprocessing peak-normalizes to -3 dBFS: a sine of amplitude 0.708 has RMS 0.5 = -6.02 dBFS;
+    # Preprocessing scales the typical speech level to -26 dBFS (DEC-036), which for a steady sine is its frame level;
     # partially filled frames at word edges pull the active-frame mean slightly below that.
-    assert -7.5 < rec.energy_db_mean < -5.9
+    assert -27.5 < rec.energy_db_mean < -25.9
     assert rec.n_rate_windows >= 2 and rec.rate_wpm_mean > 0
     assert (rec.n_pauses_within_phrase, rec.n_pauses_cross_sentence) == (2, 1)
     assert rec.pause_within_phrase_mean_s == pytest.approx(0.35, abs=0.01)   # 0.4 s and 0.3 s

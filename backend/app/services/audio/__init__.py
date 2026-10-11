@@ -7,8 +7,9 @@ from .preprocessor import (
     convert_to_mono,
     find_active_span,
     load_audio_from_bytes,
-    peak_normalize,
     resample_audio,
+    speech_level_dbfs,
+    speech_level_normalize,
     trim_silence,
 )
 
@@ -20,7 +21,8 @@ __all__ = [
     "convert_to_mono",
     "find_active_span",
     "load_audio_from_bytes",
-    "peak_normalize",
     "resample_audio",
+    "speech_level_dbfs",
+    "speech_level_normalize",
     "trim_silence",
 ]
