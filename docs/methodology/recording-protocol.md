@@ -5,6 +5,10 @@ It changes neither the dataset schema (`docs/methodology/dataset-schema.md` stay
 
 **Audience:** the people who will record, label and use the data.
 
+**Plain-language version:** [`dataset-guide.md`](dataset-guide.md) (read it first). **Consent form:** [`consent-form-template.md`](consent-form-template.md).
+**Update 2026-10-11:** the plan generator with an on-screen prompter (`scripts/dataset/make_plan.py`) and the recording checker
+(`scripts/dataset/check_recordings.py`) now exist and are tested on synthetic audio only; the final passages are in `data/plan/passages_v1.json`.
+
 **Tool status key:** `[exists]` works today · `[planned]` the coding agent can build it (§14; names are proposals) · `[manual]` done by people.
 
 **Evidence status:** everything below that describes what the software does was checked against the code on 2026-10-10.
@@ -131,6 +135,9 @@ the number of speakers and takes. Two different passages are enough to avoid tun
 
 The sentence numbers are for the plan sheet only; they are **not** read aloud and are not part of the stored text.
 
+The final texts are `data/plan/passages_v1.json` (ids `p001` "Project talk" and `p002` "Morning market"; passage B's title was shortened). The plan tools check
+every passage against the rules above (no digits, symbols, acronyms or abbreviations, at least six sentences, each ending in . ? or !) and refuse a passage that breaks them.
+
 ### 4.4 Registering the passages
 `data/metadata/passages.json` (schema §3.1). The committed `p001`/`p002` are schema fixtures with a different, shorter text and are
 replaced when the real dataset is committed (§10).
@@ -183,6 +190,10 @@ The 10 flawed takes per passage:
 Per speaker in the Recommended tier: a dev speaker reads 30 times, a test speaker 26 times. As a rough planning figure (not
 measured) allow 1.5–2 minutes per take including resets and retakes, and a break after 45–60 minutes.
 
+The tiers are nested: `make_plan.py --tier pilot|minimum|recommended` gives every smaller tier's takes the same take ids as the larger tier (the pilot takes are the
+*strong* flawed takes `_02`, so they are also part of the minimum and the recommended plan). Pilot, minimum and recommended give 9, 36 (28) and 112 (86) takes for
+2 dev + 2 test (2 dev + 1 test) speakers, as in the table above.
+
 **Always do the pilot first.** It proves the whole chain (recording → files → alignment → baseline → analysis) on a handful of takes,
 and the real Whisper/WhisperX models have not run yet, so surprises are likely. Fix them before recording 100 takes.
 
@@ -225,7 +236,9 @@ Worked example for passage A (sentence word counts: S3 22, S4 19, S5 17, S6 17):
 | `flaw_loud_01` | S4 | about +8 dB |
 | `flaw_loud_02` | S6 | about +14 dB |
 
-For passage B use the same pattern on S3–S6. The planned tool (§14) generates this sheet for any passage.
+For passage B use the same pattern on S3–S6, except that a sentence too short for the flaw is replaced (sentence 6 of passage B has only six words, so no speed or
+loudness flaw goes there; the replacement is the least-used suitable sentence). `python scripts/dataset/make_plan.py --dev 2 --test 2 --tier recommended --out data/plan/v1`
+generates this sheet (`plan.csv`) and one on-screen prompter per speaker for any passage file, deterministically.
 
 ### 5.6 Normal delivery (baseline and clean takes)
 Pace about 130–160 words per minute, steady; short natural pauses at commas and sentence ends; moderate, even volume; natural
@@ -459,7 +472,7 @@ Sequence once the WAVs exist (run from the repository root with the environment 
 
 | Step | Command / action | Status |
 |---|---|---|
-| 1. Audio quality check of every WAV (§11) | `python scripts/dataset/check_recordings.py <folder>` | `[planned]` |
+| 1. Audio quality check of every WAV (§11) | `python scripts/dataset/check_recordings.py <folder> --passages data/plan/passages_v1.json` | `[exists]` |
 | 2. Copy WAVs to `data/raw/` (not committed, decision 3) | file copy | `[manual]` |
 | 3. Hash, measure, align with the passage text, write manifest entries and alignment JSON | `python scripts/dataset/prepare_recordings.py …` | `[planned]` (needs WhisperX) |
 | 4. Turn labels into annotation JSON | `python scripts/dataset/annotate.py …` | `[planned]` |
@@ -479,7 +492,10 @@ are measured against. (Whether test-speaker baselines may ever contribute is an 
 
 ## 11. Quality gates (a recording counts only if it passes)
 
-Proposed checks; the planned `check_recordings.py` would report them per file.
+`scripts/dataset/check_recordings.py` reports these checks per file (all thresholds are in its `Gates` class). Definitions it uses: *room noise* is the 2nd percentile of the
+32 ms frame levels (10 ms hop), so a take needs a little silence to be measured; *speech* starts at the first frame clearly above the noise (and not more than 40 dB below the
+loudest point); *hum* is the strongest 50/60 Hz line (or harmonic up to 180 Hz) in the quietest parts. It was exercised on synthetic audio only; its limits are
+starting points that the pilot must confirm.
 
 | Check | Pass | Why |
 |---|---|---|
@@ -536,6 +552,7 @@ value that maximises F1 while keeping false alarms on clean dev takes under 10 %
 ## 13. Storage, versioning and consent
 
 - **Git** holds: `manifest.json`, `speakers.json`, `passages.json`, annotation JSON, alignment JSON, baseline statistics, this protocol.
+  Since 2026-10-11 `.gitignore` excludes `data/raw/*` and `data/incoming/`, so recordings cannot be committed by accident.
   **Shared drive** holds the WAV files (decision 3). The manifest hashes let anyone verify their copy (`--check-files`).
 - `dataset_version` is `1.0.0` for the first complete release; any later change to audio or annotations after the freeze is a new version
   (a version change invalidates cached analyses).
@@ -555,8 +572,8 @@ value that maximises F1 while keeping false alarms on clean dev takes under 10 %
 | Schema / split / hash validation | tool | `[exists]` `validate_dataset.py` |
 | Baseline statistics from dev baseline takes | tool | `[exists]` `build_baseline_stats.py` |
 | Analysis of a recording (API or in-process) | tool | `[exists]` |
-| Recording plan sheet (take list, shuffled order, stretches, per-speaker target durations, optional on-screen prompter page) | agent | `[planned]` `make_plan.py` |
-| Audio quality check (format, clipping, noise floor, silence, duration, hum) | agent | `[planned]` `check_recordings.py` |
+| Recording plan sheet (take list, shuffled order, stretches, target durations, on-screen prompter page) | agent | `[exists]` `make_plan.py` (target durations are estimates at 150 words a minute until a speaker's own baseline takes are measured) |
+| Audio quality check (format, clipping, noise floor, silence, duration, hum) | agent | `[exists]` `check_recordings.py` |
 | Hashing, metadata, alignment with the passage text, manifest and `speakers.json`/`passages.json` handling | agent | `[planned]` `prepare_recordings.py` (WhisperX must run on your machine) |
 | Planned stretch or Audacity labels → annotation JSON; word labels for visual checks | agent | `[planned]` `annotate.py` |
 | Evaluation (matching, P/R/F1, boundary error, false-alarm rate, determinism, speaker variation) with a guard against peeking at the test split | agent | `[planned]` `evaluate.py` |
@@ -568,8 +585,9 @@ value that maximises F1 while keeping false alarms on clean dev takes under 10 %
 ---
 
 ## Appendix A — Plan sheet columns (one row per take)
-`take_id, speaker_id, split, passage_id, category, flaw_type, intensity, stretch (sentence / word range / "after word X"), instruction,
-normal_duration_s, target_duration_s, status (todo/recorded/rejected/accepted), attempts, accepted_by, notes, recorded_at`
+`order, take_id, speaker_id, split, passage_id, category, flaw_type, intensity, severity_label, stretch (text), stretch_first_word, stretch_last_word (1-based word numbers
+in the passage; for a pause, the two words either side of the silence), pause_after_word, instruction, normal_duration_s_est, target_duration_s_est, status
+(todo/accepted/rejected), attempts, accepted_by, notes, recorded_at` (as written by `make_plan.py`)
 
 ## Appendix B — Troubleshooting
 | Symptom | Likely cause | Fix |

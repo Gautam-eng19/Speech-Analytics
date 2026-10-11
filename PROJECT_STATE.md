@@ -1,13 +1,13 @@
 # Project State
 
 Last updated:
-2026-10-10
+2026-10-11
 
 Updated by:
-Coding agent (in-browser recording, findings export and a repository fix delivered; control files synchronised, delegated by the team leader)
+Coding agent (dataset recording kit delivered; control files synchronised, delegated by the team leader)
 
-All statements below were checked against the repository and full test runs on 2026-10-10
-(838 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
+All statements below were checked against the repository and full test runs on 2026-10-11
+(935 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -61,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch detection is missing
 
 Testing:
-🟢 838 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 935 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -70,7 +70,8 @@ Demo:
 
 # 3. CURRENT OBJECTIVE
 
-Turn the synthetic-speech proof into a real one: record the controlled dataset, build a baseline, run the real
+Turn the synthetic-speech proof into a real one (the recording kit is ready; the next step is the team leader's decisions and the nine-take pilot, see
+`docs/methodology/dataset-guide.md`): record the controlled dataset, build a baseline, run the real
 models (`pytest -m smoke`), calibrate thresholds and weights on the injected flaws, and show the real results in the dashboard.
 
 ---
@@ -143,7 +144,7 @@ None.
 
 # 8. ACTIVE TASKS
 
-None. Candidates: collect recordings (TASK-122), calibration and evaluation (TASK-100 to TASK-107 on real data), flat pitch
+Waiting on the team leader: speakers, tier, equipment and consent for the pilot (TASK-122), and the loudness-normalisation decision. Candidates: collect recordings (TASK-122), calibration and evaluation (TASK-100 to TASK-107 on real data), flat pitch
 (after the baseline-statistic decision), a first real recording session that also tries the in-browser recorder, the loudness-normalisation decision (section 7).
 
 ---
@@ -172,6 +173,13 @@ None. Candidates: collect recordings (TASK-122), calibration and evaluation (TAS
   which is why local checks passed. Fixed in PR #14 (negation in `.gitignore`, modules committed). From now on a PR is verified from a fresh clone
   of its branch before it is merged.
 - Full runs: 838 backend tests (2 smoke deselected) and 290 dashboard tests passed.
+
+2026-10-11:
+- Dataset recording kit (TASK-125): `scripts/dataset/make_plan.py` (deterministic plan, nested tiers pilot 9 / minimum 36 (28) / recommended 112 (86) takes, per-speaker prompter page,
+  session log), `check_recordings.py` (format, size, clipping, level, room noise, silence at the ends, length, hum), shared `passage_text.py`, final passages
+  `data/plan/passages_v1.json`, a plain-language guide `docs/methodology/dataset-guide.md` and a consent form template. 97 tests (935 backend/integration tests in all);
+  20 injected bugs all caught (two gaps found and closed); the prompter was driven in a real Chromium. Registration/labelling (TASK-126) and evaluation tools (TASK-127) are
+  not written yet: they follow the pilot on purpose.
 
 2026-10-09:
 - TASK-013A, 032, 033, 034, 040, 041, 043/050/051 implemented and merged (see section 5).
@@ -236,12 +244,15 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
   `npm audit --omit=dev` is clean, so nothing shipped is affected. Revisit when the team standardises on Node 22+.
 - Dashboard: never run against the real models or a real recording; upload was tested in a real browser against a MOCKED API and in
   component tests. Charts are SVG (fine for minutes of audio after thinning, not for hours). A result opened by id has no audio.
+- The dataset kit (TASK-125) has only seen synthetic audio. The checker's thresholds (room noise, hum, silence at the ends, length) come from the protocol and are unvalidated on
+  real recordings, the plan's target durations are estimates at 150 words a minute, and the prompter was tested in Chromium only. The pilot is the first real test.
 - The recorder (DEC-035) has been exercised with test doubles and Chromium's fake microphone only: a real microphone, Safari, Firefox and phones are
   untested, and so is how real room noise and input gain behave with the unchanged analysis. A browser may ignore the request to disable voice
   processing; the panel warns when it reports that.
 - `.gitignore` is a Python template: its generic names (`lib/`, `build/`, `parts/`, `var/`, `env/`, `eggs/`, `downloads/`, `wheels/`, `sdist/`) match a
   directory of that name anywhere in the repository and silently exclude it (this hid `frontend/src/lib/` once). Check `git status --ignored` when
-  adding a folder. It has no rule for audio, so recordings of people must be kept out of git by hand (AGENTS.md section 22) until the team decides.
+  adding a folder. Since 2026-10-11 it ignores `data/raw/*` and `data/incoming/` so recordings of people are not committed by accident (AGENTS.md section 22); audio kept elsewhere in the tree
+  (for example a new folder) is not covered.
 - Detector findings from building the demo samples (synthetic speech; see DEC-034): the per-event pause rule (z > 2 over about twenty
   pauses) flagged 6 of 10 CLEAN takes, so the false-flag rate must be calibrated below about 10 %; the frame-level energy rule missed a
   20 dB quieter sentence in all 40 candidate takes; the absolute -50 dBFS pause threshold splits quiet speech into false pauses; peak
@@ -259,7 +270,7 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
 
 # 12. NEXT PRIORITIES
 
-1. Collect a small controlled recording set (TASK-122) following `docs/methodology/recording-protocol.md` (pilot first), build a
+1. Collect a small controlled recording set (TASK-122) following `docs/methodology/dataset-guide.md` and the protocol (pilot first; then TASK-126), build a
    real baseline, and run the real-model smoke tests and one real recording through /analyze; fix whatever the real models reveal.
 2. Calibrate thresholds, severity and weights on the controlled flaws (TASK-100 to TASK-107 on real data), then set
    `THRESHOLDS_CALIBRATED=true`, bump CONFIG_VERSION and freeze.

@@ -849,7 +849,7 @@ Status: BACKLOG
 Priority: P0
 
 Progress (task NOT complete):
-A step-by-step recording, labelling and usage protocol is drafted in docs/methodology/recording-protocol.md (proposed, awaiting team-leader confirmation of its decisions). No recordings exist yet. Recording tools (plan sheet, quality check, registration/alignment, label conversion, evaluation) are not written; see §14 of the protocol.
+The recording protocol (docs/methodology/recording-protocol.md, proposed, awaiting the team leader's confirmation of its decisions) and a plain-language guide (docs/methodology/dataset-guide.md) exist. The recording kit is built and tested on synthetic audio (TASK-125). No recordings exist yet. Still to do: the team leader's decisions (speakers, tier, equipment, loudness normalisation), the pilot recording, the registration and labelling tools (TASK-126), the evaluation and tuning tools (TASK-127), the full recording, and the use of the data (baseline, measurement, calibration, frozen test run).
 
 \## TASK-123 — Demo Video
 
@@ -866,6 +866,36 @@ Status: BACKLOG
 Priority: P0
 
 
+
+\## TASK-125 — Dataset Recording Kit
+
+Status: REVIEW
+
+Priority: P0
+
+Delivered:
+`scripts/dataset/make_plan.py` (deterministic recording plan for any number of speakers and three nested tiers: pilot 9, minimum 36/28, recommended 112/86 takes; plan.csv, one on-screen prompter page per speaker with a setup checklist, highlighted flawed stretch, silent-pause marker and accept/reject tracking, session log), `scripts/dataset/check_recordings.py` (format, size, clipping, level, room noise, silence at the ends, length, mains hum, with plain-language fixes, JSON output and exit codes), `scripts/dataset/passage_text.py` (shared passage rules), final passages `data/plan/passages_v1.json`, `docs/methodology/dataset-guide.md`, `docs/methodology/consent-form-template.md`. 97 tests; 20 injected bugs all caught; the prompter driven in a real Chromium.
+
+Known limitation:
+Tested on synthetic audio only; the checker's thresholds come from the protocol and must be confirmed by the pilot. Target durations in the plan are estimates (150 words a minute).
+
+\## TASK-126 — Registration and Labelling Tools
+
+Status: BACKLOG
+
+Priority: P0
+
+Notes:
+After the pilot: hash and measure recordings, align them with the passage text (WhisperX, on a machine that can run it), write manifest entries, turn the planned stretch (or Audacity labels) into annotation JSON for a person to confirm by ear, word labels for visual checks. Written after the pilot so that the real aligner's behaviour on real audio is known first.
+
+\## TASK-127 — Evaluation and Tuning Tools
+
+Status: BACKLOG
+
+Priority: P0
+
+Notes:
+Matching of predictions to annotations (50 % overlap), precision/recall/F1 per flaw type with the number of events, boundary error, false-alarm rate on clean takes, speaker variation, determinism, a guard against analysing the sealed test split before the freeze, and a one-constant-at-a-time sweep on dev (protocol sections 12.3 to 12.5).
 
 \---
 
