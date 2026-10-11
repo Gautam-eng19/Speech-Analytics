@@ -552,7 +552,14 @@ duration_s:        float
 audio_array:       np.ndarray   — float32 PCM
 sha256:            str          — hex digest of audio_array bytes
 peak_dbfs:         float        — measured peak after normalization
+trim_start_s:      float        — offset (s) of audio_array[0] within the pre-trim signal; 0.0 if untrimmed or all-silent (default 0.0)
+source_duration_s: float | None — duration (s) of the pre-trim (decoded, mono, resampled) signal (default None)
 ```
+
+All pipeline timestamps are in processed-audio time (t = 0 is `audio_array[0]`). `trim_start_s` is applied
+exactly once, at response assembly, to express timestamps in source time (DEC-023;
+`PreprocessedAudio.to_source_time()`). `sha256` covers `audio_array` only and does not encode `trim_start_s`; the
+§26.4 cache key MUST therefore include `trim_start_s` (or a hash of the source signal).
 
 ### 9.2 Transcript
 
@@ -633,6 +640,13 @@ hf_ratio_std:          float    (optional)
 sha256:                str      — hash of this stats file
 ```
 
+Implemented as `BaselineStatsRecord` (`schemas/contracts.py`), which extends the API `BaselineStats` with the identity
+fields above and also holds: `pause_cross_sentence_std_s` (optional; unset when only one cross-sentence pause exists),
+evidence counts (`n_f0_voiced_frames`, `n_energy_frames`, `n_rate_windows`, `n_pauses_within_phrase`,
+`n_pauses_cross_sentence`, `n_pauses_unknown_boundary`) and `config_snapshot` (the conventions used, e.g. the energy
+frame rule). `sha256` is the SHA-256 of the canonical JSON of every other field (DEC-024). Served by
+`core/baseline.py::BaselineProvider`, built by `scripts/dataset/build_baseline_stats.py`.
+
 ### 9.6 NormalizedFeatureBundle
 
 Extends `FeatureBundle` with z-scored fields:
@@ -642,6 +656,12 @@ energy_z:          np.ndarray
 rate_z:            np.ndarray
 clarity_z:         np.ndarray   (P1)
 ```
+
+Implemented as `NormalizedFeatureBundle` (`services/grounding/normalizer.py`). A value with no meaningful z-score is
+NaN, never 0 (unvoiced F0 frames, energy frames outside the baseline's frame rule, pauses of unknown boundary type);
+a feature with an unusable baseline spread or that was not provided is listed in `unavailable` with a reason
+(DEC-025). It additionally carries `energy_in_baseline_rule`, per-window rate spans (`rate_effective_duration_s`,
+`rate_word_count`), `energy_hop_s`, and per-pause z-scores.
 
 ### 9.7 ContrastiveBundle
 
@@ -1157,7 +1177,10 @@ No downstream service may add evidence fields. No LLM may add evidence fields.
 
 Severity is a deterministic value in [0.0, 1.0] per `GroundedFlaw`.
 
-**Formula (PROPOSED — two options, team must select before TASK-052):**
+**Selected: Option A, as amended by DEC-028** (flagged-time duration; no duration component for `excessive_pause`;
+duration is not applied a second time in scoring). Option B is kept below for reference only.
+
+**Formula (two options were proposed):**
 
 **Option A — Linear product (simpler, preferred for P0):**
 ```
@@ -1218,6 +1241,10 @@ Flaws with `reliability < RELIABILITY_THRESHOLD` (config, proposed 0.4):
 ## 20. Deterministic Scoring
 
 Scoring is owned exclusively by `services/scoring/`. It is deterministic.
+
+> **Amended by DEC-028 / DEC-030:** the per-flaw penalty is `BASE_PENALTY * severity * reliability` (duration is already
+> inside severity, so `duration_weight` / `DURATION_NORM_S` below are no longer applied), and the composite is taken over
+> the features that were actually evaluated: unevaluated features are omitted and the remaining weights renormalised.
 
 ### Per-feature sub-score
 
@@ -1299,6 +1326,11 @@ It may not add, modify, or remove any field in `evidence`.
 ---
 
 ## 22. Explanation and LLM Boundary
+
+> **Implemented (DEC-031):** `services/explanation/` builds a per-flaw fact sheet (the only source of numbers), renders
+> deterministic templates from it, and re-checks every text with an independent number-grounding guard; a minimal fallback
+> is used on any failure. Only the template provider exists; an LLM provider is not implemented and, when added, must receive
+> the fact sheet only and pass the same guard.
 
 ### Permitted LLM operations
 
@@ -1408,6 +1440,12 @@ Decision: measure actual processing time on Day 1 (Whisper speed benchmark, see 
 Analysis results are stored in the file-based cache (see §7.10).
 `GET /api/v1/result/{analysis_id}` reads from this cache.
 Results persist across server restarts.
+
+> **Implemented (DEC-032):** `services/pipeline.py` (`AnalysisPipeline.analyze`) orchestrates the canonical pipeline of §4 and
+> is the only code that wires the stages together; `POST /analyze` validates the upload, then runs it in a worker thread (one
+> analysis at a time). Results are stored as `<CACHE_DIR>/<analysis_id>.json`; `GET /status/{id}` and `GET /result/{id}` read the
+> same store. Failures map to the public error codes (`docs/architecture/api-contract.md`); unexpected exceptions are returned
+> only as a generic `PROCESSING_ERROR`. `baseline_id` selects a baseline file that must describe `passage_id`.
 
 ---
 
@@ -1593,6 +1631,12 @@ cache_key = sha256(
 
 Any change to configuration increments `config_version` → new cache key → cache miss → recompute.
 This guarantees the cache can never return a stale result silently.
+
+> **Amended by DEC-032:** `participant_audio_sha256` covers only the trimmed samples, and a stored result also contains source-time
+> timestamps and notes, so the implemented key additionally covers the trim offset and the source duration, the passage id and its
+> text hash, the `speaker_gender` hint, a manual-transcript hash, `api_contract_version`, a fingerprint of every analytical constant
+> in effect (so a threshold changed without a `config_version` bump still misses), and the installed numeric library versions
+> (§26.5). `analysis_id` is the UUIDv5 of that key.
 
 ### 26.5 Library version pinning
 

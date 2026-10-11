@@ -4,12 +4,22 @@ Defines strongly-typed internal data transfers between canonical pipeline stages
 """
 from __future__ import annotations
 
-from typing import Optional
+import hashlib
+import json
+import math
+import re
+from typing import Optional, Union
 
 import numpy as np
 from pydantic import ConfigDict, Field, field_validator, model_validator
 
 from .common import AlignmentMethod, ContractModel, TranscriptSource
+from .request import ID_PATTERN
+from .response import BaselineStats
+
+
+# Slack for comparing rounded durations in PreprocessedAudio trim-bound validation.
+_TRIM_BOUND_TOLERANCE_S = 1e-3
 
 
 class PreprocessedAudio(ContractModel):
@@ -23,6 +33,25 @@ class PreprocessedAudio(ContractModel):
     audio_array: np.ndarray = Field(description="1D float32 normalized PCM audio array")
     sha256: str = Field(pattern="^[0-9a-f]{64}$", description="SHA-256 hex digest of audio_array bytes")
     peak_dbfs: float = Field(description="Measured peak loudness in dBFS after normalization")
+    # Source-time provenance of silence trimming (TASK-013A). All downstream analysis
+    # timestamps are in processed-audio time (0 = first retained sample); these fields
+    # record where that origin sits in the pre-trim signal. Defaults keep untrimmed /
+    # legacy constructors valid. Conversion to source time is done once, at response assembly.
+    trim_start_s: float = Field(
+        default=0.0,
+        ge=0.0,
+        allow_inf_nan=False,
+        description=(
+            "Offset in seconds, within the decoded/mono/resampled pre-trim signal, "
+            "at which the retained audio begins (0.0 if nothing was trimmed or all audio was silent)"
+        ),
+    )
+    source_duration_s: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        allow_inf_nan=False,
+        description="Duration in seconds of the pre-trim signal (None if unknown)",
+    )
 
     @field_validator("audio_array")
     @classmethod
@@ -34,6 +63,23 @@ class PreprocessedAudio(ContractModel):
         if v.dtype != np.float32:
             raise ValueError("audio_array must have dtype float32")
         return v
+
+    @model_validator(mode="after")
+    def _check_trim_bounds(self) -> "PreprocessedAudio":
+        # duration_s is rounded to 4 d.p. upstream, hence the small tolerance.
+        if (
+            self.source_duration_s is not None
+            and self.trim_start_s + self.duration_s > self.source_duration_s + _TRIM_BOUND_TOLERANCE_S
+        ):
+            raise ValueError(
+                f"trim_start_s ({self.trim_start_s}) + duration_s ({self.duration_s}) "
+                f"exceeds source_duration_s ({self.source_duration_s})"
+            )
+        return self
+
+    def to_source_time(self, t_s: float) -> float:
+        """Map a processed-audio timestamp to the pre-trim (source) timeline."""
+        return t_s + self.trim_start_s
 
 
 class WordTiming(ContractModel):
@@ -168,3 +214,81 @@ class AlignmentValidationResult(ContractModel):
 
 
 ValidationResult = AlignmentValidationResult
+
+
+class BaselineStatsRecord(BaselineStats):
+    """Persisted baseline statistics for one passage (ARCHITECTURE.md §9.5, DEC-015, TASK-040).
+
+    Extends the API `BaselineStats` (the numeric statistics, defined once in
+    `schemas/response.py`) with the identity, provenance and evidence-count fields of
+    §9.5. It is what `core.baseline.BaselineProvider.get(passage_id)` returns and what
+    `scripts/dataset/build_baseline_stats.py` writes.
+
+    Units: Hz (f0), dBFS (energy), words per minute (rate), seconds (pauses).
+
+    Evidence counts say how much data each statistic rests on, so consumers can see thin
+    baselines instead of trusting a number that came from very few observations.
+
+    `sha256` is the SHA-256 of the canonical JSON of every other field (sorted keys, compact
+    separators, no NaN); it identifies the exact statistics used in an analysis and feeds the
+    cache key (§26.4). Use `with_computed_sha256()` to set it and `verify_sha256()` to check it.
+    """
+
+    passage_id: str = Field(pattern=ID_PATTERN)
+    dataset_version: str = Field(min_length=1)
+    baseline_recording_ids: list[str] = Field(min_length=1)
+    # Required here (optional in the API model): the builder always computes them.
+    f0_voiced_hz_p05: float
+    f0_voiced_hz_p95: float
+    n_f0_voiced_frames: int = Field(ge=0)
+    n_energy_frames: int = Field(ge=0)
+    n_rate_windows: int = Field(ge=0)
+    n_pauses_within_phrase: int = Field(ge=0)
+    n_pauses_cross_sentence: int = Field(ge=0)
+    n_pauses_unknown_boundary: int = Field(ge=0)
+    # Parameters that define how the statistics were computed (e.g. which energy frames count).
+    config_snapshot: dict[str, Union[str, int, float, bool]]
+    sha256: str = Field(pattern="^[0-9a-f]{64}$")
+
+    @field_validator("baseline_recording_ids")
+    @classmethod
+    def _recording_ids_valid(cls, v: list[str]) -> list[str]:
+        if len(set(v)) != len(v):
+            raise ValueError("baseline_recording_ids must be unique")
+        if any(not re.match(ID_PATTERN, rid) for rid in v):
+            raise ValueError("baseline_recording_ids contain an invalid identifier")
+        return v
+
+    @model_validator(mode="after")
+    def _check_statistics(self) -> "BaselineStatsRecord":
+        for name, value in self.model_dump().items():
+            if isinstance(value, float) and not math.isfinite(value):
+                raise ValueError(f"{name} must be finite")
+        if self.f0_voiced_hz_p05 > self.f0_voiced_hz_p95:
+            raise ValueError("f0_voiced_hz_p05 must be <= f0_voiced_hz_p95")
+        return self
+
+    def canonical_json(self) -> str:
+        """Canonical JSON of every field except `sha256` (the hashed content)."""
+        return json.dumps(
+            self.model_dump(mode="json", exclude={"sha256"}),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+
+    def compute_sha256(self) -> str:
+        return hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()
+
+    def verify_sha256(self) -> bool:
+        """True if the stored `sha256` matches the content."""
+        return self.sha256 == self.compute_sha256()
+
+    def with_computed_sha256(self) -> "BaselineStatsRecord":
+        """Return a copy whose `sha256` matches its content."""
+        return self.model_copy(update={"sha256": self.compute_sha256()})
+
+    def to_response_stats(self) -> BaselineStats:
+        """The numeric statistics in the public API shape (`AnalysisResult.baseline_stats`)."""
+        return BaselineStats(**{name: getattr(self, name) for name in BaselineStats.model_fields})

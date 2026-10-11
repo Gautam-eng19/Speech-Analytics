@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.api.routes import analyze, health
+from app.api.routes import analyze, health, results
 from app.schemas.common import ErrorCode, ERROR_HTTP_STATUS
 from app.schemas.response import ErrorResponse
 
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     # Include API routers under /api/v1 prefix per api-contract.md
     app.include_router(health.router, prefix="/api/v1", tags=["Health"])
     app.include_router(analyze.router, prefix="/api/v1", tags=["Analysis"])
+    app.include_router(results.router, prefix="/api/v1", tags=["Analysis"])
 
     return app
 

@@ -1,46 +1,61 @@
 # Project State
 
 Last updated:
-2026-10-07
+2026-10-09
 
 Updated by:
-Control File Synchronization
+Coding agent (control-file synchronization with verified code state, delegated by the team leader)
+
+All statements below were checked against the repository and a full test run on 2026-10-09
+(810 tests passed, 0 failed, 2 smoke tests deselected; real pytest/scipy/librosa/av/openai-whisper; see section 9).
+The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
 
 # 1. CURRENT PHASE
 
-Foundation Implementation — in progress.
-Architecture Definition (TASK-001), API Contract (TASK-002), and Dataset Schema (TASK-003) are complete and merged into main.
-Next immediate focus: Development Environment (TASK-004).
+Analytical core and orchestration complete on synthetic speech; waiting for real data.
+
+Pipeline status (ARCHITECTURE.md §4):
+preprocessing ✅ → transcription ✅ → forced alignment ✅ → feature extraction ✅ (F0, MFCC, energy,
+rate, pauses; clarity P1 ❌) → baseline statistics ✅ → normalization ✅ → contrastive comparison ✅
+(delta = z) → flaw candidates ✅ (flat pitch ❌) → severity ✅ → evidence ✅ → scoring ✅ →
+explanation ✅ (templates + number guard; no LLM) → API orchestration ✅ → dashboard ❌.
+
+`POST /api/v1/analyze` now runs the whole pipeline and returns the contract-valid `AnalysisResult` (API contract 1.1.0);
+`GET /api/v1/status/{id}` and `GET /api/v1/result/{id}` read the stored result. This is verified end to end
+over HTTP on SYNTHETIC speech with injected flaws at known times, with Whisper and WhisperX replaced by exact-timing
+stand-ins. It has never run on a real recording or with the real models.
 
 ---
 
 # 2. PROJECT HEALTH
 
 Overall:
-🟢 Healthy
+🟡 Complete backend chain on synthetic data; no real recordings, no frontend, no real-model run
 
 Repository:
-🟢 Initialized and synced on main with foundation contracts
+🟢 main is current; all work is merged through pull requests
 
 Architecture:
-🟢 Canonical architecture defined (ARCHITECTURE.md)
+🟢 ARCHITECTURE.md canonical (notes added for DEC-023, 028, 030, 031, 032)
 
 Backend:
-⚪ Not started (contracts defined; environment setup pending)
+🟢 All 11 backend stages, the cache and the three analysis endpoints are implemented and tested
 
 Frontend:
-⚪ Not started
+⚪ Not started (placeholder directory)
 
 Dataset:
-🟡 Schema and validation tooling defined (TASK-003 complete; audio collection pending)
+🔴 No recordings. data/ holds schema fixtures only (zero SHA-256 hashes, no audio); the baseline
+builder correctly refuses them, and /analyze answers BASELINE_NOT_FOUND until a baseline file exists.
+This is the main blocker for any real result.
 
 Analysis pipeline:
-⚪ Not started
+🟢 11 of 12 stages implemented; flat_pitch and the dashboard are missing
 
 Testing:
-⚪ Not started
+🟢 810 tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 ⚪ Not started
@@ -49,143 +64,155 @@ Demo:
 
 # 3. CURRENT OBJECTIVE
 
-Complete Development Environment (TASK-004) so that backend, frontend, and development tools
-are runnable on all team machines, unblocking backend application implementation (TASK-010).
+Turn the synthetic-speech proof into a real one: record the controlled dataset, build a baseline, run the real
+models (`pytest -m smoke`), calibrate thresholds and weights on the injected flaws, then build the dashboard.
 
 ---
 
 # 4. CURRENT MILESTONE
 
-Milestone M0 — Foundation
+Milestone M0 — Foundation: complete except the three-machine environment check.
+Milestone M1 — Analytical core: complete on synthetic data; calibration and real data outstanding.
 
-Success criteria:
+M1 success criteria:
 
-- [x] repository is shared by all teammates
-- [x] control files are established
-- [x] architecture is defined (ARCHITECTURE.md canonical)
-- [x] API contract is defined (TASK-002)
-- [x] dataset schema is defined (TASK-003)
-- [ ] development environments work (TASK-004)
-- [ ] first minimal backend can run (TASK-010, TASK-011)
+- [x] audio preprocessing with source-time provenance
+- [x] transcription, alignment, alignment validation
+- [x] F0, MFCC, energy, speech rate, pauses
+- [x] baseline statistics (record, builder, provider)
+- [x] baseline-relative normalization
+- [x] flaw candidates for rate, energy, pauses
+- [x] severity (DEC-028), typed evidence, final flaw schema (API contract 1.1.0)
+- [x] deterministic scoring with explicit missing-feature handling (DEC-030)
+- [x] template explanations with a number-grounding guard (DEC-031)
+- [x] orchestrated /api/v1/analyze + /status + /result + cache (DEC-032)
+- [ ] flat pitch detection (needs a within-window F0-variation baseline statistic)
+- [ ] real baseline + participant recordings, the real-model run and an evaluation
 
 ---
 
-# 5. COMPLETED
+# 5. COMPLETED (commits on main)
 
-- [x] GitHub repository created
-- [x] Repository cloned locally
-- [x] Initial directory structure created
-- [x] AGENTS.md created
-- [x] PROJECT_STATE.md created
-- [x] TASKS.md created
-- [x] DECISIONS.md created
-- [x] Architecture proposal completed (docs/architecture/architecture-proposal.md)
-- [x] Architecture review completed
-- [x] ARCHITECTURE.md canonicalized (TASK-001)
-- [x] DECISIONS.md updated with accepted and proposed decisions
-- [x] API Contract completed, reviewed, and merged into main (TASK-002)
-- [x] Dataset Schema and validation tooling completed, reviewed, and merged into main (TASK-003)
+Foundation: repository, control files, ARCHITECTURE.md, API contract (a7ac334), dataset schema and
+validator (e3c2697), dev environment (7e2d061), FastAPI skeleton + health (0a24470), upload validation (a1b8048).
+
+Services: preprocessing (f1a0836), F0 (dfbe1f5), MFCC (e2a440c), Whisper transcription (29e6e39),
+WhisperX alignment (52ded6e), alignment validation (c3b5bbb).
+
+Added 2026-10-09: trim provenance (33e9330), energy (468a01b), speech rate (2a7247a), pauses (88b608d),
+BaselineStatsRecord / BaselineProvider / build_baseline_stats.py (834c08f, cc28792, 14aa3d5),
+normalization (8777964), flaw candidates (d1268c5), control-document sync (0e1d03d), severity (c0e351b),
+evidence + final flaw schema / API contract 1.1.0 (c0b53d2), scoring (8ab467a), explanations + guard (d79feb8),
+pipeline orchestration + result cache + /status + /result (the pull request that updated this file).
 
 ---
 
 # 6. IN PROGRESS
 
-- [ ] TASK-004 — Development Environment (READY — see TASKS.md)
+None.
 
 ---
 
-# 7. BLOCKED
+# 7. BLOCKED / NEEDS A DECISION
 
-None currently.
-
-Note: TASK-022 (Forced Alignment) is dependent on WhisperX install test.
-This is an early Day 1 experiment, not currently a blocker.
+- Recordings do not exist. Calibration (DEC-P005, P007), evaluation and any real demo are blocked on TASK-122.
+- The real Whisper/WhisperX path has never been run by the agent (model downloads are not possible in its sandbox); it needs a
+  machine with the models: `python -m pytest -m smoke`, then one real recording through /analyze.
+- Flat pitch: BaselineStats has only the pooled global F0 std; a valid detector needs a baseline statistic of
+  F0 variation within a window (record-contract change). Until then pitch is reported as "not scored".
+- Team-leader confirmation requested for the agent decisions DEC-024 to DEC-032 (all made under delegated authority).
+- **Loudness normalisation (amends the still-proposed DEC-P003) — decide BEFORE recordings and baselines are built.** Scaling each
+  recording by its peak (−3 dBFS) makes a loud stretch define the scale: on synthetic speech a +6 dB stretch was not detected and five
+  false "low energy" flags appeared on normal speech. Scaling by the median speech level fixed the false flags and gave correct
+  z-scores, but the frame-by-frame energy rule still fired only for changes of +12 dB or more. Details, numbers and the proposed
+  algorithm: `docs/methodology/recording-protocol.md` §8. Not changed in code yet.
 
 ---
 
 # 8. ACTIVE TASKS
 
-- TASK-004 — Development Environment (READY)
+None. Candidates: collect recordings (TASK-122), calibration and evaluation (TASK-100 to TASK-107 on real data),
+the frontend (TASK-080+), flat pitch (after the baseline-statistic decision).
 
 ---
 
 # 9. RECENT CHANGES
 
-2026-10-07:
-- Architecture review completed and ARCHITECTURE.md canonicalized (TASK-001 DONE).
-- DECISIONS.md updated with 14 accepted decisions and 9 proposed decisions.
-- TASK-002 (API Contract) completed, reviewed, and merged into main (Pydantic schemas for request, response, contracts).
-- TASK-003 (Dataset Schema) completed, reviewed, and merged into main (manifest schema, speaker/passage metadata, schema validation fixtures, validate_dataset.py, unit tests).
-- Repository main branch updated with completed foundation artifacts.
-- TASKS.md updated: TASK-002 and TASK-003 marked DONE; TASK-004 is READY.
-
-No backend/frontend implementation code has been written yet.
-No audio files have been collected yet.
-No experiments have been run yet.
+2026-10-09:
+- TASK-013A, 032, 033, 034, 040, 041, 043/050/051 implemented and merged (see section 5).
+- TASK-052/053/054 (severity, evidence, final flaw schema), TASK-060/061/062 (scoring), TASK-070/071/072
+  (explanations and guard) and the pipeline orchestration with cache and result endpoints implemented and merged.
+- Found and fixed by the orchestration tests: a flaw touching the first frame of a recording had a negative start time
+  and failed the contract (energy runs are now clipped to the audio, amending DEC-026); error details leaked decoder text and a
+  server path (details are now fixed or built from validated identifiers only).
+- Verification environment: `av` and `openai-whisper` installed. Full suite: 810 passed, 2 smoke tests deselected.
+- DECISIONS.md gained DEC-023 to DEC-032; ARCHITECTURE.md, the API contract (1.1.0), TASKS.md, README.md and
+  docs/setup.md were updated.
 
 ---
 
 # 10. CURRENT TECHNICAL DECISIONS
 
-Frontend:
-React + Vite + TypeScript (ACCEPTED — DEC-002)
+Accepted decisions DEC-001 to DEC-022 are unchanged. Added 2026-10-09 (DEC-023 to DEC-032 are agent decisions under delegated
+authority and await team-leader confirmation):
 
-Backend:
-Python + FastAPI (ACCEPTED — DEC-003)
+- Source-time provenance of trimming; conversion applied once at response assembly (DEC-023)
+- Baseline statistics conventions: active-frame energy, sample std, rounding, sha256, passage_id key (DEC-024)
+- Normalization semantics: missing stays NaN, unusable spread is explicit, energy rule read from the baseline (DEC-025)
+- Candidate-detection conventions: strict thresholds, covered-frame runs, unmerged pauses, flat pitch deferred (DEC-026)
+- Feature-extraction conventions: energy window, rate window membership/time axis, pause agreement rule (DEC-027)
+- Severity = deviation magnitude x flagged duration, no duration term for pauses (DEC-028)
+- API contract 1.1.0 and the source-time response timeline (DEC-029)
+- Scoring: penalty = 30 x severity x reliability; unevaluated features are omitted and weights renormalised (DEC-030)
+- Explanations from a fact sheet, checked by an independent number guard; minimal fallback (DEC-031)
+- Orchestrator, analysis identity covering every input, result store, error mapping, notes (DEC-032)
 
-Repository:
-Single monorepo (ACCEPTED — DEC-001)
-
-Analysis:
-Backend-owned Python services (ACCEPTED — DEC-004)
-
-Scoring:
-Deterministic, penalty-based, configurable weights (ACCEPTED — DEC-014)
-
-Pipeline:
-Canonical 12-stage pipeline, unchanged (ACCEPTED — DEC-008)
-
-Alignment fallback:
-Uniform AlignedTranscript interface regardless of alignment method (ACCEPTED — DEC-009)
-
-Baseline normalization:
-Baseline-relative z-score, NOT global average (ACCEPTED — DEC-010)
-
-Explanation:
-Evidence-backed, template always available, LLM optional (ACCEPTED — DEC-018, DEC-021)
-
-P0 flaw scope:
-6 flaw types (Too Fast, Too Slow, Excessive Pause, Flat Pitch, Low Energy, High Energy)
-(ACCEPTED — DEC-013)
-
-Clarity:
-P1 only, acoustic proxy, weight = 0 at P0 (ACCEPTED — DEC-012)
+Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weights (DEC-P007). Results say so
+(`thresholds_uncalibrated` note) until `THRESHOLDS_CALIBRATED=true` is set after calibration.
 
 ---
 
 # 11. KNOWN RISKS
 
-- Transcription: openai-whisper install and speed not yet verified on team machines
-- Alignment: WhisperX install not yet verified; fallback is defined
-- Normalization: baseline-relative normalization may show systematic bias for participants
-  with very different habitual pitch/energy from baseline speaker(s)
-- Thresholds: initial detection thresholds are proposed starting points; calibration
-  on dev set is required before they can be frozen
-- Score weights: initial P0 weights are proposed; calibration required
-- Dataset: no recordings have been made yet
-- False positive rate: not yet measured; a key calibration target before Day 5
-
-These are documented risks. Mitigation strategies are in ARCHITECTURE.md §30.
+- No data: every threshold and weight is an uncalibrated starting value; false-positive/recall rates are unmeasured.
+  Only synthetic-tone tests exist; behaviour on real speech (pYIN on voiced speech, VAD at −50 dBFS,
+  WhisperX alignment quality) is unvalidated.
+- The real Whisper/WhisperX models were never run in the verification environment; the model loading time of the first
+  request, memory use and the accuracy of real word timings are unknown. The manual-transcript path relies on WhisperX
+  wrapping text without segments into one segment (read from the code, not run).
+- Single-reference baselines: the rate (and pause) spread rests on very few observations and can be tiny,
+  making z-scores hypersensitive; results carry `baseline_thin_*` notes. Cross-sentence pauses need a baseline with at
+  least two such pauses to be comparable (otherwise `pauses_not_comparable`).
+- Energy detection (low/high energy) judges single 10 ms frames against a wide baseline spread and breaks a run at any in-range frame,
+  so it is probably too fragile for real speech; moderate loudness changes are unlikely to be found until the rule is smoothed over
+  about 0.5–1 s windows and calibrated on real data (measured on synthetic speech only).
+- Rate flaws are window-resolution: with 8 s windows a `too_fast` interval can begin several seconds before the fast words
+  (about 4 s in the synthetic test) and overlapping flagged windows merge. Temporal precision for rate is therefore coarse.
+- `reliability` is the constant 1.0 and `low_confidence` is always false at P0; neither is a measured confidence.
+- Baseline-relative normalization is not speaker adaptation (pitch/loudness offsets of the participant remain).
+- Test-split leakage question: whether test-speaker baselines may feed statistics for test participants is undecided
+  (the builder requires an explicit --splits).
+- One analysis runs at a time and stored results are never evicted (no retention policy); there is no authentication and no CORS
+  configuration yet (the frontend will need CORS).
+- MP3 decoder delay is not measured; MP3 timestamps may be offset by a few tens of ms.
+- Dependencies are `>=` ranges without a lockfile; WhisperX is not installed in the verification environment. Library
+  versions are part of the analysis identity, so a changed environment produces new ids rather than stale results.
+- Stored alignment files are assumed to be AlignedTranscript JSON in processed-audio time (not specified by the dataset schema).
+- AGENTS.md §27 still says "Initialization / implementation not started" (protected file; not edited).
+- CONFIG_VERSION has not been bumped for the new detection, severity and scoring constants; bump at the calibration freeze (DEC-014).
+  Meanwhile `config_fingerprint` changes whenever any analytical constant changes, so the cache cannot go stale.
 
 ---
 
 # 12. NEXT PRIORITIES
 
-1. TASK-004 — Development Environment (install verification on all machines)
-2. Day 1 experiments: Whisper speed benchmark, WhisperX install test
-3. TASK-010 — FastAPI Application Skeleton (after environment setup)
-4. TASK-011 — Health Endpoint
-5. Audio recording & collection plan (TASK-122)
+1. Collect a small controlled recording set (TASK-122) following `docs/methodology/recording-protocol.md` (pilot first), build a
+   real baseline, and run the real-model smoke tests and one real recording through /analyze; fix whatever the real models reveal.
+2. Calibrate thresholds, severity and weights on the controlled flaws (TASK-100 to TASK-107 on real data), then set
+   `THRESHOLDS_CALIBRATED=true`, bump CONFIG_VERSION and freeze.
+3. Decide the within-window F0-variation baseline statistic and implement flat pitch.
+4. Frontend (TASK-080+) against the real API output (add CORS).
+5. Optional: an LLM explanation provider that receives only the fact sheet and passes the existing guard.
 
 ---
 
