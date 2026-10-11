@@ -7,7 +7,7 @@ Updated by:
 Coding agent (dataset recording kit delivered; control files synchronised, delegated by the team leader)
 
 All statements below were checked against the repository and full test runs on 2026-10-11
-(934 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
+(935 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -61,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch detection is missing
 
 Testing:
-🟢 934 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 935 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -177,7 +177,7 @@ Waiting on the team leader: speakers, tier, equipment and consent for the pilot 
 2026-10-11:
 - Dataset recording kit (TASK-125): `scripts/dataset/make_plan.py` (deterministic plan, nested tiers pilot 9 / minimum 36 (28) / recommended 112 (86) takes, per-speaker prompter page,
   session log), `check_recordings.py` (format, size, clipping, level, room noise, silence at the ends, length, hum), shared `passage_text.py`, final passages
-  `data/plan/passages_v1.json`, a plain-language guide `docs/methodology/dataset-guide.md` and a consent form template. 96 tests (934 backend/integration tests in all);
+  `data/plan/passages_v1.json`, a plain-language guide `docs/methodology/dataset-guide.md` and a consent form template. 97 tests (935 backend/integration tests in all);
   20 injected bugs all caught (two gaps found and closed); the prompter was driven in a real Chromium. Registration/labelling (TASK-126) and evaluation tools (TASK-127) are
   not written yet: they follow the pilot on purpose.
 
