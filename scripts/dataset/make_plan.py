@@ -190,7 +190,8 @@ def choose_sentences(passage: Passage, flaw: str, usage: Optional[Dict[int, int]
 
 
 def _quote(word: str) -> str:
-    return "“" + word.strip(",.;:?!") + "”"
+    """The word in plain ASCII quotes: plan.csv is opened in spreadsheet programs that garble typographic quotes."""
+    return "'" + word.strip(",.;:?!") + "'"
 
 
 def build_flawed(passage: Passage, speaker_id: str, split: str, flaw: str, take_no: int, sentence_no: int, order: int) -> Dict[str, Any]:

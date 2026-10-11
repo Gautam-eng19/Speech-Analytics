@@ -147,6 +147,11 @@ class TestCounts:
         first = by(rows, speaker_id="spk_dev_01", passage_id="p001")
         assert [r["category"] for r in first[:5]] == ["baseline_effective"] * 3 + ["clean_control"] * 2
 
+    def test_plan_csv_is_plain_ascii_so_spreadsheets_show_it_correctly(self, passages, tmp_path):
+        mp.write_plan(tmp_path, plan(passages), passages, "recommended", False)
+        raw = (tmp_path / "plan.csv").read_bytes()
+        assert raw.isascii(), [c for c in raw.decode("utf-8") if ord(c) > 127]
+
     def test_instruction_and_status_columns_are_filled(self, passages):
         for r in plan(passages):
             assert len(r["instruction"]) > 40
