@@ -1,0 +1,29 @@
+{
+  "recording_id": "rec_p001_spk_dev_02_flaw_fast_01",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "flaws": [
+    {
+      "flaw_id": "ann_flaw_p001_001",
+      "flaw_type": "too_fast",
+      "start_s": 4.50,
+      "end_s": 8.20,
+      "severity_label": "high",
+      "target_words": [
+        "Today",
+        "we",
+        "present",
+        "Track",
+        "C",
+        "an",
+        "integrated",
+        "system",
+        "for",
+        "speech",
+        "delivery",
+        "analytics"
+      ],
+      "annotator_notes": "Accelerated speech segment exceeding 220 WPM (compared to 140 WPM baseline pace)."
+    }
+  ]
+}
