@@ -7,7 +7,7 @@ Updated by:
 Coding agent (registration and labelling tools delivered; control files synchronised, delegated by the team leader)
 
 All statements below were checked against the repository and full test runs on 2026-10-13
-(1075 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
+(1076 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -61,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch detection is missing
 
 Testing:
-🟢 1075 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 1076 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -180,7 +180,7 @@ The team leader decided speakers (2 dev + 2 test), equipment (USB headset) and l
 - Registration and labelling tools (TASK-126, DEC-038): `scripts/dataset/prepare_recordings.py` registers a folder of checked takes (copy to data/raw, SHA-256, preprocessing, WhisperX alignment with the passage text as the
   transcript, plausibility checks, alignment JSON, manifest/speaker/passage entries, proposed flaw annotations that a person confirms by ear, a "was the planned flaw really performed" check against the speaker's own
   baseline takes, Audacity label files, dataset validation, optional baseline build; idempotent; `--replace` for re-recorded takes). `scripts/dataset/take_checks.py` holds the pure checks,
-  `scripts/check_environment.py` checks a computer and downloads the models once. The schema fixtures were retired (real passages, four anonymous speakers, empty manifest). 126 new tests (1075 in all),
+  `scripts/check_environment.py` checks a computer and downloads the models once. The schema fixtures were retired (real passages, four anonymous speakers, empty manifest). 127 new tests (1076 in all),
   including the committed plan and passages end to end with synthetic takes; 74 injected bugs: all caught after the gaps found were closed. A failing alignment check that did not stop the
   take from being registered was found by the tests and fixed. Not run: the real Whisper and WhisperX models.
 
