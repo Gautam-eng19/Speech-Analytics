@@ -5,8 +5,9 @@ from .candidates import (
     FlawCandidate,
     detect_candidates,
     merge_candidates,
+    refine_rate_candidates,
 )
-from .flaws import EvidenceError, GroundedFlaw, ground_flaws, to_api_flaw
+from .flaws import EvidenceError, GroundedFlaw, clip_to_audio, ground_flaws, to_api_flaw
 from .severity import SeverityConfig, compute_severity, severity_components
 from .normalizer import (
     NormalizationError,
@@ -22,9 +23,11 @@ __all__ = [
     "FlawCandidate",
     "detect_candidates",
     "merge_candidates",
+    "refine_rate_candidates",
     "EvidenceError",
     "GroundedFlaw",
     "ground_flaws",
+    "clip_to_audio",
     "to_api_flaw",
     "SeverityConfig",
     "compute_severity",

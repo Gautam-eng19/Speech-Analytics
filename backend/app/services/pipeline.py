@@ -77,6 +77,7 @@ from app.services.grounding import (
     EvidenceError,
     NormalizationError,
     SeverityConfig,
+    clip_to_audio,
     detect_candidates,
     ground_flaws,
     normalize_features,
@@ -356,8 +357,9 @@ class AnalysisPipeline:
 
             try:
                 normalized = normalize_features(record, f0=f0, energy=energy, rate=rate, pauses=pauses.events)
-                detection = detect_candidates(normalized, cfg.detection)
-                grounded = ground_flaws(detection, normalized, record, rate=rate, energy=energy, aligned=aligned, severity=cfg.severity)
+                detection = detect_candidates(normalized, cfg.detection, aligned=aligned, baseline=record)
+                grounded = clip_to_audio(
+                    ground_flaws(detection, normalized, record, rate=rate, energy=energy, aligned=aligned, severity=cfg.severity), audio.duration_s)
                 scoring = score_analysis(grounded, detection.skipped, settings.CONFIG_VERSION, cfg.scoring)
             except (NormalizationError, EvidenceError, ScoringError) as exc:
                 logger.exception("analytical stage failed")

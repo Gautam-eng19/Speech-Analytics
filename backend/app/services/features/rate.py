@@ -12,6 +12,12 @@ Algorithm (DEC-020):
 
     It is NOT derived from individual word durations (explicitly forbidden: too noisy).
 
+Amendment (DEC-039): a silence longer than ``max_gap_s`` (default 1.0 s) between two words is counted as
+``max_gap_s`` when the rate is computed, so a deliberate long pause is reported by pause detection and does
+not also make the surrounding window look slow. The window's span (``effective_duration_s``, used to
+place findings in time) is unchanged; the rate divides by ``speaking_duration_s`` = span minus the part of
+each gap beyond ``max_gap_s``. Gaps up to ``max_gap_s`` (all natural pauses) count in full, as before.
+
 Implementation choices where DEC-020 / §13.4 are silent (documented here, to be
 confirmed by the team leader):
     * Window grid: window k covers ``[k * step_s, k * step_s + window_s)`` in
@@ -52,13 +58,14 @@ class RateConfig:
     """Explicit configuration for rolling-window speech rate.
 
     Defaults are the PROPOSED values of ARCHITECTURE.md §13.4 / DEC-020 (not calibrated):
-    window_s=8.0, step_s=4.0, min_words=5, min_windows=2.
+    window_s=8.0, step_s=4.0, min_words=5, min_windows=2; ``max_gap_s=1.0`` is DEC-039.
     """
 
     window_s: float = 8.0
     step_s: float = 4.0
     min_words: int = 5
     min_windows: int = 2
+    max_gap_s: float = 1.0
 
     def __post_init__(self) -> None:
         if not (math.isfinite(self.window_s) and self.window_s > 0.0):
@@ -71,6 +78,8 @@ class RateConfig:
             )
         if self.min_windows < 1:
             raise ValueError(f"min_windows must be >= 1, got {self.min_windows}")
+        if not (math.isfinite(self.max_gap_s) and self.max_gap_s > 0.0):
+            raise ValueError(f"max_gap_s must be a positive finite number, got {self.max_gap_s}")
 
 
 def _empty_f64() -> np.ndarray:
@@ -93,6 +102,8 @@ class RateExtractionResult:
         window_start_s / window_end_s: Nominal window bounds, seconds.
         word_count: Number of words in each window.
         effective_duration_s: ``max(end) - min(start)`` of each window's words, seconds.
+        speaking_duration_s: ``effective_duration_s`` minus the part of every gap longer than ``config.max_gap_s``;
+            the duration the rate divides by.
         n_words_total: Words in the input transcript.
         n_words_unaligned: Words ignored because start or end time was missing/non-finite.
         n_valid_windows: Valid windows found (before applying ``min_windows``).
@@ -113,6 +124,7 @@ class RateExtractionResult:
     window_end_s: np.ndarray = field(default_factory=_empty_f64)
     word_count: np.ndarray = field(default_factory=_empty_i64)
     effective_duration_s: np.ndarray = field(default_factory=_empty_f64)
+    speaking_duration_s: np.ndarray = field(default_factory=_empty_f64)
 
     @property
     def total_windows(self) -> int:
@@ -186,6 +198,7 @@ class RateExtractor:
         w_end: List[float] = []
         counts: List[int] = []
         eff: List[float] = []
+        speaking: List[float] = []
 
         for k in range(n_grid):
             ws = k * cfg.step_s
@@ -199,12 +212,19 @@ class RateExtractor:
             effective = span_end - span_start
             if not effective > 0.0:
                 continue
+            members = np.flatnonzero(member)
+            gaps = start_arr[members[1:]] - end_arr[members[:-1]]
+            beyond = float(np.clip(gaps - cfg.max_gap_s, 0.0, None).sum())      # silence beyond max_gap_s is not speaking time (DEC-039)
+            speaking_s = effective - beyond
+            if not speaking_s > 0.0:
+                continue
             t_mid.append((span_start + span_end) / 2.0)
-            wpm.append(n / effective * 60.0)
+            wpm.append(n / speaking_s * 60.0)
             w_start.append(ws)
             w_end.append(we)
             counts.append(n)
             eff.append(effective)
+            speaking.append(speaking_s)
 
         result.n_valid_windows = len(wpm)
 
@@ -219,6 +239,7 @@ class RateExtractor:
         result.window_end_s = np.asarray(w_end, dtype=np.float64)
         result.word_count = np.asarray(counts, dtype=np.int64)
         result.effective_duration_s = np.asarray(eff, dtype=np.float64)
+        result.speaking_duration_s = np.asarray(speaking, dtype=np.float64)
         return result
 
 

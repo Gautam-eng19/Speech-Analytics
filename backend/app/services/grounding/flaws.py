@@ -9,9 +9,13 @@ populated before the flaw is returned").
 Evidence (the typed models of `schemas/response.py`; all values rounded to `EVIDENCE_DECIMALS` places so
 serialized results do not depend on last-bit floating-point differences):
 
-    too_fast / too_slow -> RateEvidence    mean WPM of the flagged windows, baseline mean/std, delta,
+    too_fast / too_slow -> RateEvidence    rate (words per minute) of the interval, baseline mean/std, delta,
                                            delta in percent of the baseline mean, mean and peak z, span,
-                                           words that start inside the interval
+                                           words that start inside the interval. For an interval narrowed to the
+                                           words that deviate (DEC-039) the rate is that of the narrowed stretch
+                                           (words / span) and z compares it with the baseline's window spread scaled
+                                           for the shorter stretch (candidates.refine_rate_candidates);
+                                           otherwise it is the mean of the flagged windows
     low / high_energy   -> EnergyEvidence  mean dBFS of the flagged frames, baseline mean/std, delta, mean z, span
     excessive_pause     -> PauseEvidence   pause duration, the type-specific baseline mean/std, delta, z,
                                            boundary type and detection source
@@ -59,6 +63,11 @@ _EPS_S = 1e-9
 WARNING_RATE = (
     "Speech rate is measured over rolling windows, so the start and end of this finding are approximate "
     "(window-level)."
+)
+WARNING_RATE_NARROWED = (
+    "Speech rate is detected over rolling windows and the finding is then narrowed to the words that were faster or slower, so its start and "
+    "end can still be off by a word or two. Its standard-deviation figure compares this short stretch with the spread of the baseline's "
+    "windows, scaled for the stretch having fewer words to average over."
 )
 WARNING_ENERGY = (
     "Energy is relative loudness: the recording is scaled so that its typical speech level is the same as the baseline's, "
@@ -135,10 +144,14 @@ def _rate_evidence(
     if not baseline.rate_wpm_mean > 0.0:
         raise EvidenceError("baseline rate_wpm_mean must be > 0 to express the difference in percent")
 
-    mean_wpm = float(np.mean(wpm[idx]))
+    if c.stretch_rate_wpm is not None:        # narrowed to the words that deviate: the evidence describes that stretch
+        mean_wpm = float(c.stretch_rate_wpm)
+        peak_signed = math.copysign(c.peak_z, c.mean_z)
+    else:
+        mean_wpm = float(np.mean(wpm[idx]))
+        z = nb.rate_z[idx]
+        peak_signed = float(z[int(np.argmax(np.abs(z)))])
     delta = mean_wpm - baseline.rate_wpm_mean
-    z = nb.rate_z[idx]
-    peak_signed = float(z[int(np.argmax(np.abs(z)))])
     timed, _ = _timed_words(aligned)
     words_in_span = sum(1 for _, s, _e in timed if c.start_s - _EPS_S <= s <= c.end_s + _EPS_S)
     return RateEvidence(
@@ -267,7 +280,7 @@ def ground_flaws(
     for number, c in enumerate(ordered, start=1):
         if c.type in (FlawType.TOO_FAST, FlawType.TOO_SLOW):
             evidence: Evidence = _rate_evidence(c, normalized, baseline, rate, aligned)
-            warnings = (WARNING_RATE,)
+            warnings = (WARNING_RATE if c.stretch_rate_wpm is None else WARNING_RATE_NARROWED,)
             words = _words_in_interval(timed, c.start_s, c.end_s)
         elif c.type in (FlawType.LOW_ENERGY, FlawType.HIGH_ENERGY):
             evidence = _energy_evidence(c, normalized, baseline, energy)
@@ -296,6 +309,20 @@ def ground_flaws(
             )
         )
     return flaws
+
+
+def clip_to_audio(flaws: Sequence[GroundedFlaw], duration_s: float) -> List[GroundedFlaw]:
+    """Keep every flaw inside the analysed audio [0, duration_s] (processed time); a flaw that would be left empty is dropped.
+
+    An aligner may place a word end a few milliseconds beyond the audio; the result contract requires every flaw to lie within the audio, so the
+    interval is clipped here instead of failing the whole analysis.
+    """
+    out: List[GroundedFlaw] = []
+    for f in flaws:
+        start, end = max(0.0, f.start_s), min(float(duration_s), f.end_s)
+        if end > start:
+            out.append(f if (start, end) == (f.start_s, f.end_s) else replace(f, start_s=_r(start), end_s=_r(end)))
+    return out
 
 
 def to_api_flaw(

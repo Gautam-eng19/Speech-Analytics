@@ -81,14 +81,15 @@ describe('TimelinePage', () => {
     const rate = flawOfType(mixedResult, 'too_fast');
     fireEvent.click(document.querySelector(`[data-flaw="${rate.flaw_id}"]`)!);
     const panel = screen.getByRole('region', { name: 'Selected finding' });
-    expect(within(panel).getByText('197.4')).toBeInTheDocument();
+    expect(within(panel).getByText((rate.evidence as { rate_participant_wpm: number }).rate_participant_wpm.toFixed(1))).toBeInTheDocument();
     expect(panel.textContent).toContain(rate.explanation);
     expect(selectionStore.get().flawId).toBe(rate.flaw_id);
   });
 
   it('reads the values under the pointer from the result', async () => {
     await renderAsync(<TimelinePage analysis={mixed} />);
-    act(() => hoverStore.set(2.0));
+    const rate = flawOfType(mixedResult, 'too_fast');
+    act(() => hoverStore.set((rate.start_s + rate.end_s) / 2));                       // inside the finding, wherever the analysis put it
     const panel = screen.getByRole('region', { name: 'Values at the cursor' });
     expect(within(panel).getByText('At the pointer')).toBeInTheDocument();
     expect(panel.textContent).toContain('Too fast');

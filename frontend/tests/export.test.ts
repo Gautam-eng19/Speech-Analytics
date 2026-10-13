@@ -64,7 +64,7 @@ describe('findingsCsv', () => {
     const row = rows.slice(1).find((r) => r[col('flaw_id')] === rate.flaw_id)!;
     expect(row[col('severity')]).toBe(String(rate.severity));
     expect(row[col('evidence.rate_z_score')]).toBe(String((rate.evidence as { rate_z_score: number }).rate_z_score));
-    expect(row[col('evidence.rate_participant_wpm')]).toBe('197.3868');
+    expect(row[col('evidence.rate_participant_wpm')]).toBe(String((rate.evidence as { rate_participant_wpm: number }).rate_participant_wpm));
     expect(row[col('rule_threshold_z')]).toBe(String(rate.rule!.threshold_z));
   });
   it('flattens the evidence of every type into columns and leaves the others empty', () => {

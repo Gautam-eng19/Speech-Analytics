@@ -1143,6 +1143,55 @@ Date: 2026-10-13
 
 ---
 
+## DEC-039 — Accuracy of Rate and Pause Findings: Narrowed Rate Intervals, Long Silences, Minimum Pause Length
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- **Rate findings are narrowed to the words that deviate.** Detection stays window-based (DEC-020: 8 s windows, z against the baseline). Each too_fast / too_slow
+  region is then narrowed (`grounding/candidates.py: refine_rate_candidates`): every word gets a slot (start to the next word's start); a word counts for the flaw
+  by how far its slot lies beyond the HALFWAY slot between the baseline's (60 / mean rate) and the strongest window's; the finding is the run of consecutive words
+  with the largest summed score (maximum-subarray; repeated on what is left, so two stretches stay two findings). A run is accepted only with at least
+  `REFINE_MIN_WORDS` words (8, about 3 s), at least the minimum duration, and its own rate (words / span) beyond the same z threshold; otherwise the window
+  interval is kept. The run's z-score uses the baseline's window spread scaled for the number of words: `std * sqrt(max(1, window_words / words))`, because a short
+  stretch varies more than an 8 s window. The evidence of a narrowed finding (`rate_participant_wpm`, delta, `rate_z_score`, `window_duration_s`, word count) describes
+  that stretch and carries a different warning; `FlawCandidate.stretch_rate_wpm` marks it. `REFINE_RATE_BOUNDARIES` / `DetectionConfig.refine_rate` switch it off.
+  This implements step 6 of ARCHITECTURE.md section 17 ("boundary refinement"), which was P1.
+- **A silence longer than 1.0 s counts as 1.0 s in the speech rate** (`RateConfig.max_gap_s`): a deliberate long pause is reported by pause detection and no
+  longer also makes its window read as slow speech (a 3.5 s pause produced a severity-1.0 "too slow" in the experiment). The window span used to place findings is unchanged
+  (`speaking_duration_s` is new). Baselines must be rebuilt after this change (the rate definition is part of their configuration snapshot); gaps up to 1 s, that is all
+  natural pauses, are unchanged.
+- **A pause shorter than `MIN_PAUSE_FLAW_S` (0.8 s) is never reported as excessive**, however regular the baseline's pauses are: a baseline whose pauses are all alike made
+  every 0.3 to 0.5 s breath an "excessive pause" (6 of 10 clean synthetic takes were flagged, 2 of 10 after). Proposed, uncalibrated, a single setting; changes with
+  `--detect min_pause_s=...` can be compared with `scripts/dataset/evaluate_takes.py`.
+- **Findings are clipped to the analysed audio** (`clip_to_audio`): an aligner placing a word end a few milliseconds past the audio no longer fails the whole analysis.
+- **Accuracy is measured, not judged by eye:** `scripts/dataset/evaluate_takes.py` replays registered takes (real audio, stored alignment and baseline, passage text as transcript, no
+  speech model) through the real analysis and compares the findings with the annotations: found or missed, start and end error, how much of the detected range was the flaw, extra
+  detections, false alarms on clean takes. The test split stays sealed (`--allow-test`), baseline takes are left out unless asked for, and `--detect NAME=VALUE` tries other settings.
+
+Reason:
+The first test on real recordings (2026-10-13) showed a fast sentence reported with an extra range and pauses that were found but not accurate. In an experiment with human-like synthetic readings
+(word and gap lengths varied by about 25 %, a baseline of three takes, the real passage and the real plan; word times known exactly) the planned fast sentence was reported 6.0 s early and 6.3 s late
+(24 % overlap, 4.1 times the planned length) and the slow sentence 4.7 s early and 7.1 s late (51 %, 2.0 times); after the change 0.0 s and 0.2 s (95 %) and 0.7 s and 0.0 s (95 %). Pause
+intervals were already exact (0.0 s). What the change does NOT fix: ordinary variation in a three-take baseline still produces stray findings on clean takes (both clean synthetic takes still had a flag, 4 in 1.9 minutes);
+that is a matter of thresholds and baseline size, to be calibrated on real dev takes with the evaluation tool.
+
+Impact:
+- Backend: `RateConfig.max_gap_s`, `RateExtractionResult.speaking_duration_s`, `NormalizedFeatureBundle.rate_max_gap_s`, `DetectionConfig.refine_rate` / `refine_min_words`, `FlawCandidate.stretch_rate_wpm`,
+  `detect_candidates(..., aligned=, baseline=)`, `clip_to_audio`, settings `REFINE_RATE_BOUNDARIES`, `REFINE_MIN_WORDS`, `MIN_PAUSE_FLAW_S`. All are part of the analysis fingerprint, so cached results are not reused.
+  The API contract (field names and types) is unchanged; the meaning of the rate evidence fields for a narrowed finding is described above.
+- Tests: `backend/tests/test_rate_refinement.py` (32), `tests/test_evaluate_takes.py` (30), end-to-end expectations (flaw order, exact stretch) and five dashboard tests that now read their numbers from the samples.
+  Demo samples regenerated; the dashboard label "Window" became "Measured over" and two texts changed.
+- Existing baselines should be rebuilt: `python scripts/dataset/prepare_recordings.py data/incoming --build-baseline` (alignments are kept).
+- Not verified: real recordings and the real models. `REFINE_MIN_WORDS` = 8 was chosen from the synthetic experiment (fewer stray short findings), `MIN_PAUSE_FLAW_S` = 0.8 s from how long a
+  hesitation must be to be heard; both, and every z threshold, need calibration on the dev takes. The length scaling of the spread assumes word durations vary independently. A flaw whose stretch is
+  not inside any flagged window is not recovered (the search stays inside the flagged region). Energy findings are untouched (TASK-128).
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-13
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been

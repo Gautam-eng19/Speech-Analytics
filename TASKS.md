@@ -900,9 +900,29 @@ Delivered (2026-10-13, DEC-038):
 Known limitation:
 The real WhisperX and Whisper models have never run: the tool was exercised with a stand-in aligner that finds the word bursts in the audio. The first run on the team's computer is the real test and may need changes. All limits of the plausibility and "performed" checks are proposed and uncalibrated. Conversion of hand-made Audacity labels into annotation JSON (protocol workflow B) is not built.
 
+\## TASK-129 — Accuracy of Rate and Pause Findings
+
+Status: REVIEW
+
+Priority: P0
+
+Delivered (2026-10-13, DEC-039), after the first test on real recordings (a fast sentence was reported with an extra range; pauses found but not accurate):
+rate findings narrowed from their 8 s windows to the words that really deviate (maximum-subarray over word slots, accepted only if the stretch itself is beyond the threshold with a length-scaled spread, otherwise the window interval is kept), silences longer than 1 s counted as 1 s in the speech rate (a deliberate long pause is no longer also reported as slow speech), a pause needs at least 0.8 s to be reported as excessive, findings clipped to the audio, evidence of a narrowed finding describing the narrowed stretch, dashboard wording. In an experiment with human-like synthetic readings the planned fast sentence went from 4.1 times its length (24 % overlap) to 1.0 times (95 %), the slow one from 2.0 times (51 %) to 1.1 times (95 %). 33 new tests; of 38 injected bugs 36 were caught, the other two cannot change behaviour.
+
+Known limitation:
+Not run on real recordings. Stray findings on clean takes remain (thresholds and baseline size; to be calibrated with the evaluation tool). Energy findings are untouched (TASK-128). A flaw outside every flagged window is not recovered. Baselines must be rebuilt after this change.
+
+\## TASK-127a — Replay Evaluation Tool
+
+Status: REVIEW
+
+Priority: P0
+
+Delivered (2026-10-13, DEC-039): `scripts/dataset/evaluate_takes.py`: replays registered dev takes (real audio, stored alignment and baseline, passage text as transcript, no speech model) through the real analysis and compares the findings with the annotations (found or missed, start and end error, overlap, detected range against the plan, extra detections, false alarms on clean takes), `--detect NAME=VALUE` to try other settings, `--json`, the test split sealed (`--allow-test`), baseline takes left out (`--include-baseline`). 30 tests; all 23 injected bugs caught.
+
 \## TASK-127 — Evaluation and Tuning Tools
 
-Status: BACKLOG
+Status: BACKLOG (the replay tool above is the first part)
 
 Priority: P0
 

@@ -128,7 +128,9 @@ against that end. MP3 decoder delay is not compensated.
   (`above` / `below`), `threshold_z` (signed) and `min_duration_s`. Thresholds are initial, uncalibrated values.
 - `affected_words`: words covered by the interval (rate/energy: midpoint inside the interval; pause: the word(s) it
   follows and precedes). The full alignment is in `alignment`.
-- `warnings`: plain-language limitations of that finding (e.g. rate findings are window-resolution).
+- `warnings`: plain-language limitations of that finding (e.g. a rate finding is narrowed from its rolling windows to the words that deviate and can still be off by a word or two).
+  For such a narrowed rate finding (DEC-039) the rate evidence describes the narrowed stretch: `rate_participant_wpm` is its words / span, `rate_z_score` compares it with the baseline's window spread scaled for
+  its length, `window_duration_s` is its length. The field names and types are unchanged.
 - `reliability` is a constant `1.0` at P0 and `low_confidence` is `false`; neither is a measured confidence.
 
 ## Notes (1.1.0)

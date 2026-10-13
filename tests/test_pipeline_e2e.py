@@ -159,19 +159,33 @@ def test_result_is_a_valid_contract_object_and_survives_a_json_round_trip(plain)
 def test_exactly_the_injected_flaws_are_reported_in_time_order(plain):
     flaws = plain.result.flaws
     assert [(f.flaw_id, f.type) for f in flaws] == [
-        ("flaw_001", FlawType.LOW_ENERGY), ("flaw_002", FlawType.TOO_FAST), ("flaw_003", FlawType.EXCESSIVE_PAUSE)]
+        ("flaw_001", FlawType.LOW_ENERGY), ("flaw_002", FlawType.EXCESSIVE_PAUSE), ("flaw_003", FlawType.TOO_FAST)]
     assert [f.start_s for f in flaws] == sorted(f.start_s for f in flaws)
 
 
 def test_flaws_are_located_on_the_injected_words(plain):
     _, aligned = build_speech(FLAWED_ITEMS)
     w = aligned.words
-    low, fast, pause = plain.result.flaws
+    low, pause, fast = plain.result.flaws
     assert low.start_s == pytest.approx(w[12].start_s, abs=0.03) and low.end_s == pytest.approx(w[19].end_s, abs=0.03)
     assert low.affected_words == [f"w{i}" for i in range(12, 20)]
     assert pause.start_s == pytest.approx(w[19].end_s, abs=0.03) and pause.end_s == pytest.approx(w[20].start_s, abs=0.03)
     assert pause.affected_words == ["w19", "w20"]
-    assert fast.end_s == pytest.approx(w[35].end_s, abs=0.05) and fast.start_s < w[20].start_s    # window resolution
+    # The rate finding is narrowed to the fast words (DEC-039): it starts where the fast stretch starts, not several seconds earlier.
+    assert fast.start_s == pytest.approx(w[20].start_s, abs=0.05) and fast.end_s == pytest.approx(w[35].end_s, abs=0.05)
+    assert fast.affected_words == [f"w{i}" for i in range(20, 36)]
+
+
+def test_a_finding_that_would_end_after_the_audio_is_clipped_not_fatal(workspace, tmp_path):
+    """An aligner may put the last word's end a few milliseconds past the end of the audio; that must not fail the whole analysis."""
+    wav, aligned = build_speech(FLAWED_ITEMS)
+    last = aligned.words[-1]
+    over = aligned.model_copy(update={"words": aligned.words[:-1] + [last.model_copy(update={"end_s": last.end_s + 0.05})]})
+    pipeline, _, _ = make_pipeline(workspace, over, tmp_path / "cache_over")
+    result = pipeline.analyze(wav, REQUEST)
+    fast = [f for f in result.flaws if f.type == FlawType.TOO_FAST][0]
+    assert fast.end_s <= result.audio.trim_start_s + result.audio.duration_s + 0.01
+    assert fast.end_s == pytest.approx(result.audio.trim_start_s + result.audio.duration_s, abs=0.01)
 
 
 def test_every_flaw_is_complete_and_its_text_uses_its_own_numbers(plain):

@@ -72,6 +72,11 @@ class Settings:
         self.Z_PAUSE_CROSS: float = float(os.getenv("Z_PAUSE_CROSS", "2.5"))
         self.MIN_FLAW_DURATION_S: float = float(os.getenv("MIN_FLAW_DURATION_S", "0.5"))
         self.MERGE_GAP_S: float = float(os.getenv("MERGE_GAP_S", "0.5"))
+        # A pause shorter than this is never reported as excessive, however regular the baseline's pauses are (DEC-039). PROPOSED, uncalibrated.
+        self.MIN_PAUSE_FLAW_S: float = float(os.getenv("MIN_PAUSE_FLAW_S", "0.8"))
+        # Narrowing of rate findings to the words that deviate (DEC-039); the fewest words a narrowed stretch may have.
+        self.REFINE_RATE_BOUNDARIES: bool = os.getenv("REFINE_RATE_BOUNDARIES", "true").strip().lower() in ("1", "true", "yes", "on")
+        self.REFINE_MIN_WORDS: int = int(os.getenv("REFINE_MIN_WORDS", "8"))
 
         # Severity (DEC-P006 Option A as amended by DEC-028). PROPOSED, uncalibrated.
         self.SEVERITY_Z_MIN: float = float(os.getenv("SEVERITY_Z_MIN", "1.0"))

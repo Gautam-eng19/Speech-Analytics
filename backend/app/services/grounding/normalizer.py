@@ -101,6 +101,8 @@ class NormalizedFeatureBundle:
             bounds in rate_window_start_s / rate_window_end_s. rate_effective_duration_s and
             rate_word_count pass through the extractor's per-window span and word count (the
             measured interval of window k is rate_times_s[k] +/- rate_effective_duration_s[k] / 2).
+        rate_max_gap_s: the rate extractor's cap on a gap between words (DEC-039; None if unknown), needed to locate a finding the same way
+            the rate was measured.
         energy_hop_s: frame hop of the energy timeline in seconds (None if not derivable).
         pauses: per-event pause z-scores (same order as the input events).
         unavailable: feature name -> machine-readable reason, for everything not normalized.
@@ -119,6 +121,7 @@ class NormalizedFeatureBundle:
     rate_window_end_s: np.ndarray = field(default_factory=_empty)
     rate_effective_duration_s: np.ndarray = field(default_factory=_empty)
     rate_word_count: np.ndarray = field(default_factory=lambda: np.empty(0, dtype=np.int64))
+    rate_max_gap_s: Optional[float] = None
     energy_hop_s: Optional[float] = None
     pauses: List[NormalizedPause] = field(default_factory=list)
     unavailable: Dict[str, str] = field(default_factory=dict)
@@ -242,6 +245,8 @@ def normalize_features(
         out.rate_window_end_s = w_end.copy()
         out.rate_effective_duration_s = np.asarray(rate.effective_duration_s, dtype=np.float64).copy()
         out.rate_word_count = np.asarray(rate.word_count, dtype=np.int64).copy()
+        cap = getattr(getattr(rate, "config", None), "max_gap_s", None)
+        out.rate_max_gap_s = float(cap) if isinstance(cap, (int, float)) and math.isfinite(cap) else None
         if _usable_std(baseline.rate_wpm_std):
             out.rate_z = z_score(wpm, baseline.rate_wpm_mean, baseline.rate_wpm_std)
         else:

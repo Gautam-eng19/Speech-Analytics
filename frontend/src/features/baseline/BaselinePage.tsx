@@ -22,7 +22,7 @@ const PIPELINE: { icon: IconName; name: string; what: string }[] = [
 const LIMITS = [
   'It measures how delivery differs from a baseline recording of the same passage. It does not judge what was said, the writing, or the argument.',
   'Thresholds and score weights are starting values that have not been calibrated on recorded data. Treat findings as indicative.',
-  'Speech rate is measured over rolling windows, so a rate finding starts and ends at window resolution, and long pauses inside a window lower its measured rate.',
+  'Speech rate is detected over rolling windows and the finding is then narrowed to the words that were faster or slower, so its start and end can still be off by a word or two. A silence longer than one second counts as one second, so a long pause is reported as a pause and not also as slow speech.',
   'Pitch is shown for context. No pitch finding is detected yet because the baseline has no statistic of pitch variation within a window.',
   'Loudness is relative: each recording is scaled so that its typical speech level is the same as the baseline’s, so it describes shape, not absolute volume.',
 ];

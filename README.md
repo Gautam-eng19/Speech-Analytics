@@ -36,6 +36,7 @@ Working and tested (949 backend and 290 dashboard tests, on synthetic speech):
 - the **registration tool** (`scripts/dataset/prepare_recordings.py`, with `scripts/check_environment.py`): turns a folder of checked recordings into dataset files (manifest, hashes,
   word alignment with the passage text, proposed flaw annotations that a person confirms by ear, Audacity label files) and builds the baseline. Tested end to end with a stand-in for the
   alignment model; the real WhisperX run on real recordings is still to be done
+- the **evaluation tool** (`scripts/dataset/evaluate_takes.py`): replays registered takes through the real analysis without any speech model and measures, against the annotations, which flaws were found, how far off the start and end are, and how many false alarms a clean take gets
 
 Not done yet: `flat_pitch` detection, an LLM explanation provider. The in-browser recorder has only been tried with Chromium's fake
 microphone, not with a real microphone, Safari, Firefox or a phone. There are **no recordings** in the repository,
