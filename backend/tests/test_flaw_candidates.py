@@ -260,17 +260,17 @@ def test_pause_thresholds_are_type_specific_and_strict():
 
 
 def test_nearby_excessive_pauses_stay_separate_evidence():
-    nb = _bundle(pauses=[_pause(1.0, 1.8, W, 4.0), _pause(1.9, 2.7, W, 5.0)])   # 0.1 s apart
+    nb = _bundle(pauses=[_pause(1.0, 2.3, W, 4.0), _pause(2.4, 3.7, W, 5.0)])   # 0.1 s apart
     assert len(detect_candidates(nb).candidates) == 2
 
 
 def test_pause_minimum_duration_is_configurable_and_a_breath_is_not_an_excessive_pause_by_default():
-    nb = _bundle(pauses=[_pause(1.0, 1.3, W, 40.0), _pause(3.0, 3.79, W, 40.0), _pause(5.0, 5.8, W, 40.0)])       # z of 40: very regular baseline
-    assert [(c.start_s, c.end_s) for c in detect_candidates(nb).candidates] == [(5.0, 5.8)]                # default floor 0.8 s: only the 0.8 s pause counts
-    assert DetectionConfig().min_duration_s[FlawType.EXCESSIVE_PAUSE] == 0.8
+    nb = _bundle(pauses=[_pause(1.0, 1.3, W, 40.0), _pause(3.0, 4.19, W, 40.0), _pause(5.0, 6.2, W, 40.0)])       # z of 40: very regular baseline
+    assert [(c.start_s, c.end_s) for c in detect_candidates(nb).candidates] == [(5.0, 6.2)]                # default floor 1.2 s: only the 1.2 s pause counts
+    assert DetectionConfig().min_duration_s[FlawType.EXCESSIVE_PAUSE] == 1.2
     none = DetectionConfig(min_duration_s={FlawType.EXCESSIVE_PAUSE: 0.0})
     assert len(detect_candidates(nb, none).candidates) == 3
-    strict = DetectionConfig(min_duration_s={FlawType.EXCESSIVE_PAUSE: 1.0})
+    strict = DetectionConfig(min_duration_s={FlawType.EXCESSIVE_PAUSE: 1.5})
     assert detect_candidates(nb, strict).candidates == []
 
 

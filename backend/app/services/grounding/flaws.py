@@ -23,6 +23,10 @@ serialized results do not depend on last-bit floating-point differences):
 Because z is linear in the measurement, the reported mean z equals (reported mean - baseline mean) /
 baseline std: the evidence is internally consistent and re-derivable by a reader.
 
+For a run of words judged against the baseline's reading of the same words (DEC-040) the "baseline mean" is what the baseline readings did with
+those words (for the pace, allowing for the speaker's overall pace; for the loudness, plus the recording's overall level offset), and the
+"baseline std" is the spread that makes the reported z-score true: |participant - baseline| / |z|, so the same identity holds.
+
 Each flaw also records the rule that flagged it (`DetectionRule`: signal, direction, threshold, minimum
 duration, taken from the `DetectionConfig` that PRODUCED the candidates), the aligned words it covers, and
 plain-language limitations (`warnings`). For rate and energy findings the covered words are those whose
@@ -68,6 +72,19 @@ WARNING_RATE_NARROWED = (
     "Speech rate is detected over rolling windows and the finding is then narrowed to the words that were faster or slower, so its start and "
     "end can still be off by a word or two. Its standard-deviation figure compares this short stretch with the spread of the baseline's "
     "windows, scaled for the stretch having fewer words to average over."
+)
+WARNING_RATE_RUN = (
+    "Speech rate is compared word by word with the baseline's reading of the same words, after allowing for the speaker's overall pace. The "
+    "finding is the run of words that differs most, so its start and end are word boundaries, as accurate as the forced alignment is."
+)
+WARNING_RATE_OVERALL = (
+    "The pace of the whole reading differs from the baseline's by more than readers of the same passage differ among themselves; this one "
+    "finding covers all the words that could be compared. Speakers differ in natural pace, so a moderate difference alone is not a flaw."
+)
+WARNING_ENERGY_RUN = (
+    "Loudness is compared word by word with the baseline's level for the same words, after removing the recording's overall level (recordings "
+    "are scaled to a common speech level), so it shows louder or quieter stretches within the recording, not how loud the speaker was overall, "
+    "and it depends on microphone distance."
 )
 WARNING_ENERGY = (
     "Energy is relative loudness: the recording is scaled so that its typical speech level is the same as the baseline's, "
@@ -136,6 +153,24 @@ def _indices(c: FlawCandidate, length: int, what: str) -> List[int]:
 def _rate_evidence(
     c: FlawCandidate, nb: NormalizedFeatureBundle, baseline: BaselineStatsRecord, rate: Any, aligned: Any
 ) -> RateEvidence:
+    if c.run is not None:      # a run of words against the baseline's reading of the same words (DEC-040)
+        run = c.run
+        if not (run.expected > 0.0 and math.isfinite(run.expected) and math.isfinite(run.observed)):
+            raise EvidenceError("rate evidence needs finite observed and expected rates")
+        delta = run.observed - run.expected
+        timed = _timed_words(aligned)[0] if aligned is not None else []
+        words_in_span = sum(1 for _, s, _e in timed if c.start_s - _EPS_S <= s <= c.end_s + _EPS_S) if aligned is not None else run.n_words
+        return RateEvidence(
+            rate_participant_wpm=_r(run.observed),
+            rate_baseline_mean_wpm=_r(run.expected),
+            rate_baseline_std_wpm=_r(run.sigma_equiv),
+            rate_delta_wpm=_r(delta),
+            rate_delta_pct=_r(100.0 * delta / run.expected),
+            rate_z_score=_r(c.mean_z),
+            peak_z_score=_r(c.mean_z),
+            window_duration_s=_r(c.end_s - c.start_s),
+            word_count_in_window=int(words_in_span),
+        )
     if rate is None or aligned is None:
         raise EvidenceError("rate evidence needs the rate extraction result and the aligned transcript")
     wpm = np.asarray(rate.words_per_min, dtype=np.float64)
@@ -170,6 +205,18 @@ def _rate_evidence(
 def _energy_evidence(
     c: FlawCandidate, nb: NormalizedFeatureBundle, baseline: BaselineStatsRecord, energy: Any
 ) -> EnergyEvidence:
+    if c.run is not None:      # a run of words against the baseline's level for the same words (DEC-040)
+        run = c.run
+        if not (math.isfinite(run.expected) and math.isfinite(run.observed)):
+            raise EvidenceError("energy evidence needs finite observed and expected levels")
+        return EnergyEvidence(
+            energy_mean_db=_r(run.observed),
+            energy_baseline_mean_db=_r(run.expected),
+            energy_baseline_std_db=_r(run.sigma_equiv),
+            energy_delta_db=_r(run.observed - run.expected),
+            energy_z_score=_r(c.mean_z),
+            window_duration_s=_r(c.end_s - c.start_s),
+        )
     if energy is None:
         raise EvidenceError("energy evidence needs the energy extraction result")
     values = np.asarray(energy.values_db, dtype=np.float64)
@@ -206,6 +253,13 @@ def _pause_evidence(c: FlawCandidate, nb: NormalizedFeatureBundle) -> PauseEvide
 
 def _rule(c: FlawCandidate, evidence: Evidence, cfg: DetectionConfig) -> DetectionRule:
     minimum = float(cfg.min_duration_s[c.type])
+    if c.run is not None:
+        above = c.type in (FlawType.TOO_FAST, FlawType.HIGH_ENERGY)
+        threshold = cfg.z_run_rate if c.run.kind.startswith("rate") else cfg.z_run_energy
+        return DetectionRule(
+            feature=c.detection_feature, direction="above" if above else "below", threshold_z=threshold if above else -threshold,
+            min_duration_s=minimum,
+        )
     if c.type == FlawType.TOO_FAST:
         return DetectionRule(feature="rate_z", direction="above", threshold_z=cfg.z_rate_fast, min_duration_s=minimum)
     if c.type == FlawType.TOO_SLOW:
@@ -280,11 +334,14 @@ def ground_flaws(
     for number, c in enumerate(ordered, start=1):
         if c.type in (FlawType.TOO_FAST, FlawType.TOO_SLOW):
             evidence: Evidence = _rate_evidence(c, normalized, baseline, rate, aligned)
-            warnings = (WARNING_RATE if c.stretch_rate_wpm is None else WARNING_RATE_NARROWED,)
+            if c.run is not None:
+                warnings = (WARNING_RATE_OVERALL if c.run.kind == "rate_overall" else WARNING_RATE_RUN,)
+            else:
+                warnings = (WARNING_RATE if c.stretch_rate_wpm is None else WARNING_RATE_NARROWED,)
             words = _words_in_interval(timed, c.start_s, c.end_s)
         elif c.type in (FlawType.LOW_ENERGY, FlawType.HIGH_ENERGY):
             evidence = _energy_evidence(c, normalized, baseline, energy)
-            warnings = (WARNING_ENERGY,)
+            warnings = (WARNING_ENERGY if c.run is None else WARNING_ENERGY_RUN,)
             words = _words_in_interval(timed, c.start_s, c.end_s)
         elif c.type == FlawType.EXCESSIVE_PAUSE:
             evidence = _pause_evidence(c, normalized)

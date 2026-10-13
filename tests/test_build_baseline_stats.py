@@ -404,3 +404,120 @@ def test_empty_manifest_is_not_buildable(tmp_path):
     data_dir = _write_manifest(tmp_path, [])
     with pytest.raises(bbs.BaselineBuildError, match="no baseline_effective recordings for passage 'p001'"):
         bbs.build_for_passage(data_dir, "p001", ["dev"])
+
+
+# ================================================================ word profile (DEC-040)
+sys.path.insert(0, str(Path(__file__).parent.parent / "backend" / "tests"))
+
+from profile_helpers import baseline_readings, make_tokens  # noqa: E402
+
+
+def _with_words(readings):
+    return [
+        bbs.RecordingFeatures(
+            f"rec_{k}", np.array([100.0, 110.0, 120.0]), np.array([-20.0, -30.0, -60.0]), np.array([100.0, 120.0]),
+            [_pause(0.3, W), _pause(0.5, W), _pause(0.8, C)], words=obs,
+        )
+        for k, obs in enumerate(readings)
+    ]
+
+
+def test_the_profile_is_added_without_changing_any_overall_statistic():
+    plain = bbs.aggregate_baseline_stats("p001", "1.0.0", _with_words([None] * 6))
+    profiled = bbs.aggregate_baseline_stats("p001", "1.0.0", _with_words(baseline_readings()), passage_text=" ".join(make_tokens()))
+    assert plain.word_profile is None and profiled.word_profile is not None
+    assert profiled.word_profile.n_takes == 6 and profiled.word_profile.words == make_tokens()
+    assert profiled.model_dump(exclude={"word_profile", "sha256"}) == plain.model_dump(exclude={"word_profile", "sha256"})
+    assert profiled.sha256 != plain.sha256 and profiled.verify_sha256() and plain.verify_sha256()
+
+
+def test_the_profile_is_repeatable_and_independent_of_the_order_of_the_recordings():
+    text = " ".join(make_tokens())
+    readings = baseline_readings()
+    one = bbs.aggregate_baseline_stats("p001", "1.0.0", _with_words(readings), passage_text=text)
+    two = bbs.aggregate_baseline_stats("p001", "1.0.0", list(reversed(_with_words(readings))), passage_text=text)
+    assert one.sha256 == two.sha256 and one == two
+
+
+def test_there_is_no_profile_without_the_passage_text_or_without_three_recordings_that_have_words():
+    text = " ".join(make_tokens())
+    assert bbs.aggregate_baseline_stats("p001", "1.0.0", _with_words(baseline_readings())).word_profile is None
+    assert bbs.aggregate_baseline_stats("p001", "1.0.0", _with_words(baseline_readings()), passage_text="").word_profile is None
+    assert bbs.aggregate_baseline_stats("p001", "1.0.0", _with_words(baseline_readings(2) + [None] * 4), passage_text=text).word_profile is None
+    assert bbs.aggregate_baseline_stats("p001", "1.0.0", _with_words(baseline_readings(3) + [None] * 3), passage_text=text).word_profile is not None
+
+
+def test_a_recording_without_words_defaults_to_none():
+    assert bbs.RecordingFeatures("rec_a", np.array([1.0]), np.array([1.0]), np.array([1.0]), []).words is None
+
+
+def _alphabetic_recording(jitter_seed: int):
+    """40 tone words with alphabetic names (so their cleaned tokens differ), 0.25 to 0.4 s long, with gaps that vary a little from reading to reading."""
+    rng = np.random.default_rng(jitter_seed)
+    names = make_tokens(40)
+    chunks: List[np.ndarray] = []
+    words: List[AlignedWord] = []
+    cursor = 0
+    for i, name in enumerate(names):
+        n_word = int((0.25 + 0.15 * ((i * 7) % 5) / 4) * SR * float(np.exp(rng.normal(0.0, 0.05))))
+        mark = "." if i % 10 == 9 else "," if i % 10 == 4 else ""
+        words.append(AlignedWord(word=name + mark, start_s=cursor / SR, end_s=(cursor + n_word) / SR, confidence=0.9))
+        chunks.append(_tone(150.0 + 3 * (i % 5), n_word))
+        cursor += n_word
+        if i < len(names) - 1:
+            n_gap = int((0.5 if i % 10 == 9 else 0.3 if i % 10 == 4 else 0.1) * SR * float(np.exp(rng.normal(0.0, 0.05))))
+            chunks.append(np.zeros(n_gap))
+            cursor += n_gap
+    transcript = AlignedTranscript(text=" ".join(w.word for w in words), words=words, alignment_method=AlignmentMethod.WHISPERX, total_coverage_pct=0.8)
+    return np.concatenate(chunks), transcript
+
+
+def _profile_dataset(root: Path, recordings: int, passage_text: bool = True) -> Path:
+    raw = root / "data" / "raw"
+    aligned_dir = root / "data" / "processed" / "alignments"
+    raw.mkdir(parents=True, exist_ok=True)
+    aligned_dir.mkdir(parents=True, exist_ok=True)
+    entries = []
+    for k in range(recordings):
+        audio, transcript = _alphabetic_recording(k)
+        rec_id = f"rec_p001_spk_dev_01_base_{k + 1:02d}"
+        wav_path = raw / f"{rec_id}.wav"
+        wavfile.write(wav_path, SR, (audio * 32767).astype(np.int16))
+        align_path = aligned_dir / f"{rec_id}.alignment.json"
+        align_path.write_text(transcript.model_dump_json(), encoding="utf-8")
+        entries.append({
+            "recording_id": rec_id, "passage_id": "p001", "speaker_id": "spk_dev_01", "category": "baseline_effective", "split": "dev",
+            "audio_file": f"data/raw/{rec_id}.wav", "sha256_audio": hashlib.sha256(wav_path.read_bytes()).hexdigest(),
+            "alignment_file": f"data/processed/alignments/{rec_id}.alignment.json", "sha256_alignment": hashlib.sha256(align_path.read_bytes()).hexdigest(),
+            "dataset_version": "1.0.0",
+        })
+    data = _write_manifest(root, entries)
+    if passage_text:
+        text = _alphabetic_recording(0)[1].text
+        (data / "metadata" / "passages.json").write_text(json.dumps([{"passage_id": "p001", "title": "t", "text": text}]), encoding="utf-8")
+    return data
+
+
+def test_building_from_a_dataset_reads_the_passage_text_and_builds_the_profile(tmp_path):
+    data = _profile_dataset(tmp_path, recordings=3)
+    record = bbs.build_for_passage(data, "p001", ["dev"])
+    profile = record.word_profile
+    assert profile is not None and profile.n_takes == 3 and profile.words == make_tokens(40)
+    assert profile.max_gap_s == 0.25 and profile.active_threshold_dbfs == -50.0
+    assert all(slot is not None and 0.25 < slot < 0.8 for slot in profile.slot_s)           # a word plus the silence after it, capped
+    assert all(level is not None and -35.0 < level < -20.0 for level in profile.level_db)   # scaled to a speech level of -26 dBFS (DEC-036)
+    assert record.verify_sha256() and bbs.build_for_passage(data, "p001", ["dev"]).sha256 == record.sha256
+
+
+def test_without_the_passage_text_or_with_two_recordings_the_baseline_is_built_without_a_profile(tmp_path):
+    assert bbs.build_for_passage(_profile_dataset(tmp_path / "a", 3, passage_text=False), "p001", ["dev"]).word_profile is None
+    assert bbs.build_for_passage(_profile_dataset(tmp_path / "b", 2), "p001", ["dev"]).word_profile is None
+
+
+def test_the_command_line_says_whether_a_profile_was_built(tmp_path, capsys):
+    data = _profile_dataset(tmp_path / "with", 3)
+    assert bbs.main(["--data-dir", str(data), "--passage-id", "p001", "--splits", "dev"]) == 0
+    assert "word profile built" in capsys.readouterr().out
+    bare = _profile_dataset(tmp_path / "without", 3, passage_text=False)
+    assert bbs.main(["--data-dir", str(bare), "--passage-id", "p001", "--splits", "dev"]) == 0
+    assert "NO word profile" in capsys.readouterr().out

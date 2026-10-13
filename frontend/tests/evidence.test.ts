@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { evidenceGauge, evidenceHeadline, evidenceRows } from '@/lib/evidence';
+import { byWords, evidenceGauge, evidenceHeadline, evidenceRows } from '@/lib/evidence';
 import type { Flaw } from '@/api/types';
 import { flawOfType, hesitantResult, mixedResult } from './fixtures';
 
@@ -7,12 +7,25 @@ describe('evidence rows', () => {
   it('shows a rate finding with the backend numbers at fixed decimals', () => {
     const f = flawOfType(mixedResult, 'too_fast');
     const rows = evidenceRows(f);
-    expect(rows.map((r) => r.label)).toEqual(['Participant rate', 'Baseline rate', 'Difference', 'z-score', 'Measured over']);
+    expect(rows.map((r) => r.label)).toEqual(['Participant rate', 'Baseline, same words', 'Difference', 'z-score', 'Measured over']);   // the samples are judged word by word
     const e = f.evidence as { rate_participant_wpm: number; rate_baseline_mean_wpm: number; rate_baseline_std_wpm: number; rate_delta_wpm: number; rate_z_score: number };
     expect(rows[0]).toMatchObject({ value: e.rate_participant_wpm.toFixed(1), unit: 'words/min' });
     expect(rows[1]!.value).toBe(`${e.rate_baseline_mean_wpm.toFixed(1)} ± ${e.rate_baseline_std_wpm.toFixed(1)}`);
     expect(rows[2]!.value).toBe(`+${e.rate_delta_wpm.toFixed(1)}`);
     expect(rows[3]!.value).toBe(`+${e.rate_z_score.toFixed(2)}`);
+  });
+  it('names the baseline value for what it is: the same words for a word-by-word finding, the overall mean otherwise', () => {
+    const f = flawOfType(mixedResult, 'too_fast');
+    expect(byWords(f)).toBe(true);
+    const overall = { ...f, rule: { ...f.rule!, feature: 'rate_z' } } as Flaw;
+    expect(byWords(overall)).toBe(false);
+    expect(evidenceRows(overall).map((r) => r.label)).toEqual(['Participant rate', 'Baseline rate', 'Difference', 'z-score', 'Measured over']);
+    expect(evidenceRows(overall)[1]!.hint).toBe('mean ± standard deviation');
+    expect(evidenceRows(f)[1]!.hint).toMatch(/same|these words/);
+    const quiet = flawOfType(mixedResult, 'low_energy');
+    expect(evidenceRows(quiet).map((r) => r.label)).toContain('Baseline, same words');
+    expect(evidenceRows({ ...quiet, rule: { ...quiet.rule!, feature: 'energy_z' } } as Flaw).map((r) => r.label)).toContain('Baseline level');
+    expect(byWords({ ...f, rule: undefined } as unknown as Flaw)).toBe(false);
   });
   it('shows a pause finding with its boundary type', () => {
     const f = flawOfType(mixedResult, 'excessive_pause');

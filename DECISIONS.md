@@ -1192,6 +1192,65 @@ Date: 2026-10-13
 
 ---
 
+## DEC-040 — Pace and Loudness Judged Word by Word Against the Baseline's Reading of the Same Words; Practical Size Guards; Severity From the Size of the Change
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Why (the first replay on the team's real recordings, 2026-10-13, 50 takes, 30 planned flaws, 8 clean takes):
+excessive_pause 6 of 6 found, exact; too_fast 1 of 6; too_slow 5 of 6 but 2 s early or late on average; high_energy 0 of 6; low_energy 0 of 6; 6 of 8 clean takes flagged (8 false alarms in 5.9 minutes);
+extra pauses of 0.80 to 1.25 s flagged with severity 1.00. The false alarms repeated at the same place of the passage in different takes (a stretch read at 139 words/min in three takes, the last sentences at 226 to 312
+words/min in several): the baseline's overall mean and spread (8 s windows) say nothing about WHICH words are in a window, so the content of the words was measured as if it were the delivery. Loudness: single
+10 ms frames against a spread of about 9 dB cannot show a sentence that is 8 dB louder (TASK-128).
+
+Decision:
+- **The baseline keeps a word profile** (`BaselineStatsRecord.word_profile`, optional; `grounding/profile.py`): for every word of the passage the expected SLOT (time from its start to the next word's start; at most
+  0.25 s of the silence after it counts, `PROFILE_GAP_CAP_S`) as the geometric mean over the baseline recordings, and its expected LEVEL (median of its active frames, each recording's own overall offset removed); the spread of
+  a run of n words, `sigma(n) = sqrt(drift^2 + word^2 / n)`, measured LEAVE-ONE-OUT (each baseline recording against the expectation built from the others, so it describes a recording that was not used to build it); and
+  the spread of the overall pace between baseline recordings. It is built by `build_baseline_stats.py` (and so by `prepare_recordings.py --build-baseline`) from the passage text in `data/metadata/passages.json` and needs at least
+  three baseline recordings that match it. A baseline without it still verifies (the hash leaves an absent profile out of the content).
+- **A participant's words are matched to the passage words** (longest matching blocks, so a dropped, added or misrecognised word leaves only itself unmatched). With at least `PROFILE_MIN_COVERAGE` (0.6) of the timed words matched and
+  `PROFILE_MIN_USABLE_WORDS` (16) comparable, pace and loudness are judged by `grounding/profile_detection.py`; otherwise the old rules (rolling-window pace with narrowing, DEC-039; frame loudness) run as the fallback and the
+  analysis carries a note (`baseline_without_profile`, `profile_not_applicable`).
+- **A finding is a run of at least `RUN_MIN_WORDS` (10) consecutive words** whose deviation, in spreads of a run of that length, is above `Z_RUN_RATE` / `Z_RUN_ENERGY` (4.0), AND whose size is practically relevant
+  (`MIN_RATE_CHANGE_PCT` 15 % in pace, `MIN_ENERGY_CHANGE_DB` 3 dB in level). Every run is scored (a scan over all start words and lengths); the best z wins, its words are removed, the scan repeats (at most 8 per signal);
+  fast and slow (loud and quiet) compete in one scan and never overlap. For a changed stretch the best run ends where the change ends, so boundaries are word boundaries. The spread is never taken below floors
+  (`SIGMA_FLOOR_*`) so an unusually even baseline cannot make everything look huge.
+- **Overall pace and level are removed first.** Pace: the reading's overall pace against the baseline (median over runs of 10 words) is divided out, so a speaker who is generally quicker or slower is compared with their own pace
+  (simulated speakers 15 to 40 % off the baseline readers' pace: false alarms stayed at 4 to 8 % of clean takes, local recall at about 90 %, against 94 to 97 % false alarms with only a tolerance band). A reading that is off as
+  a whole is judged on its own as one `rate_overall` finding over all comparable words, only if it differs by more than `GLOBAL_TEMPO_CHANGE_PCT` (30 %) AND by more than the spread of the overall pace between baseline readings.
+  Loudness: the reading's median difference from the profile is removed (recordings are scaled to a common speech level, DEC-036, so only louder and quieter stretches within a reading are meaningful).
+- **Evidence keeps its fields** (`schemas/response.py` is unchanged): `*_baseline_mean_*` is what the baseline readings had for these words (for pace, at the speaker's own overall pace; for loudness, plus the overall
+  level offset) and `*_baseline_std_*` is the spread that makes the reported z-score true, |participant - baseline| / |z|, so z = (value - baseline) / spread still holds for a reader. `DetectionRule.feature` is
+  `rate_run_z`, `rate_overall_z` or `energy_run_z`; explanation wording and the dashboard say "the baseline readings had for these same words".
+- **Severity follows the size of the change** where a finding carries one (`FlawCandidate.effect`): `clip(|size| / scale)` with the natural-log ratio of the pace against ln 2 (twice or half as fast = 1), the level
+  change against 15 dB and a pause's excess over the baseline's mean against 3.5 s (`SEVERITY_*`), times the duration component as before (none for pauses). The z-score now says how sure we are, not how serious it is: it saturates
+  quickly on a very even baseline (a 1.2 s breath was 4 standard deviations from a reader whose pauses are all 0.4 s) and could no longer tell a small change from a large one. Findings of the fallback rules keep the z-score formula.
+- **The shortest excessive pause is 1.2 s** (`MIN_PAUSE_FLAW_S`, was 0.8, DEC-039): every planned pause of the real takes lasted 1.39 to 3.82 s (the mildest was planned at 1.5 s), while ordinary pauses of 0.80 to 1.25 s were
+  reported with severity 1.00. Pauses stay judged against the baseline's pooled mean and spread per boundary type.
+- **Tools:** `evaluate_takes.py --sweep NAME=v1,v2,...` tabulates, one setting at a time, how many planned flaws are found, how many other flags there are on flawed takes, and how many clean takes are flagged
+  (pitch and MFCC are computed once per recording); `--detect` accepts the new settings. `prepare_recordings.py` reports whether the profile was built.
+
+Reason:
+Simulation of human-like readings (word length decides duration, chance variation, two speakers whose pace differs by 10 %, alignment noise; the real passage): with the same data the old window rule flagged 46 % of clean takes and found
+a sentence read 1.33 times as fast in 33 % of cases with ranges 2 to 3 times too long; the word-by-word comparison at the defaults flagged about 3 to 5 % of clean takes and found a 1.33 times faster sentence in 78 %, a 1.35 times slower in 82 %,
+sentences 5 dB louder or quieter in 89 to 91 %, and every stronger change in 99 to 100 %, with an overlap of 92 % with the planned stretch. Through the whole system (registration, baseline, replay, stand-in aligner): all five kinds of planned flaw
+found in the right words in every seed tried, one mild stray flag per six clean takes at most. Demo samples: clean probe 2 of 10 flagged before, 0 of 10 after; the quiet sentence of the mixed sample, a documented miss before, is found.
+
+Impact:
+- Backend: `grounding/profile.py`, `grounding/profile_detection.py` (new), `candidates.py` (`DetectionConfig` fields, `FlawCandidate.effect` / `run`, `CandidateDetectionResult.modes` / `profile_note`, `detect_candidates(..., observations=)`),
+  `severity.py` (`effect_scale`), `flaws.py` (run evidence, rule, warnings), `explanation/templates.py` (wording), `pipeline.py` (measures the words, notes), `core/config.py` (settings), `schemas/contracts.py` (`WordProfile`, `NoiseModel`,
+  `BaselineStatsRecord.word_profile`). The public API contract (field names and types) is unchanged; new `rule.feature` values and note codes are documented in `docs/architecture/api-contract.md`. All settings are in the analysis fingerprint.
+- **Baselines must be rebuilt** (`python scripts/dataset/prepare_recordings.py data/incoming --build-baseline`): without it the old rules run and the result says so.
+- Tests: `test_word_profile.py` (43), `test_profile_detection.py` (40), `tests/test_profile_e2e.py` (11), sweep and evidence-note tests, builder and report tests, explanation tests; demo samples regenerated (the voice keeps its loudness when stretched).
+- Not verified: real recordings. The thresholds above come from simulation and must be calibrated on the real dev takes with `evaluate_takes.py --sweep` (especially `Z_RUN_*`, `RUN_MIN_WORDS`, `MIN_RATE_CHANGE_PCT`,
+  `MIN_ENERGY_CHANGE_DB`, `MIN_PAUSE_FLAW_S`). Known limits: with six baseline recordings the spreads are themselves estimated; two speakers pooled in one baseline enlarge the spread of the overall pace; a stretch shorter than
+  `RUN_MIN_WORDS` is reported with its neighbours; pitch findings are still not detected; the audio is the only source of the loudness of a word, so a word with fewer than three active frames has no level.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-13
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been

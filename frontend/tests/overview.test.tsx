@@ -65,13 +65,22 @@ describe('OverviewPage', () => {
     expect(screen.getAllByTitle(mixedResult.baseline.sha256).length).toBeGreaterThan(0);
   });
 
-  it('labels a synthetic sample and lists its injected flaws, including one that was missed', async () => {
+  it('labels a synthetic sample and lists its injected flaws with the outcome the generator stored', async () => {
+    const injected = loaded(mixedResult).sample!.injected;
     await renderAsync(<OverviewPage analysis={loaded(mixedResult)} />);
     expect(screen.getAllByText('Synthetic sample').length).toBeGreaterThan(0);
     expect(screen.getByText('Synthetic demonstration')).toBeInTheDocument();
-    expect(screen.getAllByText('detected')).toHaveLength(2);
-    expect(screen.getByText('not detected')).toBeInTheDocument();
+    expect(screen.getAllByText('detected')).toHaveLength(injected.filter((t) => t.detected).length);
+    expect(screen.queryAllByText('not detected')).toHaveLength(injected.filter((t) => !t.detected).length);
     await waitFor(() => expect(screen.getByText(/How this sample was chosen/)).toBeInTheDocument());
+  });
+
+  it('says so when a sample was not detected: an injected flaw that was missed is shown as missed', async () => {
+    const base = loaded(mixedResult);
+    const missed = { ...base.sample!, injected: base.sample!.injected.map((t, i) => (i === 0 ? { ...t, detected: false } : t)) };
+    await renderAsync(<OverviewPage analysis={{ ...base, sample: missed }} />);
+    expect(screen.getAllByText('not detected')).toHaveLength(1);
+    expect(screen.getAllByText('detected')).toHaveLength(base.sample!.injected.length - 1);
   });
 
   it('does not show the sample banner for an uploaded recording', async () => {

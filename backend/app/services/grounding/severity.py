@@ -8,6 +8,16 @@ Severity is a deterministic number in [0, 1] answering "how serious is this devi
 
 Constants (config.py, PROPOSED and uncalibrated): Z_MIN = 1.0, Z_SEVERE = 4.0, DURATION_SEVERE_S = 5.0 s.
 
+Amendment (DEC-040): a finding that carries a measured SIZE of the change (`FlawCandidate.effect`) takes its magnitude from that size,
+
+    magnitude = clip(|effect| / effect_scale[type], 0, 1)
+
+with the size in natural-log ratio of durations for pace (scale ln 2: twice or half as fast is the most serious), dB for loudness (scale
+15 dB) and seconds beyond the baseline's mean for a pause (scale 3.5 s). The z-score says how sure we are that the change is more than the
+natural variation; it saturates quickly when a baseline is very even (a 1.2 s breath is already 4 standard deviations from a reader whose
+pauses are all 0.4 s) and then no longer separates a small change from a large one. The size does. Findings without a size (the fallback
+rules for a baseline without a word profile) keep the z-score formula above.
+
 Decisions behind the formula (DEC-028):
     * Option A (linear product) rather than the sigmoid: with the proposed constants the sigmoid only
       spans roughly 0.58-0.73, so it cannot separate a mild from a severe deviation.
@@ -43,6 +53,18 @@ def _default_duration_refs() -> "dict[FlawType, Optional[float]]":
     return refs
 
 
+def _default_effect_scales() -> "dict[FlawType, float]":
+    """Size of the change that counts as maximum severity (DEC-040), per flaw type that carries a measured size."""
+    pace = math.log(settings.SEVERITY_RATE_SEVERE_RATIO)
+    return {
+        FlawType.TOO_FAST: pace,
+        FlawType.TOO_SLOW: pace,
+        FlawType.HIGH_ENERGY: settings.SEVERITY_ENERGY_SEVERE_DB,
+        FlawType.LOW_ENERGY: settings.SEVERITY_ENERGY_SEVERE_DB,
+        FlawType.EXCESSIVE_PAUSE: settings.SEVERITY_PAUSE_EXCESS_SEVERE_S,
+    }
+
+
 @dataclass(frozen=True)
 class SeverityConfig:
     """Severity constants (defaults: PROPOSED, uncalibrated values from config.py).
@@ -55,12 +77,23 @@ class SeverityConfig:
     z_severe: float = settings.SEVERITY_Z_SEVERE
     duration_severe_s: Mapping[FlawType, Optional[float]] = None  # type: ignore[assignment]
     decimals: int = 4
+    # Size of the change at which the magnitude of a finding that carries a measured size reaches 1.0 (see the module docstring).
+    effect_scale: Mapping[FlawType, float] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
         refs = _default_duration_refs()
         if self.duration_severe_s is not None:
             refs.update(self.duration_severe_s)
         object.__setattr__(self, "duration_severe_s", refs)
+        scales = _default_effect_scales()
+        if self.effect_scale is not None:
+            scales.update(self.effect_scale)
+        object.__setattr__(self, "effect_scale", scales)
+        for ftype, scale in scales.items():
+            if not isinstance(ftype, FlawType):
+                raise ValueError(f"effect_scale keys must be FlawType, got {ftype!r}")
+            if not (math.isfinite(scale) and scale > 0.0):
+                raise ValueError(f"effect_scale[{ftype.value}] must be a positive finite number, got {scale}")
         if not (math.isfinite(self.z_min) and self.z_min >= 0.0):
             raise ValueError(f"z_min must be finite and >= 0, got {self.z_min}")
         if not (math.isfinite(self.z_severe) and self.z_severe > self.z_min):
@@ -88,7 +121,13 @@ def severity_components(candidate: FlawCandidate, config: Optional[SeverityConfi
     z = candidate.mean_z
     if not math.isfinite(z):
         raise ValueError(f"candidate mean_z must be finite, got {z}")
-    magnitude = _clip01((abs(z) - cfg.z_min) / (cfg.z_severe - cfg.z_min))
+    scale = cfg.effect_scale.get(candidate.type)
+    if candidate.effect is not None and scale is not None:
+        if not (math.isfinite(candidate.effect) and candidate.effect >= 0.0):
+            raise ValueError(f"candidate effect must be finite and >= 0, got {candidate.effect}")
+        magnitude = _clip01(candidate.effect / scale)
+    else:
+        magnitude = _clip01((abs(z) - cfg.z_min) / (cfg.z_severe - cfg.z_min))
 
     reference = cfg.duration_severe_s[candidate.type]
     if reference is None:

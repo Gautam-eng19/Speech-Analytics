@@ -6,7 +6,7 @@ import { EvidenceGauge, EvidenceTable } from '@/components/EvidenceView';
 import { Icon } from '@/components/Icon';
 import { Figure, PageHead, Prose, SeverityBar } from '@/components/page';
 import { Button, Chip, CopyButton, EmptyState, FlawTag, IconButton, Panel, Segmented, ToggleChip } from '@/components/ui';
-import { evidenceHeadline } from '@/lib/evidence';
+import { byWords, evidenceHeadline } from '@/lib/evidence';
 import { FLAW_ORDER, flawMeta } from '@/lib/flawMeta';
 import { fmtNum, plural } from '@/lib/format';
 import { dimensionOf, flawsBySeverity, flawsByTime, recordingDuration } from '@/lib/result';
@@ -24,6 +24,9 @@ const RULE_FEATURE: Record<string, string> = {
   rate_z: 'speech-rate z-score',
   pause_z: 'pause-length z-score',
   energy_z: 'loudness z-score',
+  rate_run_z: 'word-by-word pace z-score',
+  rate_overall_z: 'whole-recording pace z-score',
+  energy_run_z: 'word-by-word loudness z-score',
 };
 
 /** The detection rule in words. Feature, direction, threshold and minimum duration are the backend's. */
@@ -183,7 +186,12 @@ function FlawDetail({ analysis, flaw, position, total, onStep }: { analysis: Loa
           {flaw.rule ? (
             <>
               <p className="prose">{ruleSentence(flaw.rule)}</p>
-              <p className="prose prose--small">A z-score counts how many baseline standard deviations a value is from the baseline mean, so the rule compares this delivery with the baseline recording, not with a fixed target. {meta.measured}</p>
+              <p className="prose prose--small">
+                {byWords(flaw)
+                  ? 'This finding compares the words word by word: the baseline value is what the baseline readings of the passage did with these same words, and the spread is how much a reading varies over a run of that length. A z-score counts how many of those spreads the delivery is away, so the rule compares this delivery with the baseline, not with a fixed target. '
+                  : 'A z-score counts how many baseline standard deviations a value is from the baseline mean, so the rule compares this delivery with the baseline recording, not with a fixed target. '}
+                {meta.measured}
+              </p>
             </>
           ) : <p className="prose">The backend did not attach a rule to this finding.</p>}
           {flaw.warnings && flaw.warnings.length > 0 ? (

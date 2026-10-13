@@ -320,7 +320,9 @@ class DetectionRule(ContractModel):
     initial, uncalibrated values (DEC-P005).
     """
 
-    feature: str = Field(min_length=1)  # normalized signal: "rate_z", "energy_z" or "pause_z"
+    # normalized signal: "rate_z", "energy_z", "pause_z", or for a word-by-word comparison with the baseline (DEC-040) "rate_run_z",
+    # "rate_overall_z" or "energy_run_z"
+    feature: str = Field(min_length=1)
     direction: Literal["above", "below"]
     threshold_z: float = Field(allow_inf_nan=False)
     min_duration_s: float = Field(ge=0.0, allow_inf_nan=False)

@@ -884,6 +884,11 @@ No feature is implemented anywhere else.
 **Note:** Speech rate is NOT computed as inverse individual word duration.
 That approach produces fragmented, noisy estimates and is explicitly forbidden.
 
+**Amendment (DEC-040): the rolling-window rate above is the signal that is DISPLAYED (the rate timeline) and the fallback for detection.** When the baseline has a word profile (§14.6) and the participant's
+words match the passage, Too Fast and Too Slow are not detected from these windows: every word is compared with the baseline's reading of the same word (a word's *slot* is the time to the next word's start,
+of which at most 0.25 s of silence counts), and a finding is a run of at least `RUN_MIN_WORDS` (10) words. Reason: a window's rate says as much about the words in it as about the delivery (the same passage region
+read at the same rate in every take), and a window cannot say where inside it the change begins.
+
 **Amendment (DEC-039):** a silence between two words longer than `max_gap_s` (1.0 s) counts as `max_gap_s` in the rate, so a long pause is reported as a pause and not
 also as slow speech. The window span used to place findings is unchanged. Per-word timings are used only to LOCATE a finding inside a region the windows flagged (§17 step 6), never to detect one.
 
@@ -1050,6 +1055,14 @@ and stored as JSON in `data/processed/`. They are not recomputed on every reques
 
 ---
 
+### 14.6 Word profile (DEC-040)
+
+Besides the overall statistics, a baseline stores how the **same words** were read (`BaselineStatsRecord.word_profile`, optional): for each word of the passage its expected slot and level (geometric
+mean / offset-corrected mean over the baseline recordings), the spread of a run of n words `sigma(n) = sqrt(drift^2 + word^2 / n)` for pace (natural-log ratio of durations) and for level (dB), measured
+leave-one-out, and the spread of the overall pace between baseline recordings. It needs the passage text and at least three baseline recordings that match it, and is built by
+`scripts/dataset/build_baseline_stats.py`. A baseline without it is valid (its hash is unchanged); the analysis then uses the overall statistics and adds the note `baseline_without_profile`.
+Comparison with the profile is done after the participant's words are matched to the passage words, so a dropped, added or misrecognised word leaves only itself unmatched.
+
 ## 15. Normalization Architecture
 
 Normalization is owned by `services/grounding/` (first stage).
@@ -1119,7 +1132,13 @@ Steps 4, 5, 6 are P1 quality improvements.
 
 **Step 6 for rate findings is implemented (DEC-039):** a too_fast / too_slow region is narrowed to the run of words with the largest summed deviation from the halfway slot between the baseline's
 and the strongest window's, accepted only if the run itself (at least 8 words) is beyond the z threshold with a spread scaled for its length; otherwise the window interval is kept. Pauses need at
-least `MIN_PAUSE_FLAW_S` (0.8 s) to be reported as excessive. `scripts/dataset/evaluate_takes.py` measures the result against annotations.
+least `MIN_PAUSE_FLAW_S` (1.2 s since DEC-040, was 0.8 s) to be reported as excessive. `scripts/dataset/evaluate_takes.py` measures the result against annotations.
+
+**Word-by-word detection (DEC-040) replaces steps 1 to 3 and 6 for pace and loudness when the baseline has a word profile (§14.6).** Steps 1, 2, 3 and 6 are then one operation on runs of words
+(`grounding/profile_detection.py`): every start word and length of at least `RUN_MIN_WORDS` is scored by the run's deviation from the baseline's reading of the same words, in spreads of a run of that
+length (`WordProfile.rate_noise` / `level_noise`, leave-one-out); the best run above `Z_RUN_RATE` / `Z_RUN_ENERGY` that is also at least `MIN_RATE_CHANGE_PCT` / `MIN_ENERGY_CHANGE_DB` in size is a
+finding, its words are removed and the scan repeats. The boundaries are word boundaries, so no further refinement is needed. The reading's overall pace and level are divided out first; a reading that is
+off as a whole is one finding over all its words (`GLOBAL_TEMPO_CHANGE_PCT`). The rules below (Step 1 table) remain the fallback for a baseline without a profile or a transcript that does not match.
 
 ### Step 1: Candidate generation
 

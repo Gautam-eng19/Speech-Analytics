@@ -124,13 +124,20 @@ leading silence removed, so the analysed audio spans `[trim_start_s, trim_start_
 against that end. MP3 decoder delay is not compensated.
 
 ## Flaw grounding fields (1.1.0)
-- `rule`: why the finding was flagged: the normalized signal (`rate_z` / `energy_z` / `pause_z`), the direction
-  (`above` / `below`), `threshold_z` (signed) and `min_duration_s`. Thresholds are initial, uncalibrated values.
+- `rule`: why the finding was flagged: the normalized signal (`rate_z` / `energy_z` / `pause_z`; for a word-by-word comparison with the baseline (DEC-040) `rate_run_z`, `rate_overall_z` or
+  `energy_run_z`), the direction (`above` / `below`), `threshold_z` (signed) and `min_duration_s`. Thresholds are initial, uncalibrated values.
 - `affected_words`: words covered by the interval (rate/energy: midpoint inside the interval; pause: the word(s) it
   follows and precedes). The full alignment is in `alignment`.
 - `warnings`: plain-language limitations of that finding (e.g. a rate finding is narrowed from its rolling windows to the words that deviate and can still be off by a word or two).
   For such a narrowed rate finding (DEC-039) the rate evidence describes the narrowed stretch: `rate_participant_wpm` is its words / span, `rate_z_score` compares it with the baseline's window spread scaled for
   its length, `window_duration_s` is its length. The field names and types are unchanged.
+- **Word-by-word findings (DEC-040, no field changed).** When the baseline has a word profile and the recognised words match the passage, a pace or loudness finding is a run of words judged against how the baseline
+  readings read THOSE words. Its evidence keeps the same fields with this meaning: `rate_baseline_mean_wpm` / `energy_baseline_mean_db` is what the baseline readings had for these words (for pace, at the speaker's own overall
+  pace; for loudness, plus the recording's overall level offset); `rate_baseline_std_wpm` / `energy_baseline_std_db` is the spread that makes the reported z-score true, |participant - baseline| / |z|, so
+  `z = (participant - baseline) / std` still holds; `rate_z_score` is positive for faster, `energy_z_score` positive for louder; `peak_z_score` equals `rate_z_score`; `window_duration_s` is the span of the run
+  (first word start to last word end), `word_count_in_window` the words starting inside it. `rule.feature` is `rate_run_z`, `rate_overall_z` (the whole recording differs from the baseline readers' pace by more than readers
+  differ among themselves; one finding over all comparable words) or `energy_run_z`; `rule.threshold_z` is the threshold for a run (`Z_RUN_RATE` / `Z_RUN_ENERGY`). `severity` follows the size of the change (twice as fast
+  or half as fast, 15 dB, a pause 3.5 s longer than usual = 1.0) times the duration component, not the z-score.
 - `reliability` is a constant `1.0` at P0 and `low_confidence` is `false`; neither is a measured confidence.
 
 ## Notes (1.1.0)
@@ -148,7 +155,9 @@ or a score dimension such as `pitch`, `speech_rate`):
 | `audio_very_quiet` | The recording's mean level is below the extractor's quiet limit; energy findings can be unreliable |
 | `passage_text_unavailable`, `content_mismatch` | The passage text is not available / the transcript matches it only partly (similarity in the message) |
 | `alignment_warning` | A warning from alignment validation (for example low word coverage) |
-| `{feature}_unavailable` | A feature could not be normalized against the baseline (reason in the message) |
+| `baseline_without_profile` | The baseline has no word-by-word profile (built before profiles existed, or from fewer than three recordings that match the passage text): pace and loudness were compared with its overall averages, which is much less precise (DEC-040) |
+| `profile_not_applicable` | The baseline has a profile but too few of the recognised words match the passage, or too few words could be compared: overall averages were used (DEC-040) |
+| `{feature}_unavailable` | A feature could not be normalized against the baseline (reason in the message); not added for pace or loudness when the word-by-word comparison judged them |
 | `pauses_not_comparable` | Some pauses have no usable baseline statistic (unknown pause type or no baseline spread) |
 | `{feature}_not_scored` | A score dimension was not evaluated (for example `pitch_not_scored`: flat pitch is not implemented) and is left out of the composite |
 | `words_without_timing` | Words without complete timing were left out of `alignment` |

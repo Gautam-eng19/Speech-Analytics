@@ -13,9 +13,9 @@ audio → preprocessing → transcription → forced alignment → feature extra
       → API → dashboard
 ```
 
-## Status (2026-10-10)
+## Status (2026-10-13)
 
-Working and tested (949 backend and 290 dashboard tests, on synthetic speech):
+Working and tested (1266 backend and 293 dashboard tests, on synthetic speech):
 
 - audio preprocessing with source-time provenance, Whisper transcription, WhisperX alignment and validation
 - features: pitch (pYIN), MFCC, energy (dBFS), rolling-window speech rate, pauses (energy VAD + alignment gaps)
@@ -36,7 +36,9 @@ Working and tested (949 backend and 290 dashboard tests, on synthetic speech):
 - the **registration tool** (`scripts/dataset/prepare_recordings.py`, with `scripts/check_environment.py`): turns a folder of checked recordings into dataset files (manifest, hashes,
   word alignment with the passage text, proposed flaw annotations that a person confirms by ear, Audacity label files) and builds the baseline. Tested end to end with a stand-in for the
   alignment model; the real WhisperX run on real recordings is still to be done
-- the **evaluation tool** (`scripts/dataset/evaluate_takes.py`): replays registered takes through the real analysis without any speech model and measures, against the annotations, which flaws were found, how far off the start and end are, and how many false alarms a clean take gets
+- the **evaluation tool** (`scripts/dataset/evaluate_takes.py`): replays registered takes through the real analysis without any speech model and measures, against the annotations, which flaws were found, how far off the start and end are, and how many false alarms a clean take gets; `--sweep` compares several values of a setting in one table
+- **word-by-word comparison** (DEC-040): the baseline keeps how the same passage words were read (expected duration and level of every word, and how much a reading varies), and pace and loudness findings are runs of words judged against it, so a
+  finding starts and ends on word boundaries and the content of the words is not mistaken for delivery
 
 Not done yet: `flat_pitch` detection, an LLM explanation provider. The in-browser recorder has only been tried with Chromium's fake
 microphone, not with a real microphone, Safari, Firefox or a phone. There are **no recordings** in the repository,

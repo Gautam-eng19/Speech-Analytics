@@ -12,9 +12,9 @@ import { refreshCatalog, useCatalog } from '@/state/connection';
 const PIPELINE: { icon: IconName; name: string; what: string }[] = [
   { icon: 'file-audio', name: 'Preprocess', what: 'Decode, resample to 16 kHz mono, trim leading and trailing silence, normalise the peak.' },
   { icon: 'text', name: 'Transcribe and align', what: 'Speech recognition, then forced alignment, give every word a start and end time.' },
-  { icon: 'chart', name: 'Extract features', what: 'Pitch, loudness, speech rate in rolling windows, pauses, MFCCs: one implementation each, deterministic.' },
-  { icon: 'ruler', name: 'Normalise to the baseline', what: 'Each value becomes a z-score: how many baseline standard deviations it lies from the baseline mean.' },
-  { icon: 'flag', name: 'Detect and ground', what: 'A rule per finding type flags stretches that stay beyond its threshold, with start and end times.' },
+  { icon: 'chart', name: 'Extract features', what: 'Pitch, loudness, speech rate, pauses, MFCCs: one implementation each, deterministic. Every word gets its own pace and level.' },
+  { icon: 'ruler', name: 'Compare with the baseline', what: 'Pace and loudness are compared word by word with how the baseline readings read the same words; pauses with the baseline’s pauses. Each value becomes a z-score: how many baseline spreads away.' },
+  { icon: 'flag', name: 'Detect and ground', what: 'A run of words (or a pause) that stays beyond its threshold, and by enough to matter, is a finding, with the start and end of its words.' },
   { icon: 'gauge', name: 'Severity and score', what: 'Each finding gets a severity and a reliability; the score loses points per finding, per dimension, then combines them.' },
   { icon: 'book', name: 'Explain', what: 'Templates turn the measured evidence into a sentence and a recommendation. No number is written by a language model.' },
 ];
@@ -22,7 +22,7 @@ const PIPELINE: { icon: IconName; name: string; what: string }[] = [
 const LIMITS = [
   'It measures how delivery differs from a baseline recording of the same passage. It does not judge what was said, the writing, or the argument.',
   'Thresholds and score weights are starting values that have not been calibrated on recorded data. Treat findings as indicative.',
-  'Speech rate is detected over rolling windows and the finding is then narrowed to the words that were faster or slower, so its start and end can still be off by a word or two. A silence longer than one second counts as one second, so a long pause is reported as a pause and not also as slow speech.',
+  'Pace and loudness findings are runs of words, so they start and end on word boundaries, as accurately as the forced alignment places them. Only a quarter of a second of silence after a word counts towards its pace, so a pause is reported as a pause and not also as slow speech. If the baseline has no word-by-word profile, or the recognised words do not match the passage, the overall averages below are used instead, and a note says so.',
   'Pitch is shown for context. No pitch finding is detected yet because the baseline has no statistic of pitch variation within a window.',
   'Loudness is relative: each recording is scaled so that its typical speech level is the same as the baseline’s, so it describes shape, not absolute volume.',
 ];
@@ -67,6 +67,7 @@ export function BaselinePage({ analysis }: { analysis: LoadedAnalysis }) {
 
       <div className="grid-split">
         <Panel eyebrow="The comparison" title="Baseline statistics" flush>
+          <p className="panel__lead">Overall averages. Pace and loudness findings compare word by word with how the baseline readings read the same words; these averages are context, and the fallback when no word-by-word profile exists.</p>
           <ScrollRegion label="Baseline statistics">
             <table className="table">
               <thead><tr><th>Measure</th><th className="r">Mean ± std</th><th>Unit</th><th>Used for</th></tr></thead>
