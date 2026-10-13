@@ -197,6 +197,9 @@ scripts/
   dataset/
     validate_dataset.py  — SHA-256 integrity check
     build_baseline_stats.py — Compute and store baseline statistics
+    make_plan.py, check_recordings.py, passage_text.py — recording plan, prompter, quality check
+    prepare_recordings.py, take_checks.py — register recordings, align with the passage text, propose flaw annotations (TASK-126)
+  check_environment.py   — environment check and one-time model download
 ```
 
 ---

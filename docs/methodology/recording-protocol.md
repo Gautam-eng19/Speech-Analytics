@@ -393,7 +393,7 @@ flaws are detected reliably. That is why §5.4 asks for exaggerated loud and qui
 ### 9.1 What gets labelled
 | Label | Applies to | Made by |
 |---|---|---|
-| A. File metadata (manifest entry) | every recording | tool `[planned]` or by hand |
+| A. File metadata (manifest entry) | every recording | `prepare_recordings.py` (§10) or by hand |
 | B. Flaw annotations (type, start, end, severity, words) | flawed takes | planned stretch → proposed automatically, verified by a person |
 | C. Word alignment (each word with start/end) | every recording | **automatic** (WhisperX); nobody labels words by hand; a person spot-checks |
 | D. Speaker and passage records | once | by hand |
@@ -441,13 +441,19 @@ What the interval means:
 ```
 The validator checks: type is in the canonical vocabulary, `0 <= start_s < end_s`, and `end_s <= duration_s + 0.5`.
 
-**Workflow A — planned stretch, proposed automatically, verified by a person (recommended):**
+`prepare_recordings.py` writes one extra top-level field, `annotation_status`: `"proposed"` (made from the plan and the alignment, not yet heard by a
+person) or, after a person has listened and corrected the numbers, `"confirmed"` (set by editing the file). A re-run regenerates a `proposed` annotation
+(it follows a changed plan) but never touches a `confirmed` one, nor one written by hand without the field. The evaluation tools (TASK-127) must score
+the **test** split with `confirmed` annotations only. The `annotator_notes` of a proposed annotation also carry the "was the flaw really performed" check
+(§9.4a); `flaw_id` is `ann_<recording_id>_01`.
+
+**Workflow A — planned stretch, proposed automatically, verified by a person (recommended; `prepare_recordings.py` does steps 1 and 2):**
 1. The plan sheet already says which words carry the flaw.
-2. After alignment, the tool turns those words into `start_s`/`end_s` (file time) and writes the annotation file plus an Audacity
-   label file with every word.
+2. After alignment, the tool turns those words into `start_s`/`end_s` (file time) and writes the annotation file plus Audacity
+   label files (`data/processed/labels/<take>.words.txt` with every word and `<take>.flaw.txt` with the proposed stretch).
 3. The annotator opens the WAV in Audacity, imports the labels (File → Import → Labels…), listens to the flawed stretch and checks
    that the interval starts and ends where the flaw is actually audible. If the performer began early/late or the aligner is off,
-   correct the numbers in the sheet; the tool re-writes the JSON.
+   correct `start_s`/`end_s` in the annotation file and set `"annotation_status": "confirmed"`.
 4. For the **test** split, the person verifying is not the performer.
 
 *Honest caveat:* the interval then comes from the same aligner that the system uses, so a systematic alignment error would be in both
@@ -460,11 +466,26 @@ the label and the prediction. This is why a person must listen to every test lab
 4. The planned converter turns it into the JSON above, filling `target_words` from the alignment. By hand: copy the numbers into the
    JSON and list the words.
 
+### 9.4a Was the planned flaw really performed? (checked automatically, advice only)
+A "weak example" of a flaw would make the answer key dishonest, so `prepare_recordings.py` compares each flawed take with the **same speaker's own baseline takes**
+of the passage (when there are any) and writes the verdict into the annotation notes and the report. A take counts as a clear example from **half way** to the planned
+change; below that the take is still registered, but it is marked "weak example" and should be recorded again or left out of the evaluation. These limits are
+proposed, not calibrated (`PerformedGates` in `scripts/dataset/take_checks.py`).
+
+| Flaw | Measured | Clear example when |
+|---|---|---|
+| `too_fast` / `too_slow` | time the stretch takes, divided by the mean time of the same words in the baseline takes | at least half way from 1 to the planned factor (take 1: 0.75 or 1.35; take 2: 0.55 or 1.8) |
+| `high_energy` / `low_energy` | speech level of the stretch minus the speech level of the rest of the take, minus the same difference in the baseline takes | at least half of the planned 8 dB (take 1) or 14 dB (take 2), in the right direction |
+| `excessive_pause` | length of the silence between the two bounding words | at least 70 % of the planned minimum (take 1: 1.5 s; take 2: 3 s) |
+
 ### 9.5 Alignment files and the quick visual check
 `data/processed/alignments/<recording_id>.alignment.json` holds the aligned words in trimmed-audio time (the `AlignedTranscript`
 format). It is produced **with the passage text as the transcript**, so the word sequence and punctuation are exactly the script and
 the flaw words can be found by position. Spot-check: for 3 recordings per speaker, import the word labels into Audacity and confirm that
 words land on the audio. A visibly wrong alignment (words shifted by a second or more) → fix the cause, do not hand-edit timings.
+`prepare_recordings.py` also flags an implausible alignment on its own (wrong word count, words without a time, a low average alignment score, words covering
+under half of the audio, a first or last word far from the ends); a take that cannot be tied to the passage words is **not registered**, the others are
+registered with a warning for a person to look at (`AlignmentGates` in `scripts/dataset/take_checks.py`, proposed limits).
 
 ### 9.6 Clean and baseline takes
 No annotation file (`annotation_file: null`).
@@ -478,17 +499,18 @@ Sequence once the WAVs exist (run from the repository root with the environment 
 | Step | Command / action | Status |
 |---|---|---|
 | 1. Audio quality check of every WAV (§11) | `python scripts/dataset/check_recordings.py <folder> --passages data/plan/passages_v1.json` | `[exists]` |
-| 2. Copy WAVs to `data/raw/` (not committed, decision 3) | file copy | `[manual]` |
-| 3. Hash, measure, align with the passage text, write manifest entries and alignment JSON | `python scripts/dataset/prepare_recordings.py …` | `[planned]` (needs WhisperX) |
-| 4. Turn labels into annotation JSON | `python scripts/dataset/annotate.py …` | `[planned]` |
-| 5. Check schema, speaker separation, hashes | `python scripts/dataset/validate_dataset.py --check-files` | `[exists]` |
-| 6. Build the baseline from dev baseline takes | `python scripts/dataset/build_baseline_stats.py --passage-id p001 p002 --splits dev` | `[exists]` |
+| 2. Environment check, once per computer (installs nothing; `--download-models` fetches the speech models) | `python scripts/check_environment.py --download-models` | `[exists]` |
+| 3. Register: quality check again, copy to `data/raw/` (not committed, decision 3), hash, measure, preprocess, align with the passage text (WhisperX), plausibility checks, `alignment.json`, manifest/speaker/passage entries, proposed flaw annotations with the "was it performed" check, Audacity label files, dataset validation | `python scripts/dataset/prepare_recordings.py data/incoming` | `[exists]` TASK-126 (tested with a stand-in aligner; the real WhisperX run is the first real test) |
+| 4. A person listens to the proposed flaws with the label files and sets `"annotation_status": "confirmed"` (§9.4) | Audacity + a text editor | `[manual]` |
+| 5. Check schema, speaker separation, hashes | `python scripts/dataset/validate_dataset.py --check-files` (step 3 already runs it) | `[exists]` |
+| 6. Build the baseline from dev baseline takes | add `--build-baseline` to step 3, or `python scripts/dataset/build_baseline_stats.py --passage-id p001 p002 --splits dev --overwrite` | `[exists]` |
 
-Without the planned tools, steps 1, 3, 4 are done by hand with the examples in §9 (hash, duration, WhisperX alignment script).
+Step 3 can be repeated safely: an unchanged take keeps its alignment and its confirmed annotation and nothing is written twice; a take recorded again needs
+`--replace`. Use `--plan` / `--passages` when the plan or the passages live elsewhere, `--microphone` / `--conditions` for the values stored with new takes, and
+`--realign` to align again. Without WhisperX, steps 3 can be done by hand with the examples in §9 (hash, duration, alignment script).
 
-When the real dataset replaces the schema fixtures in `data/`, one test must be updated in the same change:
-`tests/test_build_baseline_stats.py::test_schema_fixture_dataset_is_not_buildable` asserts that the committed placeholder dataset
-*cannot* be built, which stops being true.
+`data/` in the repository holds no recordings: `passages.json` has the two real passages, `speakers.json` the four anonymous speakers (details to be filled in),
+`manifest.json` is empty until takes are registered (the schema fixtures were retired with TASK-126).
 
 `--splits dev` is deliberate: the baseline statistics come from **dev** speakers only, so test speakers never influence the baseline they
 are measured against. (Whether test-speaker baselines may ever contribute is an open question recorded in `PROJECT_STATE.md`.)
@@ -579,14 +601,15 @@ value that maximises F1 while keeping false alarms on clean dev takes under 10 %
 | Analysis of a recording (API or in-process) | tool | `[exists]` |
 | Recording plan sheet (take list, shuffled order, stretches, target durations, on-screen prompter page) | agent | `[exists]` `make_plan.py` (target durations are estimates at 150 words a minute until a speaker's own baseline takes are measured) |
 | Audio quality check (format, clipping, noise floor, silence, duration, hum) | agent | `[exists]` `check_recordings.py` |
-| Hashing, metadata, alignment with the passage text, manifest and `speakers.json`/`passages.json` handling | agent | `[planned]` `prepare_recordings.py` (WhisperX must run on your machine) |
-| Planned stretch or Audacity labels → annotation JSON; word labels for visual checks | agent | `[planned]` `annotate.py` |
+| Hashing, metadata, alignment with the passage text, manifest and `speakers.json`/`passages.json` handling | agent | `[exists]` `prepare_recordings.py` (WhisperX must run on your machine; first real run pending) |
+| Planned stretch → annotation JSON (proposed), "was the flaw performed" check, word and flaw labels for Audacity | agent | `[exists]` `prepare_recordings.py` + `take_checks.py`; Audacity-label → JSON conversion (workflow B) is not built |
+| Environment check and model download | agent | `[exists]` `scripts/check_environment.py` |
 | Evaluation (matching, P/R/F1, boundary error, false-alarm rate, determinism, speaker variation) with a guard against peeking at the test split | agent | `[planned]` `evaluate.py` |
 | Threshold sweep on dev (tables of F1 vs. constant) | agent | `[planned]` `sweep.py` |
 | Synthetic flaws with exact labels (time-stretch, gain change, inserted silence) | agent | `[planned]` `make_synthetic_flaws.py` |
 | Loudness normalisation change (§8.3) | agent | `[exists]` since 2026-10-11 (DEC-036) |
 | Energy-rule smoothing over 0.5 to 1 s windows (TASK-128) | agent | `[planned]`, needs approval |
-| Update of the fixture test when real data arrives; `.gitignore` for audio if decision 3 is confirmed | agent | `[planned]` |
+| Retire the schema fixtures when real data arrives; `.gitignore` for audio | agent | `[exists]` (TASK-126, 2026-10-13) |
 
 ---
 

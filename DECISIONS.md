@@ -1105,6 +1105,44 @@ Date: 2026-10-11
 
 ---
 
+## DEC-038 — Registering Recordings: Alignment From the Passage Text, Proposed Annotations, Retired Fixtures
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Decision:
+- **Dataset recordings are aligned with the passage text as the transcript.** The speakers read a known text, so `scripts/dataset/prepare_recordings.py` hands the passage
+  text to the existing WhisperX aligner as a manual transcript (the manual-transcript option of ARCHITECTURE.md §7.2 and §11). Words, punctuation (which the pause classifier
+  reads) and the word numbers of the recording plan then match exactly. This is not a second pipeline: the preprocessing, the aligner and the alignment validator are the
+  ones the analysis uses. Participant uploads still go through speech recognition unless a transcript is supplied.
+- **Flaw annotations are proposed, then confirmed.** The planned stretch (plan sheet) is placed on the timeline by the alignment, converted to the time of the original file,
+  and written with `"annotation_status": "proposed"`. Only a person sets `"confirmed"`, after listening (Audacity label files are written for that). A re-run regenerates
+  proposed annotations and never overwrites a confirmed one or one written by hand. The evaluation of the test split must use confirmed annotations only. The field is an
+  optional addition to the annotation file; the API contract is unchanged.
+- **A flaw is checked for having been performed.** Against the same speaker's own baseline takes: the time the stretch takes (speed), the speech level of the stretch against
+  the rest of the take (loudness) and the length of the silence (pause) must reach half of the planned change (70 % of the planned minimum for a pause), otherwise the take is
+  marked "weak example" in the report and in the annotation notes. Advice only: the take is still registered. The limits (`PerformedGates`) and the alignment plausibility limits
+  (`AlignmentGates`: wrong word count or any untimed word in a baseline take fail; low scores, drifting ends, low coverage warn) are proposed, uncalibrated, and kept in one place.
+- **Idempotent and safe:** a re-run changes nothing for unchanged takes and does not align again (a stored alignment that matches its hash is kept); a take recorded again needs
+  `--replace`; a take that fails any check is not registered and nothing is written for it; the quality check (`check_recordings.py`) runs again first.
+- **The schema fixtures are retired.** `data/metadata/` now holds the two real passages, the four anonymous speakers and an empty manifest; the fixture annotation was removed and
+  the test that asserted the fixture could not be built became a test of the empty-manifest case.
+- A baseline is built only on request (`--build-baseline`), from dev baseline takes (DEC-017), by the existing `build_baseline_stats.py`.
+
+Reason:
+The first real recordings must reach the site without hand-made paperwork, and the answer key must not be made from labels nobody has heard. Using the known text removes recognition
+errors from the baseline; proposing and confirming keeps the aligner (which the system itself uses) from silently grading itself.
+
+Impact:
+- New: `scripts/dataset/prepare_recordings.py`, `scripts/dataset/take_checks.py`, `scripts/check_environment.py`, tests (`tests/test_prepare_recordings.py`,
+  `tests/test_dataset_take_checks.py`, helper `tests/dataset_takes.py`); docs and `.gitignore` (label files) updated. No change to the pipeline, scoring, API or flaw vocabulary.
+- Not verified: the real WhisperX model on real recordings (the tools were exercised with a stand-in that finds word bursts in the audio); behaviour of the alignment on the
+  deliberately slow, fast and silent stretches; every limit above. The first real run is the real test and may need changes.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-13
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been

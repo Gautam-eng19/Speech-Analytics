@@ -849,7 +849,7 @@ Status: BACKLOG
 Priority: P0
 
 Progress (task NOT complete):
-The recording protocol (docs/methodology/recording-protocol.md; the leader confirmed speakers, equipment and loudness on 2026-10-11, DEC-036 and DEC-037) and a plain-language guide (docs/methodology/dataset-guide.md) exist. The recording kit is built and tested on synthetic audio (TASK-125). No recordings exist yet. Still to do: the pilot recording (plan ready in data/plan/pilot/), the tier after it, the registration and labelling tools (TASK-126), the evaluation and tuning tools (TASK-127), the full recording, and the use of the data (baseline, measurement, calibration, frozen test run).
+The recording protocol (docs/methodology/recording-protocol.md; the leader confirmed speakers, equipment and loudness on 2026-10-11, DEC-036 and DEC-037) and a plain-language guide (docs/methodology/dataset-guide.md) exist. The recording kit (TASK-125) and the registration tool (TASK-126) are built and tested on synthetic audio. The team recorded the first 15 takes (speaker spk_dev_01, passage p001: 3 baseline, 2 clean, 10 flawed); all passed the quality check on 2026-10-12. They are on the team's computer, not in the repository. Still to do: run the registration on them with the real WhisperX and confirm the proposed flaws by ear, the tier after the pilot, the other speakers and passage p002, the evaluation and tuning tools (TASK-127), and the use of the data (baseline, measurement, calibration, frozen test run).
 
 \## TASK-123 — Demo Video
 
@@ -890,12 +890,15 @@ The energy rule judges single 10 ms frames against a wide baseline spread (std a
 
 \## TASK-126 — Registration and Labelling Tools
 
-Status: BACKLOG
+Status: REVIEW
 
 Priority: P0
 
-Notes:
-After the pilot: hash and measure recordings, align them with the passage text (WhisperX, on a machine that can run it), write manifest entries, turn the planned stretch (or Audacity labels) into annotation JSON for a person to confirm by ear, word labels for visual checks. Written after the pilot so that the real aligner's behaviour on real audio is known first.
+Delivered (2026-10-13, DEC-038):
+`scripts/dataset/prepare_recordings.py` (registers a folder of checked WAV files: quality check again, copy to data/raw, SHA-256, preprocessing, WhisperX alignment with the passage text, alignment plausibility checks, alignment JSON, manifest/speaker/passage entries, proposed flaw annotations from the plan with a "was the flaw really performed" check against the speaker's own baseline takes, Audacity label files, dataset validation, optional `--build-baseline`; idempotent, `--replace` for re-recorded takes, confirmed annotations never overwritten), `scripts/dataset/take_checks.py` (the pure checks), `scripts/check_environment.py` (plain-language environment check and one-time model download), the schema fixtures retired (real passages, four anonymous speakers, empty manifest), `docs/methodology/dataset-guide.md` step 6 (PowerShell steps). 127 new tests, including the committed plan and passages end to end with synthetic takes and a stand-in aligner.
+
+Known limitation:
+The real WhisperX and Whisper models have never run: the tool was exercised with a stand-in aligner that finds the word bursts in the audio. The first run on the team's computer is the real test and may need changes. All limits of the plausibility and "performed" checks are proposed and uncalibrated. Conversion of hand-made Audacity labels into annotation JSON (protocol workflow B) is not built.
 
 \## TASK-127 — Evaluation and Tuning Tools
 

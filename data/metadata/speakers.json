@@ -2,29 +2,29 @@
   {
     "speaker_id": "spk_dev_01",
     "split": "dev",
-    "gender": "female",
-    "native_language": "en",
-    "notes": "Dev split baseline and controlled speaker"
+    "gender": "unspecified",
+    "native_language": "unspecified",
+    "notes": "Development speaker: records the baseline takes and the controlled flaws (DEC-037)."
   },
   {
     "speaker_id": "spk_dev_02",
     "split": "dev",
-    "gender": "male",
-    "native_language": "en",
-    "notes": "Dev split baseline and controlled speaker"
+    "gender": "unspecified",
+    "native_language": "unspecified",
+    "notes": "Development speaker: records the baseline takes and the controlled flaws (DEC-037)."
   },
   {
     "speaker_id": "spk_test_01",
     "split": "test",
-    "gender": "female",
-    "native_language": "en",
-    "notes": "Strictly held-out evaluation speaker (never used in dev/calibration)"
+    "gender": "unspecified",
+    "native_language": "unspecified",
+    "notes": "Held-out test speaker: never used in development or calibration (DEC-017)."
   },
   {
     "speaker_id": "spk_test_02",
     "split": "test",
-    "gender": "male",
-    "native_language": "en",
-    "notes": "Strictly held-out evaluation speaker (never used in dev/calibration)"
+    "gender": "unspecified",
+    "native_language": "unspecified",
+    "notes": "Held-out test speaker: never used in development or calibration (DEC-017)."
   }
 ]

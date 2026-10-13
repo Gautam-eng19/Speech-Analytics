@@ -1,13 +1,13 @@
 # Project State
 
 Last updated:
-2026-10-11
+2026-10-13
 
 Updated by:
-Coding agent (dataset recording kit delivered; control files synchronised, delegated by the team leader)
+Coding agent (registration and labelling tools delivered; control files synchronised, delegated by the team leader)
 
-All statements below were checked against the repository and full test runs on 2026-10-11
-(949 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
+All statements below were checked against the repository and full test runs on 2026-10-13
+(1076 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -53,15 +53,15 @@ Frontend:
 has only met Chromium's fake microphone
 
 Dataset:
-🔴 No recordings. data/ holds schema fixtures only (zero SHA-256 hashes, no audio); the baseline
-builder correctly refuses them, and /analyze answers BASELINE_NOT_FOUND until a baseline file exists.
-This is the main blocker for any real result.
+🟡 The first 15 real takes exist (speaker spk_dev_01, passage p001: 3 baseline, 2 clean, 10 flawed) and passed the quality check, but only on the team's computer. The registration tool
+(TASK-126) is built and tested with a stand-in aligner; nothing real is registered yet, so the repository's manifest is empty (the schema fixtures were retired) and /analyze answers
+BASELINE_NOT_FOUND until a baseline is built from real takes. Running it with the real WhisperX is the next step and the main blocker for any real result.
 
 Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch detection is missing
 
 Testing:
-🟢 949 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 1076 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -127,12 +127,13 @@ None.
 
 # 7. BLOCKED / NEEDS A DECISION
 
-- Recordings do not exist. Calibration (DEC-P005, P007), evaluation and any real demo are blocked on TASK-122.
+- Recordings are not registered. The first 15 takes (one speaker) exist on the team's computer only; the registration with the real alignment model has not run, so no real baseline exists.
+  Calibration (DEC-P005, P007), evaluation and any real demo are blocked on TASK-122 and on that run.
 - The real Whisper/WhisperX path has never been run by the agent (model downloads are not possible in its sandbox); it needs a
   machine with the models: `python -m pytest -m smoke`, then one real recording through /analyze.
 - Flat pitch: BaselineStats has only the pooled global F0 std; a valid detector needs a baseline statistic of
   F0 variation within a window (record-contract change). Until then pitch is reported as "not scored".
-- Team-leader confirmation requested for the agent decisions DEC-024 to DEC-035 (all made under delegated authority). DEC-033 also
+- Team-leader confirmation requested for the agent decisions DEC-024 to DEC-038 (all made under delegated authority, except DEC-036 and DEC-037, which the leader approved). DEC-033 also
   supersedes the proposed DEC-P009 (no chart / HTTP / waveform / CSS-framework library).
 - Energy rule too coarse (TASK-128): loudness scaling now uses the typical speech level (DEC-036, approved and implemented 2026-10-11), which keeps
   the rest of a take at the baseline level and gives a loud sentence a z-score that grows with its loudness, but the single-frame energy rule
@@ -143,7 +144,7 @@ None.
 
 # 8. ACTIVE TASKS
 
-The team leader decided speakers (2 dev + 2 test), equipment (USB headset) and loudness scaling on 2026-10-11 (DEC-036, DEC-037). Next: the nine-take pilot with `data/plan/pilot/prompter_spk_dev_01.html` and the checker (TASK-122), then TASK-126. Candidates: collect recordings (TASK-122), calibration and evaluation (TASK-100 to TASK-107 on real data), flat pitch
+The team leader decided speakers (2 dev + 2 test), equipment (USB headset) and loudness scaling on 2026-10-11 (DEC-036, DEC-037). The first 15 takes of spk_dev_01 were recorded and passed the checker. Next: run `scripts/check_environment.py --download-models` and `scripts/dataset/prepare_recordings.py data/incoming --build-baseline` on the team's computer (first real run of WhisperX; TASK-126 built 2026-10-13, DEC-038), listen to the proposed flaws, then analyse a take on the site. Candidates: collect recordings (TASK-122), calibration and evaluation (TASK-100 to TASK-107 on real data), flat pitch
 (after the baseline-statistic decision), a first real recording session that also tries the in-browser recorder, the loudness-normalisation decision (section 7).
 
 ---
@@ -174,6 +175,14 @@ The team leader decided speakers (2 dev + 2 test), equipment (USB headset) and l
   which is why local checks passed. Fixed in PR #14 (negation in `.gitignore`, modules committed). From now on a PR is verified from a fresh clone
   of its branch before it is merged.
 - Full runs: 838 backend tests (2 smoke deselected) and 290 dashboard tests passed.
+
+2026-10-13:
+- Registration and labelling tools (TASK-126, DEC-038): `scripts/dataset/prepare_recordings.py` registers a folder of checked takes (copy to data/raw, SHA-256, preprocessing, WhisperX alignment with the passage text as the
+  transcript, plausibility checks, alignment JSON, manifest/speaker/passage entries, proposed flaw annotations that a person confirms by ear, a "was the planned flaw really performed" check against the speaker's own
+  baseline takes, Audacity label files, dataset validation, optional baseline build; idempotent; `--replace` for re-recorded takes). `scripts/dataset/take_checks.py` holds the pure checks,
+  `scripts/check_environment.py` checks a computer and downloads the models once. The schema fixtures were retired (real passages, four anonymous speakers, empty manifest). 127 new tests (1076 in all),
+  including the committed plan and passages end to end with synthetic takes; 74 injected bugs: all caught after the gaps found were closed. A failing alignment check that did not stop the
+  take from being registered was found by the tests and fixed. Not run: the real Whisper and WhisperX models.
 
 2026-10-11:
 - Dataset recording kit (TASK-125): `scripts/dataset/make_plan.py` (deterministic plan, nested tiers pilot 9 / minimum 36 (28) / recommended 112 (86) takes, per-speaker prompter page,
@@ -213,6 +222,8 @@ authority and await team-leader confirmation):
 - Dashboard stack, boundary (renders backend output only), contract 1.2.0, serving, honest-presentation and accessibility rules (DEC-033)
 - Demo samples: synthetic voice, exact word timings, real pipeline, published selection rule, labelled everywhere (DEC-034)
 - In-browser recording as raw samples with voice processing off, a deterministic 16 kHz WAV, 5-minute limit; CSV export of findings (DEC-035)
+- Loudness scaled by the typical speech level (DEC-036) and the dataset plan v1 (DEC-037): approved by the team leader on 2026-10-11
+- Registering recordings: alignment with the passage text, proposed then confirmed annotations, a "performed" check, retired fixtures (DEC-038, 2026-10-13)
 
 Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weights (DEC-P007). Results say so
 (`thresholds_uncalibrated` note) until `THRESHOLDS_CALIBRATED=true` is set after calibration.
@@ -245,6 +256,9 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
   `npm audit --omit=dev` is clean, so nothing shipped is affected. Revisit when the team standardises on Node 22+.
 - Dashboard: never run against the real models or a real recording; upload was tested in a real browser against a MOCKED API and in
   component tests. Charts are SVG (fine for minutes of audio after thinning, not for hours). A result opened by id has no audio.
+- The registration tool (TASK-126) has only seen synthetic takes and a stand-in aligner. The real WhisperX may place words differently on deliberate slow, fast or silent stretches; the plausibility and
+  "performed" limits (`AlignmentGates`, `PerformedGates`) are unvalidated; a baseline can fail to build when the baseline takes contain too few natural pauses (it then reports why); on Windows
+  the install (`pip install -r requirements.txt`, torch 2.8 pinned by whisperx) and the model downloads are untried.
 - The dataset kit (TASK-125) has only seen synthetic audio. The checker's thresholds (room noise, hum, silence at the ends, length) come from the protocol and are unvalidated on
   real recordings, the plan's target durations are estimates at 150 words a minute, and the prompter was tested in Chromium only. The pilot is the first real test.
 - The recorder (DEC-035) has been exercised with test doubles and Chromium's fake microphone only: a real microphone, Safari, Firefox and phones are
@@ -271,8 +285,8 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
 
 # 12. NEXT PRIORITIES
 
-1. Collect a small controlled recording set (TASK-122) following `docs/methodology/dataset-guide.md` and the protocol (pilot first; then TASK-126), build a
-   real baseline, and run the real-model smoke tests and one real recording through /analyze; fix whatever the real models reveal.
+1. Register the first 15 real takes with `prepare_recordings.py` (TASK-126; first real WhisperX run), listen to the proposed flaws, build the real baseline, run the real-model smoke tests and
+   one real recording through /analyze; fix whatever the real models reveal. Then record the other speakers and passage p002 (TASK-122) and write the evaluation tools (TASK-127).
 2. Calibrate thresholds, severity and weights on the controlled flaws (TASK-100 to TASK-107 on real data), then set
    `THRESHOLDS_CALIBRATED=true`, bump CONFIG_VERSION and freeze.
 3. Decide the within-window F0-variation baseline statistic and implement flat pitch.
