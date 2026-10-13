@@ -399,8 +399,8 @@ def test_cli_requires_explicit_splits():
         bbs.main(["--passage-id", "p001"])
 
 
-def test_schema_fixture_dataset_is_not_buildable():
-    """The committed fixture manifest has placeholder hashes and no audio: it must fail loudly."""
-    repo_data = Path(__file__).parent.parent / "data"
-    with pytest.raises(bbs.BaselineBuildError):
-        bbs.build_for_passage(repo_data, "p001", ["dev"])
+def test_empty_manifest_is_not_buildable(tmp_path):
+    """A dataset with no registered recordings (the state of a fresh clone) must fail loudly, never write defaults."""
+    data_dir = _write_manifest(tmp_path, [])
+    with pytest.raises(bbs.BaselineBuildError, match="no baseline_effective recordings for passage 'p001'"):
+        bbs.build_for_passage(data_dir, "p001", ["dev"])

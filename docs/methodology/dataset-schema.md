@@ -40,11 +40,12 @@ data/
     <recording_id>.flaws.json       # Granular temporal flaw annotations for flawed recordings
 ```
 
-> **NOTE ON SCHEMA FIXTURES:**
-> The initial files under `data/metadata/` and `data/annotations/` are **schema validation fixtures only**.
-> They contain placeholder file paths, dummy zeroed hashes (`"0000..."`), and fixture speaker IDs to validate
-> JSON schema parsing, relational consistency, and integrity tooling. They do **not** represent collected audio data.
-> Actual audio recording and alignment occur in subsequent project milestones (e.g., TASK-122).
+> **NOTE ON THE FILES IN THE REPOSITORY (updated with TASK-126, 2026-10-13):**
+> The schema fixtures (placeholder paths, zeroed hashes, invented speakers) were retired. `data/metadata/passages.json` now holds the two real
+> passages, `speakers.json` the four anonymous speakers (`spk_dev_01`, `spk_dev_02`, `spk_test_01`, `spk_test_02`; gender and language still
+> "unspecified") and `manifest.json` is empty until recordings are registered with `scripts/dataset/prepare_recordings.py`.
+> Audio files are never committed (`data/raw/*` and `data/incoming/` are ignored); the manifest, alignments, annotations and baseline statistics are.
+> The JSON examples in section 3 use made-up values for illustration only.
 
 ---
 
@@ -144,6 +145,11 @@ Attached to recordings of category `flawed_human_controlled` and `flawed_synthet
   ]
 }
 ```
+
+Optional top-level field written by `prepare_recordings.py`: `"annotation_status": "proposed"` (made from the recording plan and the word alignment, not yet heard
+by a person) or `"confirmed"` (a person listened and corrected the numbers; set by editing the file). The tool never overwrites a `confirmed` annotation, nor
+one that has no such field. Evaluation of the held-out test split must use `confirmed` annotations only (recording-protocol.md section 9.4). Times are in the time
+of the original WAV file (recording-protocol.md section 9.2).
 
 #### Flaw Types (Vocabulary):
 Strictly constrained to the canonical vocabulary in `ARCHITECTURE.md` (§13, §29) and `AGENTS.md` (§5):

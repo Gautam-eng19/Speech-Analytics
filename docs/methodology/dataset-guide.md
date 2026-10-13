@@ -46,7 +46,7 @@ speak and listen.**
 * **A web browser** to open the prompter pages.
 * **One computer with Python 3.10 to 3.13** for the data owner, who runs the three small commands below. The speakers need nothing else.
 * **A shared drive or external disk** for the audio, and a private folder for the signed consent forms.
-* Later, for step 6: a computer that can run the speech models (about 3 GB of downloads; a graphics card helps but is not required).
+* For step 6: a computer that can run the speech models (about 3 GB of downloads; a graphics card helps but is not required). Your own Windows computer is fine.
 
 Keep exported recordings in a folder **outside the repository**, or in `data/incoming/` (git ignores that folder and `data/raw/`, so voices
 cannot be committed by accident).
@@ -62,7 +62,7 @@ cannot be committed by accident).
 | 3 | Set up the room and microphone | Each speaker | 15 min each |
 | 4 | **Pilot:** one person records 9 takes | One speaker | about 45 min |
 | 5 | Check the pilot files with the checker | You, then send me the result | 10 min |
-| 6 | Turn recordings into dataset files (list, hashes, word timing, labels) | **Me** (I write the tools right after your pilot) | |
+| 6 | Turn recordings into dataset files (list, hashes, word timing, labels) and try them on the site | **You run one command; I wrote it** (`prepare_recordings.py`) | 30 to 60 min the first time |
 | 7 | Everybody records the rest | Speakers | see step 1 (tiers) |
 | 8 | Build the baseline, run the system, measure, tune on dev, freeze, test once | **Me**, with you listening and deciding | |
 
@@ -172,16 +172,90 @@ Each file gets **PASS**, **WARN** or **FAIL**, with the reason and what to chang
 (do not repair it). A WARN is usable but worth fixing next time. **Copy the whole output and send it to me** together with a note on
 anything odd in the session; I will adjust the plan before the full recording.
 
-### Step 6: Dataset files (I do this; you run it on a machine that can run the speech models)
+### Step 6: Register the files and try them on the site (you run it on your own computer)
 
-After the pilot I write the tools that:
+This turns the folder of WAV files into dataset files and builds the **baseline** the site compares against. It uses the real speech models, so
+the first run downloads about 1 GB and takes a while; after that it is quick. Run the commands in **PowerShell**, one at a time.
 
-* measure each file and write its entry in the dataset list (`manifest.json`), including a fingerprint (hash) so nobody can swap a file by accident;
-* find the time of every word (forced alignment, WhisperX) so a flaw can be given exact seconds;
-* turn "sentence 5 was the flawed one" into exact start and end times, which a person then **listens to and confirms**;
-* check the whole dataset for mistakes (the validator already exists).
+**6a. Get the newest kit**
 
-I wait for the pilot on purpose: I want to see how the real aligner behaves on real recordings before writing the tool around it.
+```powershell
+cd "C:\Users\<you>\...\speechdummy"      # the folder that contains backend, frontend and scripts
+git pull origin main
+```
+
+**6b. Install the packages once** (10 to 30 minutes; the environment goes in your home folder, outside OneDrive, which would try to sync thousands of files)
+
+```powershell
+python -m venv $HOME\speech-venv
+Set-ExecutionPolicy -Scope Process Bypass        # only for this window; lets the next line run
+& "$HOME\speech-venv\Scripts\Activate.ps1"      # the prompt now starts with (speech-venv)
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+In every new PowerShell window repeat the `Set-ExecutionPolicy` and `Activate.ps1` lines (and the `cd`) before the commands below.
+
+**6c. Check the computer, and download the speech models once**
+
+```powershell
+python scripts\check_environment.py --download-models
+```
+
+Every line says `[OK]`, `[note]` or `[PROBLEM]`; under a problem, the line starting with `->` says what to type. Copy the output to me if a
+problem stays.
+
+**6d. Register the recordings and build the baseline**
+
+```powershell
+python scripts\dataset\prepare_recordings.py data\incoming --build-baseline
+```
+
+For each file it prints one line:
+
+| Word | Meaning |
+|---|---|
+| `OK` | registered, nothing doubtful |
+| `CHECK` | registered, but read the lines under it: the word timing looks doubtful, or the planned mistake was **not clear enough** ("weak example"). Record such a take again, or leave it out of the measurements |
+| `FAILED` | not registered, with the reason (wrong file name, failed the recording check, the words could not be matched to the passage, ...) |
+
+It also checks that each planned mistake really happened, by comparing the take with the same speaker's baseline takes. Run it again any time:
+a take that did not change is skipped. A take you **recorded again** needs `--replace`.
+
+At the end it says `Baseline for p001: built from 3 take(s)` and `Dataset check: valid`. If it says the baseline is **NOT built**, copy the message to me.
+
+**6e. Listen to the planned mistakes (the important human step)**
+
+The tool only *proposes* where each mistake is, from the plan and the word timing. A person must confirm it by ear.
+
+1. In Audacity open one take, for example `data\raw\rec_p001_spk_dev_01_flaw_fast_01.wav`.
+2. **File, Import, Labels...** and choose `data\processed\labels\rec_p001_spk_dev_01_flaw_fast_01.words.txt`, then import
+   `...flaw.txt` the same way. Every word shows as a label on the sound, and the stretch that should hold the mistake is marked `PLANNED`.
+3. Play it. Do the words sit on the sounds? Does the marked stretch start and end where the mistake is? If not, edit the numbers in
+   `data\annotations\<take>.flaws.json`.
+4. When you are happy, change `"annotation_status": "proposed"` to `"confirmed"` in that file. A later run never overwrites a confirmed file.
+
+(For the test speakers this is done by someone who did **not** perform the take.)
+
+**6f. Try a recording on the site**
+
+```powershell
+cd frontend
+npm ci
+npm run build
+cd ..
+python -m uvicorn app.main:app --app-dir backend
+```
+
+(`npm` needs Node.js 20.19 or newer; check with `node --version`. If it is missing, tell me and I will give you a ready-made dashboard instead.)
+Then open <http://127.0.0.1:8000>, choose **Analyze**, pick the baseline (**Project talk**), drop in one of the flawed takes, for example
+`rec_p001_spk_dev_01_flaw_fast_02.wav`, and press the run button. The first analysis takes a minute or two because the models start up.
+
+Look for three things: (1) is the planned mistake found; (2) is it in the right place compared with the proposal in the annotation file; (3) does a **clean**
+take stay quiet. Write down what is wrong and send it to me; that is exactly what we need to improve the system. If the recognised text looks wrong, open
+"Advanced: supply the transcript yourself" and paste the passage text.
+
+Not yet done: the tool that compares the site's findings with all the confirmed annotations and prints the scores (TASK-127).
 
 ### Step 7: Record everyone else
 
@@ -194,7 +268,7 @@ I wait for the pilot on purpose: I want to see how the real aligner behaves on r
 
 ### Step 8: Use the dataset (I do this with you)
 
-1. Build the **baseline** from the dev speakers' baseline takes.
+1. Build the **baseline** from the dev speakers' baseline takes (step 6d does it).
 2. Run the system on the dev flawed and clean takes and **measure**: did it find each planned flaw, in the right place; how often did it
    cry wolf on clean takes?
 3. **Tune** the thresholds on dev only, one setting at a time, writing down every change.
@@ -227,6 +301,13 @@ I wait for the pilot on purpose: I want to see how the real aligner behaves on r
 | "Speech reaches the very start" | Started talking too soon | Wait a full second after pressing Record |
 | "Steady tone (mains hum)" | Charger, cable or bad USB port | Try another USB port, unplug chargers, move away from power cables |
 | "Length ... words are probably missing or added" | A word was dropped or repeated | Listen to the take; record again |
+| `pip install` fails or is very slow | Large downloads, a flaky connection, or the wrong Python | Run it again (it continues); use Python 3.10 to 3.13; copy the last 20 lines to me |
+| `check_environment.py` says torch "DLL" or "WinError 126" | The Microsoft Visual C++ Redistributable is missing | Install "vc_redist x64" from microsoft.com and run it again |
+| `check_environment.py` says a model could not be downloaded | No internet, a VPN or school proxy | Try another network, run the command again |
+| `prepare_recordings.py`: `FAILED ... returned N words but the passage has M words` | The person read different words, or the aligner split a word | Listen to the take; if the words differ, record again |
+| `prepare_recordings.py`: a take is `CHECK` with "weak example" | The planned mistake was too small to count | Record that take again, a clearer mistake |
+| `Baseline for p001: NOT built` | The baseline takes have too few natural pauses to measure | Copy the message to me; usually the three baseline takes are recorded again with the pauses at commas and full stops |
+| `git pull` says local changes would be overwritten | The tool changed `data\metadata\*.json` on your computer | Tell me before you pull; do not delete the files |
 | The phone produced `.m4a` | Phone recorder format | Convert to WAV, mono, 16-bit (`ffmpeg -i in.m4a -ac 1 -sample_fmt s16 out.wav`), and use the same phone for every take |
 
 More in protocol Appendix B.
@@ -252,7 +333,7 @@ Not the audio files themselves in the chat unless you ask me to look at them: re
 | Decide speakers, tier, equipment, consent | yes | advise |
 | Final passages, plan sheet, prompter, quality checker | | **done** |
 | Recording, listening, accepting or rejecting takes | **yes** | |
-| Registering files, hashes, word timing, label files | run on your machine | **write and test the tools** |
+| Registering files, hashes, word timing, label files | run `prepare_recordings.py` on your machine | **wrote and tested the tool** (the real speech model has not been run yet; the first run is the real test) |
 | Confirming flaw labels by ear | **yes** (not the performer, for test) | prepare them |
 | Baseline, measuring, tuning, frozen test run | decide and review | **run and analyse** |
 | Dashboard with real results, demo video | review | build |

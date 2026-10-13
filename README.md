@@ -33,6 +33,9 @@ Working and tested (949 backend and 290 dashboard tests, on synthetic speech):
 
 - the **recording kit** for the dataset (`scripts/dataset/make_plan.py`, `check_recordings.py`, final passages in `data/plan/`): a deterministic plan for any number of speakers,
   a prompter page per speaker and a quality check of the recorded files; start with [`docs/methodology/dataset-guide.md`](docs/methodology/dataset-guide.md)
+- the **registration tool** (`scripts/dataset/prepare_recordings.py`, with `scripts/check_environment.py`): turns a folder of checked recordings into dataset files (manifest, hashes,
+  word alignment with the passage text, proposed flaw annotations that a person confirms by ear, Audacity label files) and builds the baseline. Tested end to end with a stand-in for the
+  alignment model; the real WhisperX run on real recordings is still to be done
 
 Not done yet: `flat_pitch` detection, an LLM explanation provider. The in-browser recorder has only been tried with Chromium's fake
 microphone, not with a real microphone, Safari, Firefox or a phone. There are **no recordings** in the repository,
@@ -71,8 +74,9 @@ Details and options: [`docs/setup.md`](docs/setup.md); the response is documente
 |---|---|
 | `backend/app/` | FastAPI app, schemas (`schemas/`), configuration (`core/`), analytical services (`services/`) |
 | `backend/tests/`, `tests/` | unit/API tests and integration/end-to-end tests |
-| `scripts/dataset/` | dataset validator, baseline-statistics builder, recording plan generator with an on-screen prompter, recording quality checker |
-| `data/` | dataset metadata schema fixtures (no audio yet) |
+| `scripts/dataset/` | dataset validator, baseline-statistics builder, recording plan generator with an on-screen prompter, recording quality checker, registration tool |
+| `scripts/check_environment.py` | checks that a computer has what the project needs and downloads the speech models once |
+| `data/` | dataset metadata (real passages, anonymous speakers, empty manifest until recordings are registered; no audio is committed) |
 | `docs/` | architecture proposal, API contract, dashboard, dataset methodology, setup |
 | `frontend/` | the dashboard (React + Vite + TypeScript), its tests and the demo samples; see [`docs/architecture/frontend.md`](docs/architecture/frontend.md) |
 | `scripts/demo/` | builds the synthetic demo samples |
