@@ -884,6 +884,9 @@ No feature is implemented anywhere else.
 **Note:** Speech rate is NOT computed as inverse individual word duration.
 That approach produces fragmented, noisy estimates and is explicitly forbidden.
 
+**Amendment (DEC-039):** a silence between two words longer than `max_gap_s` (1.0 s) counts as `max_gap_s` in the rate, so a long pause is reported as a pause and not
+also as slow speech. The window span used to place findings is unchanged. Per-word timings are used only to LOCATE a finding inside a region the windows flagged (§17 step 6), never to detect one.
+
 ### 13.5 Pause Detection
 
 Pause detection uses two independent signals. Their results are combined, not
@@ -1113,6 +1116,10 @@ Raw contrastive signal
 
 **P0 minimum:** Steps 1, 2, 3, 7 are sufficient for a working system.
 Steps 4, 5, 6 are P1 quality improvements.
+
+**Step 6 for rate findings is implemented (DEC-039):** a too_fast / too_slow region is narrowed to the run of words with the largest summed deviation from the halfway slot between the baseline's
+and the strongest window's, accepted only if the run itself (at least 8 words) is beyond the z threshold with a spread scaled for its length; otherwise the window interval is kept. Pauses need at
+least `MIN_PAUSE_FLAW_S` (0.8 s) to be reported as excessive. `scripts/dataset/evaluate_takes.py` measures the result against annotations.
 
 ### Step 1: Candidate generation
 

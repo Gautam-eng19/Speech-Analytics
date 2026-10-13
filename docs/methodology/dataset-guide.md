@@ -255,7 +255,25 @@ Look for three things: (1) is the planned mistake found; (2) is it in the right 
 take stay quiet. Write down what is wrong and send it to me; that is exactly what we need to improve the system. If the recognised text looks wrong, open
 "Advanced: supply the transcript yourself" and paste the passage text.
 
-Not yet done: the tool that compares the site's findings with all the confirmed annotations and prints the scores (TASK-127).
+**6g. Measure how accurate the detection is (instead of judging by eye)**
+
+```powershell
+python scripts\dataset\prepare_recordings.py data\incoming --build-baseline     # after every update of the code: rebuilds the baseline, keeps the word timing
+python scripts\dataset\evaluate_takes.py
+```
+
+It replays every dev take (not the baseline takes) through the real analysis, with no speech model and no internet, and compares what it finds with the planned flaws:
+
+| Word | Meaning |
+|---|---|
+| `FOUND` | the planned flaw was found. It tells you how many seconds early or late the start and the end are (a minus means too early), how much of the detected range really was the flaw (`overlap`), and how long the detected range is compared with the plan (`1.0x` is exact, `3x` is three times too long) |
+| `MISSED` | nothing of the same type covered at least half of the planned flaw |
+| `EXTRA` | something was flagged that nobody planned. On a clean take every `EXTRA` is a false alarm |
+
+The last lines count the false alarms on clean takes. To try another setting without changing any file, add for example `--detect z_pause_within=3 min_pause_s=1.0`, or `--detect refine_rate=false` to see the old, window-wide rate intervals. **Send me the whole output**: it tells me exactly what to improve.
+Only the dev speakers are replayed; the test speakers stay sealed (the tool refuses them unless you add `--allow-test`, which is for the single final run).
+
+Still to do: a sweep over many settings at once and the final frozen test run (TASK-127).
 
 ### Step 7: Record everyone else
 
@@ -307,6 +325,7 @@ Not yet done: the tool that compares the site's findings with all the confirmed 
 | `prepare_recordings.py`: `FAILED ... returned N words but the passage has M words` | The person read different words, or the aligner split a word | Listen to the take; if the words differ, record again |
 | `prepare_recordings.py`: a take is `CHECK` with "weak example" | The planned mistake was too small to count | Record that take again, a clearer mistake |
 | `Baseline for p001: NOT built` | The baseline takes have too few natural pauses to measure | Copy the message to me; usually the three baseline takes are recorded again with the pauses at commas and full stops |
+| `evaluate_takes.py` says a take "could not be replayed" | Its word timing is missing or no longer matches (the recording was replaced) | Run `prepare_recordings.py data\incoming --realign` first |
 | `git pull` says local changes would be overwritten | The tool changed `data\metadata\*.json` on your computer | Tell me before you pull; do not delete the files |
 | The phone produced `.m4a` | Phone recorder format | Convert to WAV, mono, 16-bit (`ffmpeg -i in.m4a -ac 1 -sample_fmt s16 out.wav`), and use the same phone for every take |
 

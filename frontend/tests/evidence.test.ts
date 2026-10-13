@@ -7,11 +7,12 @@ describe('evidence rows', () => {
   it('shows a rate finding with the backend numbers at fixed decimals', () => {
     const f = flawOfType(mixedResult, 'too_fast');
     const rows = evidenceRows(f);
-    expect(rows.map((r) => r.label)).toEqual(['Participant rate', 'Baseline rate', 'Difference', 'z-score', 'Window']);
-    expect(rows[0]).toMatchObject({ value: '197.4', unit: 'words/min' });
-    expect(rows[1]!.value).toBe('141.2 ± 11.6');
-    expect(rows[2]!.value).toBe('+56.2');
-    expect(rows[3]!.value).toBe('+4.83');
+    expect(rows.map((r) => r.label)).toEqual(['Participant rate', 'Baseline rate', 'Difference', 'z-score', 'Measured over']);
+    const e = f.evidence as { rate_participant_wpm: number; rate_baseline_mean_wpm: number; rate_baseline_std_wpm: number; rate_delta_wpm: number; rate_z_score: number };
+    expect(rows[0]).toMatchObject({ value: e.rate_participant_wpm.toFixed(1), unit: 'words/min' });
+    expect(rows[1]!.value).toBe(`${e.rate_baseline_mean_wpm.toFixed(1)} ± ${e.rate_baseline_std_wpm.toFixed(1)}`);
+    expect(rows[2]!.value).toBe(`+${e.rate_delta_wpm.toFixed(1)}`);
+    expect(rows[3]!.value).toBe(`+${e.rate_z_score.toFixed(2)}`);
   });
   it('shows a pause finding with its boundary type', () => {
     const f = flawOfType(mixedResult, 'excessive_pause');
@@ -45,7 +46,8 @@ describe('evidence gauge', () => {
 
 describe('evidence headline', () => {
   it('summarises in one line', () => {
-    expect(evidenceHeadline(flawOfType(mixedResult, 'too_fast'))).toBe('197 vs 141 words/min');
+    const rate = flawOfType(mixedResult, 'too_fast').evidence as { rate_participant_wpm: number; rate_baseline_mean_wpm: number };
+    expect(evidenceHeadline(flawOfType(mixedResult, 'too_fast'))).toBe(`${Math.round(rate.rate_participant_wpm)} vs ${Math.round(rate.rate_baseline_mean_wpm)} words/min`);
     const pause = flawOfType(mixedResult, 'excessive_pause').evidence as { pause_duration_s: number; pause_baseline_mean_s: number };
     expect(evidenceHeadline(flawOfType(mixedResult, 'excessive_pause'))).toBe(`${pause.pause_duration_s.toFixed(2)} s vs ${pause.pause_baseline_mean_s.toFixed(2)} s`);
   });

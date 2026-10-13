@@ -65,15 +65,19 @@ MIN_GAP_S = 0.05   # the shortest gap the stand-in aligner can still see between
 
 
 def normal_layout(words: Sequence[str], pace: float = 1.0, lead_s: float = 0.8, tail_s: float = 0.8,
-                  amplitude: float = NORMAL_AMPLITUDE) -> Layout:
+                  amplitude: float = NORMAL_AMPLITUDE, jitter: float = 0.0, seed: int = 0) -> Layout:
     """A natural-sounding reading: ~0.28 s per word, 0.08 s between words, 0.3 s after a comma, 0.65 s after a full stop.
 
-    `pace` scales every duration and gap (2.0 = twice as fast).
+    `pace` scales every duration and gap (2.0 = twice as fast). `jitter` > 0 makes the reading human: every word and gap is multiplied by a
+    log-normal factor of that spread (0.3 is a lot), drawn from `seed`, so two takes with different seeds are two different readings.
     """
-    durations = [(0.26 + 0.015 * (i % 5)) / pace for i in range(len(words))]
+    rng = np.random.default_rng(seed)
+    noise = (lambda n: np.exp(rng.normal(0.0, jitter, n))) if jitter > 0 else (lambda n: np.ones(n))
+    durations = [d for d in ((0.26 + 0.015 * (i % 5)) / pace * noise(1)[0] for i in range(len(words)))]
     gaps = []
     for i, word in enumerate(words[:-1]):
-        gaps.append((0.65 if word.endswith(".") else 0.30 if word.endswith(",") else 0.08) / pace)
+        gap = (0.65 if word.endswith(".") else 0.30 if word.endswith(",") else 0.08) / pace * noise(1)[0]
+        gaps.append(max(MIN_GAP_S, gap))
     amplitudes = [amplitude * (0.92 + 0.03 * (i % 4)) for i in range(len(words))]
     pitches = [118.0 + 9.0 * (i % 7) for i in range(len(words))]
     return Layout(list(words), durations, gaps, amplitudes, lead_s, tail_s, pitches)

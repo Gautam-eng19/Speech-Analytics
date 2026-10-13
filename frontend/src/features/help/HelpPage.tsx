@@ -18,7 +18,7 @@ const GLOSSARY: { term: string; meaning: string }[] = [
   { term: 'Severity', meaning: 'How strong a finding is, from 0 to 1, from how far and how long the delivery deviated.' },
   { term: 'Reliability', meaning: 'How much the measurement can be trusted, from 0 to 1 (for example, lower when words are aligned with low confidence).' },
   { term: 'Deviation score', meaning: 'From 0 to 100; 100 means no deviation from the baseline was detected. Each finding subtracts points in proportion to its severity and reliability. It is not a grade of speech quality.' },
-  { term: 'Words per minute', meaning: 'Speech rate over a rolling window of words. A long pause inside the window lowers it.' },
+  { term: 'Words per minute', meaning: 'Speech rate over a rolling window of words. A silence longer than one second counts as one second, so a long pause is reported as a pause and does not also read as slow speech.' },
   { term: 'dBFS', meaning: 'Decibels relative to digital full scale. 0 is the loudest a file can hold; speech sits well below. Before analysis every recording is scaled so that its typical speech level is the same, so levels are relative: they show louder and quieter stretches inside a recording, not how loudly it was recorded.' },
   { term: 'F0 (pitch)', meaning: 'The fundamental frequency of the voice in hertz, measured only where the voice is voiced.' },
   { term: 'MFCC', meaning: 'Mel-frequency cepstral coefficients: a compact description of the spectral shape of the voice. Shown for reference; not scored.' },

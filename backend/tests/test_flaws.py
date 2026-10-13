@@ -212,7 +212,7 @@ def test_within_phrase_pause_evidence_and_words():
     assert ev.boundary_type == W and ev.detection_source == PauseDetectionSource.BOTH
     assert flaw.affected_words == ("a", "b")
     assert flaw.severity == 1.0                                  # |z| >= 4 and no duration component
-    assert flaw.rule.threshold_z == 2.0 and flaw.rule.feature == "pause_z" and flaw.rule.min_duration_s == 0.0
+    assert flaw.rule.threshold_z == 2.0 and flaw.rule.feature == "pause_z" and flaw.rule.min_duration_s == 0.8
     assert flaw.warnings == (WARNING_PAUSE,)
 
 

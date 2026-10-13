@@ -49,7 +49,7 @@ export function evidenceRows(flaw: Flaw): EvidenceRow[] {
       { label: 'Baseline rate', value: `${fmtNum(e.rate_baseline_mean_wpm, 1)} ± ${fmtNum(e.rate_baseline_std_wpm, 1)}`, unit: 'words/min', hint: 'mean ± standard deviation' },
       { label: 'Difference', value: `${fmtSigned(e.rate_delta_wpm, 1)}`, unit: 'words/min', hint: `${fmtSigned(e.rate_delta_pct, 1)} % of the baseline mean` },
       { label: 'z-score', value: fmtSigned(e.rate_z_score, 2), hint: `peak ${fmtSigned(e.peak_z_score, 2)}` },
-      { label: 'Window', value: fmtNum(e.window_duration_s, 1), unit: 's', hint: `${e.word_count_in_window} words` },
+      { label: 'Measured over', value: fmtNum(e.window_duration_s, 1), unit: 's', hint: `${e.word_count_in_window} words` },
     ];
   }
   if (isEnergy(e)) {
@@ -58,7 +58,7 @@ export function evidenceRows(flaw: Flaw): EvidenceRow[] {
       { label: 'Baseline level', value: `${fmtLevel(e.energy_baseline_mean_db, 1)} ± ${fmtNum(e.energy_baseline_std_db, 1)}`, unit: 'dBFS', hint: 'mean ± standard deviation' },
       { label: 'Difference', value: fmtSigned(e.energy_delta_db, 1), unit: 'dB' },
       { label: 'z-score', value: fmtSigned(e.energy_z_score, 2) },
-      { label: 'Window', value: fmtNum(e.window_duration_s, 1), unit: 's' },
+      { label: 'Measured over', value: fmtNum(e.window_duration_s, 1), unit: 's' },
     ];
   }
   if (isPause(e)) {

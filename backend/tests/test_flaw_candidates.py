@@ -253,7 +253,7 @@ def test_pause_thresholds_are_type_specific_and_strict():
         _pause(9.0, 9.9, U, 99.0),     # unknown boundary -> never flagged
         _pause(11.0, 12.0, W, float("nan")),   # undefined z -> never flagged
     ])
-    cands = detect_candidates(nb).candidates
+    cands = detect_candidates(nb, DetectionConfig(min_duration_s={FlawType.EXCESSIVE_PAUSE: 0.0})).candidates      # only the z rule is under test here
     assert [(c.start_s, c.end_s) for c in cands] == [(1.0, 1.6), (7.0, 8.2)]
     assert all(c.type == FlawType.EXCESSIVE_PAUSE and c.detection_feature == "pause_z" for c in cands)
     assert cands[0].member_indices == (0,) and cands[1].member_indices == (3,) and cands[1].peak_z == 2.6
@@ -264,11 +264,14 @@ def test_nearby_excessive_pauses_stay_separate_evidence():
     assert len(detect_candidates(nb).candidates) == 2
 
 
-def test_pause_minimum_duration_is_configurable_per_type():
-    nb = _bundle(pauses=[_pause(1.0, 1.3, W, 4.0)])
-    assert len(detect_candidates(nb).candidates) == 1                          # default: no pause floor
-    cfg = DetectionConfig(min_duration_s={FlawType.EXCESSIVE_PAUSE: 0.5})
-    assert detect_candidates(nb, cfg).candidates == []
+def test_pause_minimum_duration_is_configurable_and_a_breath_is_not_an_excessive_pause_by_default():
+    nb = _bundle(pauses=[_pause(1.0, 1.3, W, 40.0), _pause(3.0, 3.79, W, 40.0), _pause(5.0, 5.8, W, 40.0)])       # z of 40: very regular baseline
+    assert [(c.start_s, c.end_s) for c in detect_candidates(nb).candidates] == [(5.0, 5.8)]                # default floor 0.8 s: only the 0.8 s pause counts
+    assert DetectionConfig().min_duration_s[FlawType.EXCESSIVE_PAUSE] == 0.8
+    none = DetectionConfig(min_duration_s={FlawType.EXCESSIVE_PAUSE: 0.0})
+    assert len(detect_candidates(nb, none).candidates) == 3
+    strict = DetectionConfig(min_duration_s={FlawType.EXCESSIVE_PAUSE: 1.0})
+    assert detect_candidates(nb, strict).candidates == []
 
 
 # ---------------------------------------------------------- skipped reporting
