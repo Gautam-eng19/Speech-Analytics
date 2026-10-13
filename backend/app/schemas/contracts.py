@@ -216,6 +216,62 @@ class AlignmentValidationResult(ContractModel):
 ValidationResult = AlignmentValidationResult
 
 
+class NoiseModel(ContractModel):
+    """How much an average over `n` consecutive words varies between readings of the same passage (DEC-040).
+
+    ``sigma(n) = sqrt(drift**2 + word**2 / n)``: `word` is the part that averages out as more words are taken (each word is a little
+    faster, slower, louder or quieter by chance), `drift` is the part that does not (a whole stretch of the reading is slightly faster or
+    louder). Units are those of the quantity it describes (natural-log ratio of durations for the rate, dB for the loudness).
+    """
+
+    drift: float = Field(ge=0.0, allow_inf_nan=False)
+    word: float = Field(ge=0.0, allow_inf_nan=False)
+
+
+class WordProfile(ContractModel):
+    """How the SAME words were read in the baseline recordings, word by word (DEC-040).
+
+    The baseline is the effective delivery of one passage, so the comparison can be made at the same place in the text: a long word takes
+    longer than a short one, and a rate measured over a fixed stretch of TIME says as much about the words in it as about the speaker.
+    `words[i]` is the i-th word of the passage (lower-case letters and apostrophes only); the other lists are indexed the same way and
+    hold ``None`` where fewer than two baseline recordings measured the word.
+
+    * `slot_s`: expected slot of the word, the time from its start to the start of the next word (a silence after it counts, up to
+      `max_gap_s`): the geometric mean over the baseline recordings.
+    * `level_db`: expected level of the word, the median level of its active frames, after removing each recording's own overall level
+      offset (the mean over the baseline recordings).
+    * `rate_noise`, `level_noise`: spread of a run of words, measured by comparing each baseline recording with the others
+      (leave-one-out), so it describes a recording that was NOT used to build the expectation; see `NoiseModel`.
+    * `tempo_sd`: spread of the overall pace between baseline recordings (natural log of the duration ratio), leave-one-out.
+    """
+
+    words: list[str] = Field(min_length=1)
+    slot_s: list[Optional[float]]
+    level_db: list[Optional[float]]
+    n_takes: int = Field(ge=3)
+    rate_noise: NoiseModel
+    level_noise: NoiseModel
+    tempo_sd: float = Field(ge=0.0, allow_inf_nan=False)
+    tempo_window_words: int = Field(ge=2)
+    max_gap_s: float = Field(gt=0.0, allow_inf_nan=False)
+    active_threshold_dbfs: float = Field(allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def _check_profile(self) -> "WordProfile":
+        n = len(self.words)
+        if len(self.slot_s) != n or len(self.level_db) != n:
+            raise ValueError("words, slot_s and level_db must have the same length")
+        if any(not w for w in self.words):
+            raise ValueError("profile words must not be empty")
+        for value in self.slot_s:
+            if value is not None and not (math.isfinite(value) and value > 0.0):
+                raise ValueError("slot_s values must be positive finite numbers or null")
+        for value in self.level_db:
+            if value is not None and not math.isfinite(value):
+                raise ValueError("level_db values must be finite numbers or null")
+        return self
+
+
 class BaselineStatsRecord(BaselineStats):
     """Persisted baseline statistics for one passage (ARCHITECTURE.md §9.5, DEC-015, TASK-040).
 
@@ -248,6 +304,9 @@ class BaselineStatsRecord(BaselineStats):
     n_pauses_unknown_boundary: int = Field(ge=0)
     # Parameters that define how the statistics were computed (e.g. which energy frames count).
     config_snapshot: dict[str, Union[str, int, float, bool]]
+    # How the same words were read in the baseline recordings (DEC-040). Absent in baselines built before it, and when the passage text or
+    # enough recordings were not available; the analysis then falls back to the overall statistics above and says so.
+    word_profile: Optional[WordProfile] = None
     sha256: str = Field(pattern="^[0-9a-f]{64}$")
 
     @field_validator("baseline_recording_ids")
@@ -269,9 +328,15 @@ class BaselineStatsRecord(BaselineStats):
         return self
 
     def canonical_json(self) -> str:
-        """Canonical JSON of every field except `sha256` (the hashed content)."""
+        """Canonical JSON of every field except `sha256` (the hashed content).
+
+        A missing `word_profile` is left out of the content, so a baseline file written before the profile existed still verifies.
+        """
+        content = self.model_dump(mode="json", exclude={"sha256"})
+        if content.get("word_profile") is None:
+            content.pop("word_profile", None)
         return json.dumps(
-            self.model_dump(mode="json", exclude={"sha256"}),
+            content,
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=False,

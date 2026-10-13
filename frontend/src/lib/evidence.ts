@@ -41,13 +41,17 @@ export function evidenceGauge(flaw: Flaw): EvidenceGauge | null {
   return null;
 }
 
+/** True for a finding judged word by word against how the baseline readings read the same words (the backend's rule says so). */
+export const byWords = (flaw: Flaw): boolean => /_(run|overall)_z$/.test(flaw.rule?.feature ?? '');
+
 export function evidenceRows(flaw: Flaw): EvidenceRow[] {
   const e = flaw.evidence;
+  const same = byWords(flaw);
   if (isRate(e)) {
     return [
       { label: 'Participant rate', value: fmtNum(e.rate_participant_wpm, 1), unit: 'words/min' },
-      { label: 'Baseline rate', value: `${fmtNum(e.rate_baseline_mean_wpm, 1)} ± ${fmtNum(e.rate_baseline_std_wpm, 1)}`, unit: 'words/min', hint: 'mean ± standard deviation' },
-      { label: 'Difference', value: `${fmtSigned(e.rate_delta_wpm, 1)}`, unit: 'words/min', hint: `${fmtSigned(e.rate_delta_pct, 1)} % of the baseline mean` },
+      { label: same ? 'Baseline, same words' : 'Baseline rate', value: `${fmtNum(e.rate_baseline_mean_wpm, 1)} ± ${fmtNum(e.rate_baseline_std_wpm, 1)}`, unit: 'words/min', hint: same ? 'what the baseline readings had for these words ± spread' : 'mean ± standard deviation' },
+      { label: 'Difference', value: `${fmtSigned(e.rate_delta_wpm, 1)}`, unit: 'words/min', hint: `${fmtSigned(e.rate_delta_pct, 1)} % of the baseline ${same ? 'value' : 'mean'}` },
       { label: 'z-score', value: fmtSigned(e.rate_z_score, 2), hint: `peak ${fmtSigned(e.peak_z_score, 2)}` },
       { label: 'Measured over', value: fmtNum(e.window_duration_s, 1), unit: 's', hint: `${e.word_count_in_window} words` },
     ];
@@ -55,7 +59,7 @@ export function evidenceRows(flaw: Flaw): EvidenceRow[] {
   if (isEnergy(e)) {
     return [
       { label: 'Participant level', value: fmtLevel(e.energy_mean_db, 1), unit: 'dBFS' },
-      { label: 'Baseline level', value: `${fmtLevel(e.energy_baseline_mean_db, 1)} ± ${fmtNum(e.energy_baseline_std_db, 1)}`, unit: 'dBFS', hint: 'mean ± standard deviation' },
+      { label: same ? 'Baseline, same words' : 'Baseline level', value: `${fmtLevel(e.energy_baseline_mean_db, 1)} ± ${fmtNum(e.energy_baseline_std_db, 1)}`, unit: 'dBFS', hint: same ? 'what the baseline readings had for these words ± spread' : 'mean ± standard deviation' },
       { label: 'Difference', value: fmtSigned(e.energy_delta_db, 1), unit: 'dB' },
       { label: 'z-score', value: fmtSigned(e.energy_z_score, 2) },
       { label: 'Measured over', value: fmtNum(e.window_duration_s, 1), unit: 's' },

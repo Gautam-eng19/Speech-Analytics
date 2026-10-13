@@ -14,7 +14,7 @@ const GUIDE: { icon: IconName; name: string; text: string }[] = [
 
 const GLOSSARY: { term: string; meaning: string }[] = [
   { term: 'Baseline', meaning: 'A reference delivery of the same passage. Each statistic is its mean and spread over the reference recordings. It is not a universal average of speakers.' },
-  { term: 'z-score', meaning: 'How many baseline standard deviations a value lies above (+) or below (−) the baseline mean. Findings are flagged when a z-score stays beyond a threshold for long enough.' },
+  { term: 'z-score', meaning: 'How many baseline standard deviations a value lies above (+) or below (−) the baseline value. For pace and loudness the baseline value is what the baseline readings did with the same words, and the standard deviation is how much a reading varies over a run of that length; for pauses it is the baseline’s mean and spread. Findings are flagged when a z-score stays beyond a threshold for long enough, and the change is large enough to matter.' },
   { term: 'Severity', meaning: 'How strong a finding is, from 0 to 1, from how far and how long the delivery deviated.' },
   { term: 'Reliability', meaning: 'How much the measurement can be trusted, from 0 to 1 (for example, lower when words are aligned with low confidence).' },
   { term: 'Deviation score', meaning: 'From 0 to 100; 100 means no deviation from the baseline was detected. Each finding subtracts points in proportion to its severity and reliability. It is not a grade of speech quality.' },
@@ -28,7 +28,7 @@ const GLOSSARY: { term: string; meaning: string }[] = [
 
 const FAQ: { q: string; a: string }[] = [
   { q: 'Is anything written by an AI?', a: 'No number is. Every measurement, time, severity and score comes from the deterministic analysis. The explanations are templates that turn those numbers into sentences.' },
-  { q: 'Why can a clean take still show findings?', a: 'The detection thresholds are initial values that have not been calibrated on recorded data, and a baseline built from few recordings is noisy. Treat findings as indicative until calibration is done; the notes on each analysis say so.' },
+  { q: 'Why can a clean take still show findings?', a: 'The detection thresholds are initial values that have not been calibrated on recorded data, and a baseline built from few recordings is noisy. A pause of more than a second can also be flagged on a take that is otherwise clean. Treat findings as indicative until calibration is done; the notes on each analysis say so.' },
   { q: 'Why is there no audio when I reopen an old upload?', a: 'Uploaded audio is analysed in memory and not saved on the server, so only the result is kept. The data is still complete; only playback is missing.' },
   { q: 'How should I record a take in the browser?', a: 'Choose Record now on the New analysis page, read the passage shown, and speak at a steady distance from the microphone in a quiet room. The browser is asked to leave its echo cancellation, noise suppression and automatic gain off, so the take stays as spoken; if it keeps any of them on, the page says so. The take is saved as a 16 kHz mono WAV and sent like any uploaded file. Microphone access needs a secure page: https:// or localhost.' },
   { q: 'Can I take the findings into a spreadsheet?', a: 'Yes. Export CSV on the Flaws page saves one row per finding with the exact values and evidence columns from the analysis. Export result as JSON (command palette, Ctrl or Cmd + K) saves the complete result.' },

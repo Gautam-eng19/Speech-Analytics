@@ -24,9 +24,15 @@ Statistics (documented conventions; all pooled across the passage's baseline rec
     * floats are rounded to 6 decimals so the stored file (and its sha256) does not depend on
       last-bit floating-point differences between machines.
 
+    * word profile (DEC-040): when the passage text is known and at least three recordings match it, how the SAME words were read in the
+              baseline recordings, word by word (expected slot and level of every passage word, and the spread of a run of words measured
+              leave-one-out). Pace and loudness are then judged against it instead of against the overall statistics above, which
+              stay in the file for the fallback and for display. See `app.services.grounding.profile`.
+
 Nothing is invented: if a required statistic cannot be computed from the data (too few
 observations, no active frames, ...) the build fails with an explicit `BaselineBuildError`
-rather than writing zeros or defaults.
+rather than writing zeros or defaults. The word profile is the one exception that is optional: without
+it the file is still valid, and the analysis says that it compared with the overall averages.
 
 Usage:
     python scripts/dataset/build_baseline_stats.py --passage-id p001 --splits dev
@@ -53,6 +59,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
 from app.core.baseline import BASELINE_STATS_SUBDIR  # noqa: E402
 from app.core.config import settings  # noqa: E402
+from app.core.passages import PassageCatalog  # noqa: E402
 from app.schemas.common import PauseBoundaryType  # noqa: E402
 from app.schemas.contracts import AlignedTranscript, BaselineStatsRecord  # noqa: E402
 from app.schemas.response import PauseEvent  # noqa: E402
@@ -62,6 +69,7 @@ from app.services.features.energy import EnergyConfig, extract_energy  # noqa: E
 from app.services.features.f0 import F0Config, extract_f0  # noqa: E402
 from app.services.features.pause import PauseConfig, detect_pauses  # noqa: E402
 from app.services.features.rate import RateConfig, extract_rate  # noqa: E402
+from app.services.grounding.profile import WordObservations, build_word_profile, measure_words, passage_tokens  # noqa: E402
 
 PLACEHOLDER_SHA256 = "0" * 64
 ENERGY_FRAME_SELECTIONS = ("active", "all")
@@ -105,6 +113,7 @@ class RecordingFeatures:
     energy_db: np.ndarray
     rate_wpm: np.ndarray
     pauses: Sequence[PauseEvent]
+    words: Optional[WordObservations] = None      # per-word slot and level (DEC-040); None: this recording adds nothing to the word profile
 
 
 # --------------------------------------------------------------------------- aggregation
@@ -133,10 +142,12 @@ def aggregate_baseline_stats(
     recordings: Sequence[RecordingFeatures],
     config: Optional[BaselineBuildConfig] = None,
     extra_snapshot: Optional[Dict[str, Any]] = None,
+    passage_text: Optional[str] = None,
 ) -> BaselineStatsRecord:
     """Pool per-recording features into one hashed `BaselineStatsRecord` (pure, deterministic).
 
-    Recordings are processed in sorted `recording_id` order, so input order never matters.
+    Recordings are processed in sorted `recording_id` order, so input order never matters. With `passage_text` and the per-word measurements of at
+    least three recordings that match it, the record also carries the word profile (DEC-040); otherwise `word_profile` is None.
 
     Raises:
         BaselineBuildError: no recordings, duplicate ids, non-finite data, or a required
@@ -196,6 +207,14 @@ def aggregate_baseline_stats(
         float(np.std(cross_arr, ddof=STD_DDOF)) if len(cross_arr) >= 2 else None
     )
 
+    word_profile = None
+    if passage_text:
+        measured = [r.words for r in ordered if r.words is not None]
+        if measured:
+            word_profile = build_word_profile(
+                measured, passage_tokens(passage_text), max_gap_s=measured[0].max_gap_s, active_threshold_dbfs=measured[0].active_threshold_dbfs,
+            )
+
     snapshot: Dict[str, Any] = {
         "energy_frame_selection": cfg.energy_frame_selection,
         "energy_active_threshold_dbfs": cfg.energy_active_threshold_dbfs,
@@ -229,6 +248,7 @@ def aggregate_baseline_stats(
         n_pauses_cross_sentence=len(cross),
         n_pauses_unknown_boundary=unknown,
         config_snapshot=snapshot,
+        word_profile=word_profile,
         sha256=PLACEHOLDER_SHA256,
     )
     return record.with_computed_sha256()
@@ -255,12 +275,16 @@ def extract_recording_features(
     energy = extract_energy(audio)
     rate = extract_rate(aligned)
     pauses = detect_pauses(aligned=aligned, energy=energy).events
+    words = measure_words(
+        aligned, energy, max_gap_s=settings.PROFILE_GAP_CAP_S, active_threshold_dbfs=settings.VAD_ENERGY_THRESHOLD_DBFS,
+    )
     return RecordingFeatures(
         recording_id=recording_id,
         f0_voiced_hz=f0.voiced_values_hz,
         energy_db=energy.values_db,
         rate_wpm=rate.words_per_min,
         pauses=pauses,
+        words=words,
     )
 
 
@@ -353,6 +377,8 @@ def build_for_passage(
             raise BaselineBuildError(f"{rec_id}: alignment file is not a valid AlignedTranscript: {exc}") from exc
         features.append(extract_recording_features(rec_id, audio_path.read_bytes(), aligned))
 
+    passage_text = PassageCatalog(data_dir / "metadata" / "passages.json").get_text(passage_id)
+
     snapshot: Dict[str, Any] = {"splits": ",".join(sorted(set(splits)))}
     snapshot["preprocess.target_sample_rate"] = settings.TARGET_SAMPLE_RATE
     snapshot["preprocess.target_speech_level_dbfs"] = settings.TARGET_SPEECH_LEVEL_DBFS
@@ -364,7 +390,7 @@ def build_for_passage(
     ):
         snapshot.update(_config_snapshot(prefix, cfg))
 
-    return aggregate_baseline_stats(passage_id, versions.pop(), features, config, snapshot)
+    return aggregate_baseline_stats(passage_id, versions.pop(), features, config, snapshot, passage_text=passage_text)
 
 
 def write_stats(record: BaselineStatsRecord, output_dir: Path, overwrite: bool = False) -> Path:
@@ -404,8 +430,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             print(f"[FAIL] {passage_id}: {exc}", file=sys.stderr)
             status = 1
             continue
+        profile = "word profile built" if record.word_profile is not None else "NO word profile (needs the passage text and 3 matching recordings)"
         print(f"[OK] {passage_id}: wrote {path} (sha256 {record.sha256[:12]}…, "
-              f"{len(record.baseline_recording_ids)} recording(s))")
+              f"{len(record.baseline_recording_ids)} recording(s), {profile})")
     return status
 
 

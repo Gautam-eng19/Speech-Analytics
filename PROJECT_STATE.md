@@ -4,10 +4,10 @@ Last updated:
 2026-10-13
 
 Updated by:
-Coding agent (registration tools, then the accuracy work after the first test on real recordings; control files synchronised, delegated by the team leader)
+Coding agent (registration tools, then two rounds of accuracy work after the first tests on real recordings, the second from the first replay report; control files synchronised, delegated by the team leader)
 
 All statements below were checked against the repository and full test runs on 2026-10-13
-(1139 backend tests passed, 2 smoke tests deselected; 290 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
+(1266 backend tests passed, 2 smoke tests deselected; 293 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -49,7 +49,7 @@ Backend:
 🟢 All 11 backend stages, the cache and the three analysis endpoints are implemented and tested
 
 Frontend:
-🟢 Dashboard implemented and tested (290 tests; 50 injected bugs all caught); never run against the real models or a real recording; the recorder
+🟢 Dashboard implemented and tested (293 tests; 50 injected bugs all caught); never run against the real models or a real recording; the recorder
 has only met Chromium's fake microphone
 
 Dataset:
@@ -61,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch detection is missing
 
 Testing:
-🟢 1139 backend + 290 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 1266 backend + 293 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -133,12 +133,11 @@ None.
   machine with the models: `python -m pytest -m smoke`, then one real recording through /analyze.
 - Flat pitch: BaselineStats has only the pooled global F0 std; a valid detector needs a baseline statistic of
   F0 variation within a window (record-contract change). Until then pitch is reported as "not scored".
-- Team-leader confirmation requested for the agent decisions DEC-024 to DEC-038 (all made under delegated authority, except DEC-036 and DEC-037, which the leader approved). DEC-033 also
+- Team-leader confirmation requested for the agent decisions DEC-024 to DEC-040 (all made under delegated authority, except DEC-036 and DEC-037, which the leader approved). DEC-033 also
   supersedes the proposed DEC-P009 (no chart / HTTP / waveform / CSS-framework library).
-- Energy rule too coarse (TASK-128): loudness scaling now uses the typical speech level (DEC-036, approved and implemented 2026-10-11), which keeps
-  the rest of a take at the baseline level and gives a loud sentence a z-score that grows with its loudness, but the single-frame energy rule
-  (z > 2 on 10 ms frames, baseline std about 9 dB) still flags none of +6 to +18 dB or -12 to -20 dB changes. Windowed levels (0.5 to 1 s) and
-  calibration on real recordings are needed; the energy rule is an analytical change for the leader to approve.
+- Energy rule too coarse (TASK-128): the first real replay confirmed that the single-frame energy rule (z > 2 on 10 ms frames, baseline std about 9 dB) found none of the 12 planned loud and quiet stretches.
+  Replaced, when the baseline has a word profile, by the word-by-word comparison (TASK-130, DEC-040; agent decision under delegated authority, leader to confirm). In simulation a sentence 5 dB louder or quieter
+  is found in about 9 of 10 cases, 8 dB or more in practically every case. The frame rule remains as the fallback. Not verified on real recordings: calibrate with `evaluate_takes.py --sweep` (TASK-131).
 
 ---
 
@@ -182,6 +181,13 @@ The team leader decided speakers (2 dev + 2 test), equipment (USB headset) and l
   excessive, findings are clipped to the audio, and `scripts/dataset/evaluate_takes.py` replays registered takes through the real analysis (no speech model) and measures found/missed, start and end error, overlap and false
   alarms against the annotations. On human-like synthetic readings (real passage and plan, word times exact): fast sentence 24 % -> 95 % overlap, slow sentence 51 % -> 95 %, a deliberate 3.5 s pause no longer produces a
   severity-1.0 "too slow", the clean-take probe of the demo builder 6 of 10 -> 2 of 10. Not verified on real recordings. Baselines must be rebuilt.
+- **Second accuracy round on the real replay (TASK-130, TASK-131, DEC-040).** The first `evaluate_takes.py` output on the 50 real recordings: pauses exact (6 of 6, 0.0 s), too_fast 1 of 6, too_slow 5 of 6 but 2 s off, high_energy and low_energy
+  0 of 12, 6 of 8 clean takes flagged, ordinary pauses of 0.8 to 1.25 s flagged with severity 1.0, and the same passage region flagged in every take (139 words/min in three takes): the overall baseline average ignores which words a window
+  holds. Now: the baseline stores a word profile (expected slot and level of every word, spread of a run of words measured leave-one-out; built from the passage text and at least three baseline takes), and pace and loudness are judged word by word
+  against it: a run of at least 10 words, more than 4 spreads away and at least 15 % in pace or 3 dB in level, the reading's own overall pace and level removed first, a reading that is off as a whole judged as one finding, at most 0.25 s of
+  silence counted towards a word's pace; severity follows the size of the change (the z-score saturated); a pause needs 1.2 s; `evaluate_takes.py --sweep` compares settings in one table; wording, dashboard and notes updated; demo samples regenerated (clean probe 2 of 10 -> 0 of 10, the quiet sentence of the
+  mixed sample is found, the voice keeps its loudness when stretched). In simulation: clean takes flagged 46 % -> 3 to 5 %, a 1.33 times faster sentence found 33 % -> 78 % with ranges 2 to 3 times too long -> 0.9 times, 5 dB louder or quieter
+  sentences 0 % -> 89 to 91 %. Not verified on real recordings; baselines must be rebuilt (`prepare_recordings.py data/incoming --build-baseline`).
 - Registration and labelling tools (TASK-126, DEC-038): `scripts/dataset/prepare_recordings.py` registers a folder of checked takes (copy to data/raw, SHA-256, preprocessing, WhisperX alignment with the passage text as the
   transcript, plausibility checks, alignment JSON, manifest/speaker/passage entries, proposed flaw annotations that a person confirms by ear, a "was the planned flaw really performed" check against the speaker's own
   baseline takes, Audacity label files, dataset validation, optional baseline build; idempotent; `--replace` for re-recorded takes). `scripts/dataset/take_checks.py` holds the pure checks,
@@ -278,8 +284,8 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
   pauses) flagged 6 of 10 CLEAN takes, so the false-flag rate must be calibrated below about 10 %; the frame-level energy rule missed a
   20 dB quieter sentence in all 40 candidate takes; the absolute -50 dBFS pause threshold splits quiet speech into false pauses; peak
   normalisation makes a louder stretch hard to detect (see the loudness-normalisation item in section 7); rate findings are
-  window-resolution (since DEC-039 narrowed to the deviating words) and long pauses inflated `too_slow` (since DEC-039 a silence counts at most 1 s in the rate, and a pause under 0.8 s is not
-  reported as excessive, which took the clean-take probe from 6 of 10 flagged to 2 of 10). The demo samples show a miss and the false-flag diagnostic on purpose.
+  window-resolution (since DEC-039 narrowed to the deviating words, since DEC-040 judged word by word) and long pauses inflated `too_slow` (since DEC-040 at most 0.25 s of silence counts towards a word's pace, and a pause under 1.2 s is not
+  reported as excessive; the clean-take probe went from 6 of 10 flagged to 2 of 10 (DEC-039) to 0 of 10). The demo samples still show the false-flag diagnostic.
 - MP3 decoder delay is not measured; MP3 timestamps may be offset by a few tens of ms.
 - Dependencies are `>=` ranges without a lockfile; WhisperX is not installed in the verification environment. Library
   versions are part of the analysis identity, so a changed environment produces new ids rather than stale results.
@@ -292,7 +298,7 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
 
 # 12. NEXT PRIORITIES
 
-1. Rebuild the baseline with the new code, run `scripts/dataset/evaluate_takes.py` on the real dev takes and calibrate from its numbers (false alarms on clean takes, start and end error, missed flaws); listen to the proposed flaws and confirm
+1. Rebuild the baselines with the new code, run `scripts/dataset/evaluate_takes.py` and then `--sweep` on the real dev takes and calibrate from the numbers (TASK-131: false alarms on clean takes, start and end error, missed flaws); listen to the proposed flaws and confirm
    them; run the real-model smoke tests; fix whatever the real models reveal. Then record the other speakers and passage p002 (TASK-122) and write the evaluation tools (TASK-127).
 2. Calibrate thresholds, severity and weights on the controlled flaws (TASK-100 to TASK-107 on real data), then set
    `THRESHOLDS_CALIBRATED=true`, bump CONFIG_VERSION and freeze.

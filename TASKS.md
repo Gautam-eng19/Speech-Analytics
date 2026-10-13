@@ -881,12 +881,32 @@ Tested on synthetic audio only; the checker's thresholds come from the protocol 
 
 \## TASK-128 — Windowed Energy Rule
 
+Status: REVIEW (delivered as part of TASK-130, DEC-040; calibration on real takes remains in TASK-131)
+
+Priority: P0
+
+Notes:
+The energy rule judged single 10 ms frames against a wide baseline spread (std about 9 dB), so changes of +6 to +18 dB and -12 to -20 dB in a whole sentence were not flagged even after the loudness scaling of DEC-036; the first replay on real takes confirmed it (0 of 12 loud and quiet flaws found). Replaced, when the baseline has a word profile, by a comparison of the level of every word with the baseline's level for the same word (a run of at least 10 words, a change of at least 3 dB, more than 4 spreads of a run of that length). The frame rule stays as the fallback.
+
+\## TASK-130 — Word-by-Word Comparison With the Baseline
+
+Status: REVIEW
+
+Priority: P0
+
+Delivered (2026-10-13, DEC-040), after the first replay on the team's real recordings (too_fast 1 of 6 found, too_slow 5 of 6 but 2 s off, loud and quiet 0 of 12, 6 of 8 clean takes flagged, ordinary pauses of 0.8 to 1.25 s flagged with severity 1.0, the same passage region flagged in every take): the baseline keeps a word profile (expected slot and level of every passage word, spread of a run of words measured leave-one-out, spread of the overall pace; built from the passage text and at least three baseline takes by `build_baseline_stats.py` / `prepare_recordings.py --build-baseline`), and pace and loudness are judged word by word against it (`grounding/profile.py`, `profile_detection.py`): runs of words found by a scan, boundaries on word boundaries, the reading's own overall pace and level removed first, a reading that is off as a whole judged as one finding, size guards (15 % pace, 3 dB), a pause counts at most 0.25 s towards a word's pace; severity follows the size of the change; a pause needs 1.2 s to be excessive; `evaluate_takes.py --sweep` compares settings in one table; explanation wording, dashboard wording and notes (`baseline_without_profile`, `profile_not_applicable`) say what was compared. In simulation (human-like readings) clean takes flagged 46 % -> 3 to 5 %, a 1.33 times faster sentence found 33 % -> 78 % with ranges 2 to 3 times too long -> 0.9 times, 5 dB louder or quieter sentences 0 % -> 89 to 91 %. Demo samples regenerated (clean probe 2 of 10 -> 0 of 10; the quiet sentence of the mixed sample is found). 97 new backend tests, 11 end-to-end, 3 dashboard tests.
+
+Known limitation:
+Not run on real recordings: every threshold is from simulation. Baselines must be rebuilt. With six baseline takes the spreads are themselves estimated; two speakers pooled in one baseline enlarge the spread of the overall pace; pitch findings are still not detected.
+
+\## TASK-131 — Calibrate the Word-by-Word Settings on the Real Dev Takes
+
 Status: BACKLOG
 
 Priority: P0
 
 Notes:
-The energy rule judges single 10 ms frames against a wide baseline spread (std about 9 dB), so changes of +6 to +18 dB and -12 to -20 dB in a whole sentence are not flagged even after the loudness scaling of DEC-036. Compare levels over 0.5 to 1 s windows with the baseline's distribution of such windows, then calibrate on real recordings. Analytical change: needs the team leader's approval and a decision record.
+Run `python scripts/dataset/evaluate_takes.py --sweep "z_run_rate=3,3.5,4,4.5,5" "run_min_words=8,10,12" "min_rate_change_pct=10,15,20" "min_energy_change_db=2,3,4" "min_pause_s=1,1.2,1.5"` on the real dev takes after rebuilding the baselines, choose the values that find the confirmed flaws with the fewest false alarms on clean takes, record them (DEC), then freeze with `THRESHOLDS_CALIBRATED=true` and a CONFIG_VERSION bump. Confirm the proposed annotations by ear first (the table counts them as given).
 
 \## TASK-126 — Registration and Labelling Tools
 
@@ -910,7 +930,7 @@ Delivered (2026-10-13, DEC-039), after the first test on real recordings (a fast
 rate findings narrowed from their 8 s windows to the words that really deviate (maximum-subarray over word slots, accepted only if the stretch itself is beyond the threshold with a length-scaled spread, otherwise the window interval is kept), silences longer than 1 s counted as 1 s in the speech rate (a deliberate long pause is no longer also reported as slow speech), a pause needs at least 0.8 s to be reported as excessive, findings clipped to the audio, evidence of a narrowed finding describing the narrowed stretch, dashboard wording. In an experiment with human-like synthetic readings the planned fast sentence went from 4.1 times its length (24 % overlap) to 1.0 times (95 %), the slow one from 2.0 times (51 %) to 1.1 times (95 %). 33 new tests; of 38 injected bugs 36 were caught, the other two cannot change behaviour.
 
 Known limitation:
-Not run on real recordings. Stray findings on clean takes remain (thresholds and baseline size; to be calibrated with the evaluation tool). Energy findings are untouched (TASK-128). A flaw outside every flagged window is not recovered. Baselines must be rebuilt after this change.
+Not run on real recordings. Superseded for pace by TASK-130 (DEC-040): the narrowing is now the fallback for a baseline without a word profile, and the pause floor is 1.2 s. Baselines must be rebuilt.
 
 \## TASK-127a — Replay Evaluation Tool
 
@@ -922,12 +942,12 @@ Delivered (2026-10-13, DEC-039): `scripts/dataset/evaluate_takes.py`: replays re
 
 \## TASK-127 — Evaluation and Tuning Tools
 
-Status: BACKLOG (the replay tool above is the first part)
+Status: BACKLOG (the replay tool and the one-setting-at-a-time sweep, `--sweep`, are done; the rest remains)
 
 Priority: P0
 
 Notes:
-Matching of predictions to annotations (50 % overlap), precision/recall/F1 per flaw type with the number of events, boundary error, false-alarm rate on clean takes, speaker variation, determinism, a guard against analysing the sealed test split before the freeze, and a one-constant-at-a-time sweep on dev (protocol sections 12.3 to 12.5).
+Matching of predictions to annotations (50 % overlap), precision/recall/F1 per flaw type with the number of events, boundary error, false-alarm rate on clean takes, speaker variation, determinism, a guard against analysing the sealed test split before the freeze (the replay already refuses it), and the final frozen run on the test split (protocol sections 12.3 to 12.5). Delivered with the replay tool and TASK-130: replay, found/missed, boundary error, extras, false alarms per clean minute, `--sweep`.
 
 \---
 

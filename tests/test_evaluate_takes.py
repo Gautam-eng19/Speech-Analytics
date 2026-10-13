@@ -3,7 +3,8 @@
 The matching and the report are tested on hand-made intervals; the replay is tested on synthetic takes registered with a stand-in aligner, so the
 real analysis (preprocessing, features, baseline comparison, grounding, scoring) runs without any speech model. Covers the 50 % rule on both sides of its
 limit, best-overlap pairing and single use of a detection, boundary-error signs, extra detections, the summary and the report text, annotation status,
-what is selected (dev only, no baseline takes, the sealed test split), takes that cannot be replayed, the file written with --json, and determinism.
+what is selected (dev only, no baseline takes, the sealed test split), takes that cannot be replayed, the file written with --json, determinism, and the
+sweep table that compares several values of a setting (DEC-040).
 """
 from __future__ import annotations
 
@@ -286,6 +287,27 @@ def test_bad_detection_settings_are_refused_with_a_reason(bad, message):
         ev.detection_config([bad])
 
 
+def test_the_word_by_word_settings_can_be_changed_too():
+    cfg = ev.detection_config(["use_profile=false", "z_run_rate=3", "z_run_energy=5", "run_min_words=12", "min_rate_change_pct=20",
+                               "min_energy_change_db=2.5", "global_tempo_change_pct=40"])
+    assert cfg.use_profile is False and (cfg.z_run_rate, cfg.z_run_energy, cfg.run_min_words) == (3.0, 5.0, 12)
+    assert (cfg.min_rate_change_pct, cfg.min_energy_change_db, cfg.global_tempo_change_pct) == (20.0, 2.5, 40.0)
+    with pytest.raises(ev.EvaluationError, match="run_min_words"):
+        ev.detection_config(["run_min_words=1"])
+
+
+def test_the_evidence_note_names_what_was_expected():
+    from types import SimpleNamespace
+
+    rate = SimpleNamespace(evidence=SimpleNamespace(rate_participant_wpm=244.4, rate_baseline_mean_wpm=187.2, rate_z_score=5.24))
+    level = SimpleNamespace(evidence=SimpleNamespace(energy_mean_db=-16.9, energy_baseline_mean_db=-24.1, energy_z_score=10.2))
+    pause = SimpleNamespace(evidence=SimpleNamespace(pause_duration_s=3.52, pause_baseline_mean_s=0.59, pause_z_score=22.9))
+    assert ev.evidence_note(rate) == "rate 244 words/min against 187 expected, z 5.2"
+    assert ev.evidence_note(level) == "level -16.9 dBFS against -24.1 expected, z 10.2"
+    assert ev.evidence_note(pause) == "pause 3.52 s against 0.59 s usual, z 22.9"
+    assert ev.evidence_note(SimpleNamespace(evidence=SimpleNamespace())) == ""
+
+
 def test_a_changed_setting_changes_the_replay_and_is_named_in_the_report(registered: World, capsys):
     name = take_id("flaw_pause")
     normal = ev.Evaluator(registered.data).run(["dev"], only="flaw_pause")[0]
@@ -298,3 +320,83 @@ def test_a_changed_setting_changes_the_replay_and_is_named_in_the_report(registe
     assert "Detection settings changed for this run: z_pause_within=1000 z_pause_cross=1000" in out and "MISSED  excessive_pause" in out
     assert ev.main(["--data-dir", str(registered.data), "--only", name, "--detect", "bogus=1"]) == 1
     assert "Unknown setting" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# --sweep
+# ---------------------------------------------------------------------------------------------------------------------------------
+
+def test_a_sweep_lists_every_value_of_every_setting_and_checks_the_names():
+    assert ev.parse_sweep(["z_run_rate=3,3.5, 4", "run_min_words=8"]) == [("z_run_rate", "3"), ("z_run_rate", "3.5"), ("z_run_rate", "4"), ("run_min_words", "8")]
+    for bad in ("nonsense=1,2", "z_run_rate", "z_run_rate=", "z_run_rate=,", "3.5"):
+        with pytest.raises(ev.EvaluationError, match="Unknown or empty sweep"):
+            ev.parse_sweep([bad])
+
+
+def test_a_list_that_powershell_cut_at_its_commas_is_put_back_together():
+    # unquoted, PowerShell hands over  z_run_rate=3  3.5  4  run_min_words=8  10
+    assert ev.parse_sweep(["z_run_rate=3", "3.5", "4", "run_min_words=8", "10"]) == [
+        ("z_run_rate", "3"), ("z_run_rate", "3.5"), ("z_run_rate", "4"), ("run_min_words", "8"), ("run_min_words", "10")]
+    assert ev.parse_sweep(["min_pause_s=1", "1.2,1.5"]) == [("min_pause_s", "1"), ("min_pause_s", "1.2"), ("min_pause_s", "1.5")]
+    assert ev.parse_sweep(["min_energy_change_db=-1", "2"]) == [("min_energy_change_db", "-1"), ("min_energy_change_db", "2")]
+    with pytest.raises(ev.EvaluationError, match="Unknown or empty sweep"):
+        ev.parse_sweep(["4", "z_run_rate=3"])                         # values with no setting before them
+    with pytest.raises(ev.EvaluationError, match="Unknown or empty sweep"):
+        ev.parse_sweep(["z_run_rate=3", "abc"])                       # not a number: a typo, not the rest of a list
+
+
+def test_the_sweep_table_has_one_line_per_setting_and_says_what_each_column_counts():
+    base = ev.summarise(results())
+    stricter = ev.summarise([r for r in results() if r.recording_id != "rec_a_clean_01"])
+    text = ev.render_sweep([("normal settings", base), ("z_run_rate=5", stricter)], take_count=4)
+    lines = text.splitlines()
+    assert lines[0].startswith("Sweep over 4 take(s). Each row changes ONE setting")
+    header = next(l for l in lines if l.startswith("setting"))
+    for column in ("fast", "pause", "found", "extras", "clean flagged", "false/min"):
+        assert column in header
+    normal = next(l for l in lines if l.startswith("normal settings"))
+    assert "1/1" in normal and "0/1" in normal and "1/2" in normal and "2/2" not in normal.replace("1/2", "")      # fast 1/1, pause 0/1, clean flagged 1/2
+    assert "1.00" in normal                                                                                         # 2 false alarms in 2.0 clean minutes
+    assert next(l for l in lines if l.startswith("z_run_rate=5")).endswith("0.00")                                  # the clean take with the flags is gone
+    assert "A good setting finds more and flags less." in text
+    text.encode("ascii")
+
+
+def test_the_sweep_replays_the_takes_once_per_setting_and_the_command_line_prints_the_table(registered: World, capsys):
+    rows, count = ev.sweep(registered.data, ["z_pause_within=1000", "z_pause_cross=1000"], ["dev"], False, "flaw_pause", False, False)
+    assert count == 1 and [label for label, _ in rows] == ["normal settings", "z_pause_within=1000", "z_pause_cross=1000"]
+    found = [sum(v["found"] for v in s["types"].values()) for _, s in rows]
+    assert found == [1, 1, 0]            # the planned pause falls between two sentences: found normally, unaffected by the in-phrase threshold, hidden once the other is unreachable
+    assert ev.main(["--data-dir", str(registered.data), "--only", "flaw_pause", "--sweep", "z_pause_within=1000"]) == 0
+    out = capsys.readouterr().out
+    assert "Sweep over 1 take(s)" in out and "z_pause_within=1000" in out and "normal settings" in out
+
+
+def test_a_sweep_does_not_run_the_pitch_and_mfcc_extraction_again_for_every_setting(registered: World):
+    from unittest import mock
+    from app.services.features.f0 import F0Extractor
+
+    calls = []
+    original = F0Extractor.extract
+
+    def counting(self, audio):
+        calls.append(audio.sha256)
+        return original(self, audio)
+
+    with mock.patch.object(F0Extractor, "extract", counting):
+        ev.sweep(registered.data, ["z_pause_within=1000,2000,3000"], ["dev"], False, "flaw_pause", False, False)
+    assert len(calls) == 1                                                       # four replays of one take, one pitch extraction
+
+
+def test_a_sweep_refuses_unknown_settings_a_second_run_mode_and_an_unreplayable_take(registered: World, copy: World, capsys):
+    assert ev.main(["--data-dir", str(registered.data), "--sweep", "bogus=1"]) == 1
+    assert "Unknown or empty sweep" in capsys.readouterr().err
+    assert ev.main(["--data-dir", str(registered.data), "--sweep", "z_run_rate=3", "--detect", "z_run_rate=4"]) == 1
+    assert "not both" in capsys.readouterr().err
+    assert ev.main(["--data-dir", str(registered.data), "--sweep", "z_run_rate=3", "--splits", "test"]) == 1
+    assert "sealed" in capsys.readouterr().err
+    assert ev.main(["--data-dir", str(registered.data), "--sweep", "z_run_rate=3", "--only", "no_such_take"]) == 1
+    assert "No takes matched" in capsys.readouterr().err
+    (copy.data / "processed" / "alignments" / f"{take_id('flaw_fast')}.alignment.json").unlink()
+    assert ev.main(["--data-dir", str(copy.data), "--sweep", "z_run_rate=3", "--only", "flaw_fast"]) == 1
+    assert "could not be replayed" in capsys.readouterr().err

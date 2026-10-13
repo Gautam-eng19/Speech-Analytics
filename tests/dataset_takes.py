@@ -9,6 +9,8 @@ trimming offset is handled.
 from __future__ import annotations
 
 import csv
+import math
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
@@ -81,6 +83,41 @@ def normal_layout(words: Sequence[str], pace: float = 1.0, lead_s: float = 0.8, 
     amplitudes = [amplitude * (0.92 + 0.03 * (i % 4)) for i in range(len(words))]
     pitches = [118.0 + 9.0 * (i % 7) for i in range(len(words))]
     return Layout(list(words), durations, gaps, amplitudes, lead_s, tail_s, pitches)
+
+
+def human_layout(words: Sequence[str], seed: int, *, passage_seed: int = 7, tempo: float = 1.0, word_sd: float = 0.20, gap_sd: float = 0.30,
+                 take_sd: float = 0.04, drift_sd: float = 0.05, level_pos_sd_db: float = 3.0, level_take_sd_db: float = 1.5,
+                 level_drift_sd_db: float = 1.0, level_word_sd_db: float = 2.0, amplitude: float = NORMAL_AMPLITUDE,
+                 lead_s: float = 0.8, tail_s: float = 0.8) -> Layout:
+    """A reading by a person, for tests of the word-by-word comparison: what a word is decides how long it takes and how loud it is.
+
+    Word length (letters) sets the duration, punctuation sets the pause after the word (0.59 s after a full stop, 0.36 s after a comma, 0.04 s
+    otherwise), and a loudness pattern that belongs to the PASSAGE (`passage_seed`: stress) is shared by every reading of it. Each reading then
+    differs by chance: its own overall pace (`tempo` for the speaker, `take_sd` for the take), a slowly wandering pace (`drift_sd`), word-to-word
+    jitter (`word_sd`, `gap_sd`), and for the loudness an overall gain, a slow drift and word jitter. All of it is drawn from `seed`.
+    """
+    n = len(words)
+    passage_rng = np.random.default_rng(passage_seed)
+    stress_db = passage_rng.normal(0.0, level_pos_sd_db, n)
+    rng = np.random.default_rng(seed)
+
+    def wander(sd: float, phi: float = 0.92) -> np.ndarray:
+        steps = rng.normal(0.0, sd * math.sqrt(1.0 - phi ** 2), n)
+        out = np.zeros(n)
+        for i in range(n):
+            out[i] = (phi * out[i - 1] if i else 0.0) + steps[i]
+        return out
+
+    letters = np.array([len(re.sub(r"[^A-Za-z]", "", w)) for w in words], dtype=float)
+    base_duration = 0.10 + 0.032 * letters
+    base_gap = np.array([0.59 if w.endswith((".", "?", "!")) else 0.36 if w.endswith(",") else 0.04 for w in words[:-1]])
+    log_pace = math.log(tempo) + rng.normal(0.0, take_sd) + wander(drift_sd)
+    durations = base_duration * np.exp(log_pace + rng.normal(0.0, word_sd, n))
+    gaps = np.maximum(MIN_GAP_S + 0.02, base_gap * np.exp(0.7 * log_pace[:-1] + rng.normal(0.0, gap_sd, n - 1)))
+    level_db = stress_db + rng.normal(0.0, level_take_sd_db) + wander(level_drift_sd_db, 0.9) + rng.normal(0.0, level_word_sd_db, n)
+    amplitudes = amplitude * 10 ** (level_db / 20)
+    pitches = [118.0 + 9.0 * (i % 7) for i in range(n)]
+    return Layout(list(words), [float(d) for d in durations], [float(g) for g in gaps], [float(a) for a in amplitudes], lead_s, tail_s, pitches)
 
 
 def speed_stretch(layout: Layout, first: int, last: int, factor: float) -> Layout:

@@ -138,10 +138,15 @@ def synth_word(token: str) -> np.ndarray:
 
 
 def stretch(x: np.ndarray, rate: float) -> np.ndarray:
-    """Time-stretch without changing pitch (rate > 1 = faster)."""
+    """Time-stretch without changing pitch (rate > 1 = faster), keeping the word's loudness: a person who speaks faster is not quieter.
+
+    Without the level correction the stretching itself lowered a faster word by about 3 dB, and a faster sentence then also showed up as a quieter one.
+    """
     if abs(rate - 1.0) < 1e-3:
         return x
-    return librosa.effects.time_stretch(x, rate=rate).astype(np.float32)
+    y = librosa.effects.time_stretch(x, rate=rate).astype(np.float32)
+    before, after = float(np.sqrt(np.mean(x ** 2))), float(np.sqrt(np.mean(y ** 2)))
+    return (y * (before / after)).astype(np.float32) if before > 0.0 and after > 0.0 else y
 
 
 # ---------------------------------------------------------------------------------------------------- edits / flaws
@@ -297,12 +302,9 @@ SAMPLES = [
     dict(id="hesitant-delivery", title="Hesitant delivery",
          edits=lambda: (Pause(word_in(4, "quickly"), 1.9), Slow(6, 0.6)),
          description="A 1.9 s silence inside a phrase in the fourth sentence, and the sixth sentence read at about 0.6 times the normal speed."),
-    # The quiet sentence is allowed to go undetected: in every candidate tried, the current frame-level energy rule missed a
-    # sentence 20 dB quieter. The miss is real, so the sample keeps it and the dashboard shows it against the injected truth.
     dict(id="mixed-flaws", title="Mixed flaws", edits=lambda: (Fast(2, 1.7), Pause(end_of(5), 3.2), Quiet(7, -20.0)),
-         may_miss=("low_energy",),
          description="Three deliberate flaws in one take: a fast second sentence, a 3.2 s silence between two sentences, and a seventh "
-                     "sentence 20 dB quieter. The current energy rule does not detect the quiet sentence; the timeline shows that miss."),
+                     "sentence 20 dB quieter."),
 ]
 
 
@@ -318,8 +320,9 @@ def baseline_record(workdir: Path):
             alignment_method=AlignmentMethod.WHISPERX, total_coverage_pct=0.97)
         f0, energy, rate = extract_f0(audio), extract_energy(audio), extract_rate(aligned)
         pauses = detect_pauses(aligned=aligned, energy=energy).events
-        recordings.append(bbs.RecordingFeatures(f"demo_base_{k:02d}", f0.voiced_values_hz, energy.values_db, rate.words_per_min, pauses))
-    record = bbs.aggregate_baseline_stats(PASSAGE_ID, "demo", recordings)
+        words = bbs.measure_words(aligned, energy, max_gap_s=bbs.settings.PROFILE_GAP_CAP_S, active_threshold_dbfs=bbs.settings.VAD_ENERGY_THRESHOLD_DBFS)
+        recordings.append(bbs.RecordingFeatures(f"demo_base_{k:02d}", f0.voiced_values_hz, energy.values_db, rate.words_per_min, pauses, words))
+    record = bbs.aggregate_baseline_stats(PASSAGE_ID, "demo", recordings, passage_text=PASSAGE_TEXT)
     bbs.write_stats(record, workdir / "baselines")
     return record
 
@@ -416,8 +419,7 @@ def main() -> int:
             "note": "Synthetic voice reading one passage with deliberate, known flaws. Word timings are exact by construction; "
                     "Whisper and WhisperX were replaced by stand-ins. Every other number comes from the real analysis code.",
             "selection_note": "Each sample is the first generated take (seeds from %d upward) that fits its description: the clean take "
-                              "has no flag; each flawed take has its injected flaws detected (a documented exception: the quiet sentence of the mixed "
-                              "sample, which the current energy rule misses) with at most %d additional detections. "
+                              "has no flag; each flawed take has its injected flaws detected, with at most %d additional detections. "
                               "The samples illustrate the interface; they are not a measurement of detection accuracy."
                               % (FIRST_CANDIDATE_SEED, MAX_EXTRA_FLAWS),
             "diagnostics": {

@@ -12,6 +12,13 @@ Try a different setting without touching any file, for example the pause thresho
     python scripts/dataset/evaluate_takes.py --detect z_pause_within=3 min_pause_s=0.8
     python scripts/dataset/evaluate_takes.py --detect refine_rate=false
 
+Compare several values of a setting in one table (every row changes ONE setting; the others keep their normal value), to choose a setting
+from numbers: how many planned flaws are found, how many extra flags, how many clean takes are flagged:
+
+    python scripts/dataset/evaluate_takes.py --sweep "z_run_rate=3,3.5,4,4.5" "run_min_words=8,10,12" "min_pause_s=1,1.2,1.5"
+
+(Quote each list: PowerShell cuts an unquoted list at its commas. The tool puts such pieces back together, so a forgotten quote still works.)
+
 The replay needs no speech model and no internet: the audio is the registered recording, the word times are the alignment stored by
 prepare_recordings.py, the transcript is the passage text, and the baseline is the stored one. Everything else is the real analysis, so the same
 files and the same code give the same table every time. (With --live the real Whisper and WhisperX run instead, as on the site; slower.)
@@ -29,13 +36,15 @@ Exit code: 0 when the replay ran, 1 when a take could not be replayed or nothing
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import sys
 import tempfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
@@ -45,6 +54,7 @@ from app.core.passages import PassageCatalog  # noqa: E402
 from app.schemas.common import FlawType  # noqa: E402
 from app.schemas.contracts import AlignedTranscript  # noqa: E402
 from app.schemas.request import AnalyzeRequest  # noqa: E402
+from app.services import pipeline as pipeline_module  # noqa: E402
 from app.services.grounding import DetectionConfig  # noqa: E402
 from app.services.pipeline import AnalysisPipeline, PipelineConfig, PipelineError  # noqa: E402
 
@@ -128,7 +138,10 @@ def match_flaws(planned: Sequence[Annotated], detected: Sequence[Detected], min_
 
 #: settings of the detection that --detect may change: name -> how to read the value
 DETECT_SETTINGS = {"z_rate_fast": float, "z_rate_slow": float, "z_energy": float, "z_pause_within": float, "z_pause_cross": float,
-                   "merge_gap_s": float, "refine_rate": "bool", "refine_min_words": int, "min_pause_s": float, "min_flaw_s": float}
+                   "merge_gap_s": float, "refine_rate": "bool", "refine_min_words": int, "min_pause_s": float, "min_flaw_s": float,
+                   # word-by-word comparison with the baseline (DEC-040)
+                   "use_profile": "bool", "z_run_rate": float, "z_run_energy": float, "run_min_words": int, "min_rate_change_pct": float,
+                   "min_energy_change_db": float, "global_tempo_change_pct": float}
 
 
 def detection_config(pairs: Sequence[str]) -> Optional[DetectionConfig]:
@@ -195,11 +208,11 @@ def evidence_note(flaw: Any) -> str:
     """The evidence of a finding in one short phrase (taken from the analysis, nothing computed here)."""
     ev = flaw.evidence
     if hasattr(ev, "rate_participant_wpm"):
-        return f"rate {ev.rate_participant_wpm:.0f} words/min, z {ev.rate_z_score:.1f}"
+        return f"rate {ev.rate_participant_wpm:.0f} words/min against {ev.rate_baseline_mean_wpm:.0f} expected, z {ev.rate_z_score:.1f}"
     if hasattr(ev, "energy_mean_db"):
-        return f"level {ev.energy_mean_db:.1f} dBFS, z {ev.energy_z_score:.1f}"
+        return f"level {ev.energy_mean_db:.1f} dBFS against {ev.energy_baseline_mean_db:.1f} expected, z {ev.energy_z_score:.1f}"
     if hasattr(ev, "pause_duration_s"):
-        return f"pause {ev.pause_duration_s:.2f} s, z {ev.pause_z_score:.1f}"
+        return f"pause {ev.pause_duration_s:.2f} s against {ev.pause_baseline_mean_s:.2f} s usual, z {ev.pause_z_score:.1f}"
     return ""
 
 
@@ -257,6 +270,98 @@ class Evaluator:
     def run(self, splits: Sequence[str], include_baseline: bool = False, only: Optional[str] = None, confirmed_only: bool = False) -> List[TakeResult]:
         entries = self.select(splits, include_baseline, only)
         return [self.evaluate_take(e, confirmed_only) for e in entries]
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Sweep
+# ---------------------------------------------------------------------------------------------------------------------------------
+
+def parse_sweep(pairs: Sequence[str]) -> List[Tuple[str, str]]:
+    """``NAME=v1,v2,v3`` -> [(NAME, "v1"), (NAME, "v2"), ...]; every name must be a setting `--detect` knows.
+
+    PowerShell cuts an unquoted ``NAME=1,2,3`` into ``NAME=1``, ``2`` and ``3``; a piece that is only values (no NAME=) therefore continues the
+    setting before it.
+    """
+    out: List[Tuple[str, str]] = []
+    current: Optional[str] = None
+    for pair in pairs:
+        name, sep, values = pair.partition("=")
+        if not sep and current is not None and name.strip() and name.strip().replace(",", "").replace(".", "").replace("-", "").isdigit():
+            name, values = current, pair                                    # the rest of a list that was cut at its commas
+        elif not sep:
+            name = ""
+        listed = [v.strip() for v in values.split(",") if v.strip()]
+        if name not in DETECT_SETTINGS or not listed:
+            raise EvaluationError(f"Unknown or empty sweep '{pair}'. Use NAME=VALUE1,VALUE2,... with NAME one of: {', '.join(sorted(DETECT_SETTINGS))}.")
+        current = name
+        out += [(name, v) for v in listed]
+    return out
+
+
+@contextlib.contextmanager
+def remembered_pitch_and_mfcc() -> Iterator[None]:
+    """Compute the pitch and MFCC of each recording once while a sweep replays it many times: the detection rules do not use them."""
+    def remembering(extractor: Any) -> Any:
+        memo: Dict[Tuple[str, str], Any] = {}
+
+        class Remembered:
+            def __init__(self, config: Any) -> None:
+                self._inner, self._config = extractor(config), repr(config)
+
+            def extract(self, audio: Any) -> Any:
+                key = (self._config, audio.sha256)
+                if key not in memo:
+                    memo[key] = self._inner.extract(audio)
+                return memo[key]
+
+        return Remembered
+
+    with mock.patch.object(pipeline_module, "F0Extractor", remembering(pipeline_module.F0Extractor)), \
+            mock.patch.object(pipeline_module, "MFCCExtractor", remembering(pipeline_module.MFCCExtractor)):
+        yield
+
+
+def sweep(data_dir: Path, pairs: Sequence[str], splits: Sequence[str], include_baseline: bool, only: Optional[str], confirmed_only: bool,
+          live: bool) -> Tuple[List[Tuple[str, Dict[str, Any]]], int]:
+    """Replay the selected takes once with the normal settings and once for each (NAME, value) of `pairs`; return the summaries and the take count."""
+    runs: List[Tuple[str, Optional[DetectionConfig]]] = [("normal settings", None)]
+    for name, value in parse_sweep(pairs):
+        runs.append((f"{name}={value}", detection_config([f"{name}={value}"])))
+    rows: List[Tuple[str, Dict[str, Any]]] = []
+    count = 0
+    with remembered_pitch_and_mfcc():
+        for label, detection in runs:
+            results = Evaluator(data_dir, live=live, detection=detection).run(splits, include_baseline, only, confirmed_only)
+            count = len(results)
+            if any(r.error for r in results):
+                first = next(r for r in results if r.error)
+                raise EvaluationError(f"{first.recording_id} could not be replayed: {first.error}")
+            rows.append((label, summarise(results)))
+    return rows, count
+
+
+SHORT_TYPES = {"too_fast": "fast", "too_slow": "slow", "excessive_pause": "pause", "low_energy": "quiet", "high_energy": "loud"}
+
+
+def render_sweep(rows: Sequence[Tuple[str, Dict[str, Any]]], take_count: int) -> str:
+    """One line per setting: planned flaws found (per type and in total), extra flags on flawed takes, clean takes flagged, false alarms a minute."""
+    types = sorted({t for _, s in rows for t in s["types"]}, key=lambda t: list(SHORT_TYPES).index(t) if t in SHORT_TYPES else 99)
+    head = ["setting".ljust(26)] + [SHORT_TYPES.get(t, t).rjust(6) for t in types] + ["found".rjust(7), "extras".rjust(7), "clean flagged".rjust(14), "false/min".rjust(10)]
+    lines = [f"Sweep over {take_count} take(s). Each row changes ONE setting; everything else keeps its normal value.", "", "  ".join(head)]
+    for label, s in rows:
+        found = sum(v["found"] for v in s["types"].values())
+        planned = sum(v["planned"] for v in s["types"].values())
+        cells = [label.ljust(26)]
+        for t in types:
+            v = s["types"].get(t)
+            cells.append((f"{v['found']}/{v['planned']}" if v else "-").rjust(6))
+        per_minute = s["false_alarms_on_clean_takes"] / s["clean_minutes"] if s["clean_minutes"] else 0.0
+        cells += [f"{found}/{planned}".rjust(7), str(s["extras_on_flawed_takes"]).rjust(7),
+                  f"{s['clean_takes_with_a_flag']}/{s['clean_takes']}".rjust(14), f"{per_minute:.2f}".rjust(10)]
+        lines.append("  ".join(cells))
+    lines += ["", "found = planned flaws found / planned; extras = other flags on takes that have a planned flaw; clean flagged = clean takes with at least one flag;",
+              "false/min = flags on clean takes per minute of clean speech. A good setting finds more and flags less."]
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------
@@ -350,12 +455,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument("--confirmed-only", action="store_true", help="count only annotations a person has confirmed")
     parser.add_argument("--detect", nargs="+", default=[], metavar="NAME=VALUE",
                         help="try other detection settings for this run only, for example z_pause_within=3 min_pause_s=0.8 refine_rate=false")
+    parser.add_argument("--sweep", nargs="+", default=[], metavar="NAME=V1,V2,...",
+                        help="compare several values of a setting in one table, for example z_run_rate=3,3.5,4 run_min_words=8,10,12")
     parser.add_argument("--live", action="store_true", help="run the real Whisper and WhisperX as on the site (slower, needs the models)")
     parser.add_argument("--json", type=Path, default=None, dest="json_out", help="also write the full results to this file")
     args = parser.parse_args(argv)
     try:
         if "test" in args.splits and not args.allow_test:
             raise EvaluationError("The test split is sealed until the settings are frozen. Add --allow-test only for the final, single run.")
+        if args.sweep:
+            if args.detect:
+                raise EvaluationError("Use either --detect (one run with changed settings) or --sweep (a table), not both.")
+            rows, count = sweep(args.data_dir, args.sweep, args.splits, args.include_baseline, args.only, args.confirmed_only, args.live)
+            if not count:
+                print("No takes matched. Register recordings first (prepare_recordings.py) or change --splits / --only.", file=sys.stderr)
+                return 1
+            print(render_sweep(rows, count))
+            return 0
         results = Evaluator(args.data_dir, live=args.live, detection=detection_config(args.detect)).run(
             args.splits, args.include_baseline, args.only, args.confirmed_only)
     except EvaluationError as exc:

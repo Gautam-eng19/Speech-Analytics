@@ -210,9 +210,12 @@ and the real Whisper/WhisperX models have not run yet, so surprises are likely. 
 | `high_energy` | Read the planned sentence louder, projecting | about +8 dB | about +14 dB, **without clipping** | Shout into distortion; lean into the mic |
 | `flat_pitch` *(optional)* | Monotone: minimal pitch movement, normal pace | reduced intonation | robot-like | Slow down at the same time |
 
-Why the loud and quiet takes are exaggerated: the current energy rule judges single 10 ms frames against the baseline spread, and real
-speech varies a lot from syllable to syllable. Mild changes are very unlikely to be detected until the detector is calibrated on real
-data (§8.3). The two intensities double as the `severity_label` (`medium`, `high`).
+Why the loud and quiet takes are exaggerated: real speech varies a lot from syllable to syllable and from word to word, and a change that
+nobody could hear is not a flaw. Since DEC-040 the system compares every word with how the baseline readers read **the same word** and reports
+a run of at least 10 words that is louder or quieter by at least about 3 dB and clearly beyond the natural variation (in simulation a change of
+5 dB over a sentence is found in about 9 of 10 cases, 8 dB in practically every case). The planned +8 / +14 dB and −8 / −14 dB are kept so
+that a take is clearly a flaw even if the performer reaches only part of it; a performer who reaches only +2 to +4 dB did not perform the flaw
+and the registration says "weak example". The two intensities double as the `severity_label` (`medium`, `high`).
 
 Rehearse the flaw once, unrecorded, before each flawed take. Keep everything outside the planned stretch normal.
 
@@ -366,6 +369,9 @@ any in-range frame breaks a run.
 keeps the rest of a take within about 1 dB of the baseline while a loud sentence gets a z-score that grows with its loudness (the old scaling gave every
 loud sentence the same z and pushed the rest down by 3 to 12 dB). It does **not** make the current frame-level energy rule detect moderate loudness
 flaws: that needs a windowed energy rule and calibration (TASK-128). The exaggerated loud and quiet takes of §5.4 therefore remain the right plan.
+**Update 2026-10-13 (DEC-040):** the frame-level energy rule is now only the fallback; loudness is compared word by word with the baseline, which finds a
+sentence that is about 5 dB louder or quieter. The first real replay (0 of 12 loud and quiet flaws found) is what motivated it; the thresholds still
+have to be calibrated on the real dev takes (`evaluate_takes.py --sweep`).
 Replace "scale so the peak is −3 dBFS" by "scale so the typical speech level is −26 dBFS":
 1. Decode, make mono, resample to 16 kHz, trim leading/trailing silence — unchanged.
 2. Compute the loudness (dBFS RMS) of every 32 ms frame, hop 10 ms (the frames the energy feature uses).
@@ -382,7 +388,7 @@ Effects: baseline statistics must be rebuilt (none exist yet, so this is cheap n
 
 Remaining limits, which real data will have to resolve: (a) if most of a take is loud or quiet, it looks like a recording at another gain
 and the flaw is invisible; (b) the frame-level energy rule probably needs smoothing over about 0.5–1 s windows before moderate loudness
-flaws are detected reliably. That is why §5.4 asks for exaggerated loud and quiet takes first.
+flaws are detected reliably (resolved by DEC-040: runs of words are compared with the baseline's level for the same words). That is why §5.4 asks for exaggerated loud and quiet takes first.
 
 **The recording instructions in this protocol do not depend on this decision.**
 

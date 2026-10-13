@@ -203,16 +203,16 @@ def test_energy_evidence_needs_the_raw_energy_result():
 
 # --------------------------------------------------------------------- pauses
 def test_within_phrase_pause_evidence_and_words():
-    aligned = _aligned([("a", 0.0, 1.0), ("b", 2.0, 3.0)])
-    _, _, (flaw,) = _run(_baseline(), aligned=aligned, pauses=[_pause(1.0, 2.0, W)])
+    aligned = _aligned([("a", 0.0, 1.0), ("b", 2.5, 3.5)])
+    _, _, (flaw,) = _run(_baseline(), aligned=aligned, pauses=[_pause(1.0, 2.5, W)])
     ev = flaw.evidence
     assert isinstance(ev, PauseEvidence) and flaw.type == FlawType.EXCESSIVE_PAUSE
-    assert ev.pause_duration_s == 1.0 and ev.pause_baseline_mean_s == 0.4 and ev.pause_baseline_std_s == 0.1
-    assert ev.pause_delta_s == 0.6 and ev.pause_z_score == pytest.approx(6.0)
+    assert ev.pause_duration_s == 1.5 and ev.pause_baseline_mean_s == 0.4 and ev.pause_baseline_std_s == 0.1
+    assert ev.pause_delta_s == 1.1 and ev.pause_z_score == pytest.approx(11.0)
     assert ev.boundary_type == W and ev.detection_source == PauseDetectionSource.BOTH
     assert flaw.affected_words == ("a", "b")
-    assert flaw.severity == 1.0                                  # |z| >= 4 and no duration component
-    assert flaw.rule.threshold_z == 2.0 and flaw.rule.feature == "pause_z" and flaw.rule.min_duration_s == 0.8
+    assert flaw.severity == pytest.approx(1.1 / 3.5, abs=1e-4)   # DEC-040: the size of the excess (1.1 s of 3.5 s), not the z-score, which is far past saturation
+    assert flaw.rule.threshold_z == 2.0 and flaw.rule.feature == "pause_z" and flaw.rule.min_duration_s == 1.2
     assert flaw.warnings == (WARNING_PAUSE,)
 
 
@@ -226,27 +226,27 @@ def test_cross_sentence_pause_uses_its_own_threshold_and_baseline():
 
 def test_pause_inside_a_word_reports_that_word_once_and_edge_pauses_one_word():
     inside = _aligned([("x", 0.0, 0.5), ("stretched", 0.6, 3.0), ("y", 3.1, 3.5)])
-    _, _, (flaw,) = _run(_baseline(), aligned=inside, pauses=[_pause(1.0, 2.0, W, PauseDetectionSource.VAD)])
+    _, _, (flaw,) = _run(_baseline(), aligned=inside, pauses=[_pause(1.0, 2.5, W, PauseDetectionSource.VAD)])
     assert flaw.affected_words == ("stretched",)
 
     before_first = _aligned([("only", 2.0, 2.5)])
-    _, _, (flaw,) = _run(_baseline(), aligned=before_first, pauses=[_pause(0.5, 1.5, W)])
+    _, _, (flaw,) = _run(_baseline(), aligned=before_first, pauses=[_pause(0.5, 1.9, W)])
     assert flaw.affected_words == ("only",)
 
 
 def test_pause_that_overlaps_the_next_word_onset_still_reports_both_neighbours():
-    # A VAD-based pause can extend slightly into the following word: [1.0, 2.1] vs "b" starting at 2.0.
-    aligned = _aligned([("a", 0.0, 1.0), ("b", 2.0, 3.0), ("c", 3.1, 3.5)])
-    _, _, (flaw,) = _run(_baseline(), aligned=aligned, pauses=[_pause(1.0, 2.1, W)])
+    # A VAD-based pause can extend slightly into the following word: [1.0, 2.6] vs "b" starting at 2.5.
+    aligned = _aligned([("a", 0.0, 1.0), ("b", 2.5, 3.5), ("c", 3.6, 4.0)])
+    _, _, (flaw,) = _run(_baseline(), aligned=aligned, pauses=[_pause(1.0, 2.6, W)])
     assert flaw.affected_words == ("a", "b")
-    # ...and one that overlaps the previous word's tail: [0.9, 2.0] with "a" ending at 1.0.
-    _, _, (flaw,) = _run(_baseline(), aligned=aligned, pauses=[_pause(0.9, 2.0, W)])
+    # ...and one that overlaps the previous word's tail: [0.9, 2.5] with "a" ending at 1.0.
+    _, _, (flaw,) = _run(_baseline(), aligned=aligned, pauses=[_pause(0.9, 2.5, W)])
     assert flaw.affected_words == ("a", "b")
 
 
 def test_pause_flaw_without_alignment_has_no_words_but_full_evidence():
-    _, _, (flaw,) = _run(_baseline(), pauses=[_pause(1.0, 2.0, W)])
-    assert flaw.affected_words == () and flaw.evidence.pause_z_score == pytest.approx(6.0)
+    _, _, (flaw,) = _run(_baseline(), pauses=[_pause(1.0, 2.5, W)])
+    assert flaw.affected_words == () and flaw.evidence.pause_z_score == pytest.approx(11.0)
 
 
 # ---------------------------------------------------------- ordering and ids

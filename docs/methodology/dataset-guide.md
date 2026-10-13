@@ -96,9 +96,9 @@ Write the answers down; I will turn them into the plan.
    consent form ([`consent-form-template.md`](consent-form-template.md)) first.
 5. **Loudness (approved by you on 2026-10-11, now in the software):** the software scales each recording by its *typical speech level*
    instead of its *loudest point*. Before, one loud stretch made the whole rest of the recording look quieter (by up to 12 dB in my test).
-   Details: decision DEC-036 and protocol section 8.3. **The recording instructions do not depend on this.** One honest limit: the
-   current loudness detector still cannot find moderate loud or quiet stretches (TASK-128), so the loud and quiet takes are recorded
-   in an exaggerated way and may still be missed until that detector is improved.
+   Details: decision DEC-036 and protocol section 8.3. **The recording instructions do not depend on this.** Since 2026-10-13 (DEC-040) the
+   loudness detector compares every word with how the baseline readers read the same word, which finds a sentence that is about 5 dB louder
+   or quieter; the loud and quiet takes are still recorded in an exaggerated way (+8 / +14 dB) so that a take is clearly a flaw.
 
 ### Step 2: Get the kit onto the recording computer
 
@@ -223,6 +223,9 @@ It also checks that each planned mistake really happened, by comparing the take 
 a take that did not change is skipped. A take you **recorded again** needs `--replace`.
 
 At the end it says `Baseline for p001: built from 3 take(s)` and `Dataset check: valid`. If it says the baseline is **NOT built**, copy the message to me.
+Under the baseline it also says `word-by-word profile: built (...)`: the site then compares every word with how the baseline readers read **the same word**, which is what makes the
+findings accurate. If it says `NOT built`, the baseline has fewer than 3 takes of that text; record more baseline takes. A baseline built before this feature existed has no profile either, so
+**rebuild the baseline after every update** (the same command, see 6g).
 
 **6e. Listen to the planned mistakes (the important human step)**
 
@@ -270,10 +273,20 @@ It replays every dev take (not the baseline takes) through the real analysis, wi
 | `MISSED` | nothing of the same type covered at least half of the planned flaw |
 | `EXTRA` | something was flagged that nobody planned. On a clean take every `EXTRA` is a false alarm |
 
-The last lines count the false alarms on clean takes. To try another setting without changing any file, add for example `--detect z_pause_within=3 min_pause_s=1.0`, or `--detect refine_rate=false` to see the old, window-wide rate intervals. **Send me the whole output**: it tells me exactly what to improve.
+The last lines count the false alarms on clean takes. To try another setting without changing any file, add for example `--detect z_pause_within=3 min_pause_s=1.0`, or `--detect use_profile=false` to see the old way (overall averages, 8 second windows). **Send me the whole output**: it tells me exactly what to improve.
 Only the dev speakers are replayed; the test speakers stay sealed (the tool refuses them unless you add `--allow-test`, which is for the single final run).
 
-Still to do: a sweep over many settings at once and the final frozen test run (TASK-127).
+**6h. Choose the settings from numbers (the sweep)**
+
+```powershell
+python scripts\dataset\evaluate_takes.py --sweep "z_run_rate=3,3.5,4,4.5,5" "run_min_words=8,10,12" "min_rate_change_pct=10,15,20" "min_energy_change_db=2,3,4" "min_pause_s=1,1.2,1.5"
+```
+
+(Keep the quotation marks: PowerShell would otherwise cut each list at its commas.) It prints one table. Each row changes **one** setting (the first row is the normal settings) and counts how many planned flaws were found, how many other flags appeared on the flawed takes,
+how many clean takes were flagged, and the false alarms per minute of clean speech. A good setting finds more and flags less. It takes a few minutes. **Send me the whole table**; I choose
+the values from it. Do not choose by looking at one take: change nothing in a file, this command never does.
+
+Still to do: the final frozen test run (TASK-127).
 
 ### Step 7: Record everyone else
 

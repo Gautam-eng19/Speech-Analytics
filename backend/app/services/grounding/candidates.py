@@ -14,6 +14,11 @@ NOT flagged):
     high_energy      energy_z >  +Z_ENERGY
     excessive_pause  pause_z  >  Z_PAUSE_WITHIN (within_phrase) / Z_PAUSE_CROSS (cross_sentence)
 
+With a baseline that has a word profile (DEC-040) rate and loudness are not detected by the rules above but by comparing every word with the
+baseline's reading of the same word (`profile_detection`): a finding is a run of words, so its boundaries are word boundaries, and the
+rolling-window rate rule and the frame energy rule below are only the fallback for a baseline without a profile, or for a transcript that does
+not match the passage. The result states which was used (`CandidateDetectionResult.modes`).
+
 Intervals:
     * rate: the measured span of the flagged window (first word start .. last word end). The
       rolling window makes rate detection window-resolution (several seconds), so a short fast or slow
@@ -65,7 +70,7 @@ Not covered, reported in `skipped`:
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
@@ -75,6 +80,8 @@ from app.schemas.common import FlawType, PauseBoundaryType
 from app.schemas.contracts import BaselineStatsRecord
 from app.services.features.pause import _timed_words
 from app.services.grounding.normalizer import NormalizedFeatureBundle
+from app.services.grounding.profile import WordObservations
+from app.services.grounding.profile_detection import ProfileDetection, RunFinding, detect_runs
 
 _EPS_S = 1e-9
 
@@ -106,10 +113,39 @@ class DetectionConfig:
     # Narrowing of rate intervals to the words that deviate (DEC-039): on/off and the fewest words a narrowed stretch may have.
     refine_rate: bool = settings.REFINE_RATE_BOUNDARIES
     refine_min_words: int = settings.REFINE_MIN_WORDS
+    # Word-by-word comparison with the baseline's reading of the same words (DEC-040); see `profile_detection` for what each one does.
+    use_profile: bool = settings.PROFILE_ENABLED
+    z_run_rate: float = settings.Z_RUN_RATE
+    z_run_energy: float = settings.Z_RUN_ENERGY
+    run_min_words: int = settings.RUN_MIN_WORDS
+    min_rate_change_pct: float = settings.MIN_RATE_CHANGE_PCT
+    min_energy_change_db: float = settings.MIN_ENERGY_CHANGE_DB
+    global_tempo_change_pct: float = settings.GLOBAL_TEMPO_CHANGE_PCT
+    profile_min_coverage: float = settings.PROFILE_MIN_COVERAGE
+    profile_min_usable_words: int = settings.PROFILE_MIN_USABLE_WORDS
+    sigma_floor_rate_drift: float = settings.SIGMA_FLOOR_RATE_DRIFT
+    sigma_floor_rate_word: float = settings.SIGMA_FLOOR_RATE_WORD
+    sigma_floor_level_drift: float = settings.SIGMA_FLOOR_LEVEL_DRIFT_DB
+    sigma_floor_level_word: float = settings.SIGMA_FLOOR_LEVEL_WORD_DB
+    sigma_floor_tempo: float = settings.SIGMA_FLOOR_TEMPO
 
     def __post_init__(self) -> None:
         if not (isinstance(self.refine_min_words, int) and self.refine_min_words >= 2):
             raise ValueError(f"refine_min_words must be an integer >= 2, got {self.refine_min_words}")
+        if not (isinstance(self.run_min_words, int) and self.run_min_words >= 2):
+            raise ValueError(f"run_min_words must be an integer >= 2, got {self.run_min_words}")
+        if not (isinstance(self.profile_min_usable_words, int) and self.profile_min_usable_words >= 2):
+            raise ValueError(f"profile_min_usable_words must be an integer >= 2, got {self.profile_min_usable_words}")
+        for name in ("z_run_rate", "z_run_energy", "min_rate_change_pct", "min_energy_change_db", "global_tempo_change_pct"):
+            value = getattr(self, name)
+            if not (math.isfinite(value) and value > 0.0):
+                raise ValueError(f"{name} must be a positive finite number, got {value}")
+        if not (math.isfinite(self.profile_min_coverage) and 0.0 < self.profile_min_coverage <= 1.0):
+            raise ValueError(f"profile_min_coverage must be in (0, 1], got {self.profile_min_coverage}")
+        for name in ("sigma_floor_rate_drift", "sigma_floor_rate_word", "sigma_floor_level_drift", "sigma_floor_level_word", "sigma_floor_tempo"):
+            value = getattr(self, name)
+            if not (math.isfinite(value) and value >= 0.0):
+                raise ValueError(f"{name} must be a finite number >= 0, got {value}")
         durations = dict(_default_min_durations())
         if self.min_duration_s is not None:
             durations.update(self.min_duration_s)
@@ -144,6 +180,11 @@ class FlawCandidate:
         stretch_rate_wpm: set only for a rate candidate narrowed to a run of words (DEC-039): the speech
             rate of that run, words per minute. Then `mean_z` is the z-score of THIS rate (not of the
             windows), `member_indices` still name the windows that triggered the detection.
+        effect: the measured size of the change, in the unit severity scales it in (DEC-040): the natural-log ratio of
+            durations for a pace finding, dB for a loudness finding, seconds beyond the baseline's mean for a pause. None
+            for a finding of the fallback rules, whose severity then comes from the z-score alone.
+        run: set for a finding of the word-by-word comparison (DEC-040): the run of words with its measured and expected values.
+            Then `member_indices` are indices of the aligned words, not of windows or frames, and `mean_z` / `peak_z` are the run's z-score.
     """
 
     type: FlawType
@@ -155,6 +196,8 @@ class FlawCandidate:
     member_indices: Tuple[int, ...]
     flagged_intervals: Tuple[Tuple[float, float], ...]
     stretch_rate_wpm: Optional[float] = None
+    effect: Optional[float] = None
+    run: Optional[RunFinding] = None
 
     @property
     def duration_s(self) -> float:
@@ -175,6 +218,10 @@ class CandidateDetectionResult:
     candidates: List[FlawCandidate]
     skipped: Dict[str, str]
     config: "DetectionConfig" = None  # type: ignore[assignment]
+    # How pace and loudness were judged: "profile" (word by word against the baseline's reading of the same words) or the fallback ("windows"
+    # for pace, "frames" for loudness). `profile_note` says why the profile was not used when the baseline has one.
+    modes: Dict[str, str] = field(default_factory=dict)
+    profile_note: Optional[str] = None
 
 
 _P1_OR_UNSUPPORTED = {
@@ -322,7 +369,8 @@ def _pause_candidates(nb: NormalizedFeatureBundle, cfg: DetectionConfig) -> List
         else:
             continue
         if z[i] > threshold and _long_enough(p.event.end_s - p.event.start_s, minimum):
-            out.append(_candidate(FlawType.EXCESSIVE_PAUSE, p.event.start_s, p.event.end_s, z, [i], "pause_z"))
+            candidate = _candidate(FlawType.EXCESSIVE_PAUSE, p.event.start_s, p.event.end_s, z, [i], "pause_z")
+            out.append(replace(candidate, effect=float(p.event.duration_s - p.baseline_mean_s)))
     return out
 
 
@@ -481,17 +529,44 @@ def refine_rate_candidates(
     return out
 
 
+_RUN_TYPES = {
+    ("rate", True): FlawType.TOO_FAST,
+    ("rate", False): FlawType.TOO_SLOW,
+    ("energy", True): FlawType.HIGH_ENERGY,
+    ("energy", False): FlawType.LOW_ENERGY,
+}
+_RUN_FEATURE = {"rate_run": "rate_run_z", "rate_overall": "rate_overall_z", "energy_run": "energy_run_z"}
+
+
+def _profile_candidates(result: ProfileDetection) -> List[FlawCandidate]:
+    """FlawCandidates for the runs the word profile found (rate: positive z = faster; energy: positive z = louder)."""
+    out: List[FlawCandidate] = []
+    for findings in (result.rate or [], result.energy or []):
+        for run in findings:
+            signal = "rate" if run.kind.startswith("rate") else "energy"
+            out.append(FlawCandidate(
+                type=_RUN_TYPES[(signal, run.z > 0.0)], start_s=run.start_s, end_s=run.end_s, peak_z=abs(run.z), mean_z=run.z,
+                detection_feature=_RUN_FEATURE[run.kind], member_indices=run.word_indices,
+                flagged_intervals=((run.start_s, run.end_s),), effect=run.effect, run=run,
+            ))
+    return out
+
+
 def detect_candidates(
     normalized: NormalizedFeatureBundle,
     config: Optional[DetectionConfig] = None,
     *,
     aligned: object = None,
     baseline: Optional[BaselineStatsRecord] = None,
+    observations: Optional[WordObservations] = None,
 ) -> CandidateDetectionResult:
     """Generate, duration-filter and merge flaw candidates from normalized features.
 
-    With `aligned` (the aligned transcript) and `baseline` (the statistics `normalized` was built with) and `config.refine_rate`, rate candidates are
-    narrowed to the words that deviate (`refine_rate_candidates`, DEC-039); without them the window intervals are returned as before.
+    With `observations` (the measured words of the reading, `profile.measure_words`) and a `baseline` that has a word profile, pace and loudness
+    are judged word by word against the baseline's reading of the same words (DEC-040) when `config.use_profile` is on and the words match the
+    passage; the rolling-window rate rule and the frame energy rule then do not run. Otherwise those two rules run as before, and with `aligned`
+    and `baseline` and `config.refine_rate` the rate candidates are narrowed to the words that deviate (`refine_rate_candidates`, DEC-039);
+    without them the window intervals are returned as before.
 
     Raises:
         TypeError: `normalized` is not a `NormalizedFeatureBundle`.
@@ -500,31 +575,51 @@ def detect_candidates(
         raise TypeError(f"normalized must be a NormalizedFeatureBundle, got {type(normalized).__name__}")
     cfg = config or DetectionConfig()
 
+    word_profile = getattr(baseline, "word_profile", None) if baseline is not None else None
+    profile_result: Optional[ProfileDetection] = None
+    profile_note: Optional[str] = None
+    if cfg.use_profile and observations is not None and baseline is not None:
+        if baseline.sha256 != normalized.baseline_sha256:
+            raise ValueError("the baseline given for the word profile is not the one the features were normalized with")
+        if word_profile is None:
+            profile_note = "baseline_without_profile"
+        else:
+            profile_result = detect_runs(observations, word_profile, cfg)
+            if profile_result.rate is None and profile_result.energy is None:
+                profile_note, profile_result = profile_result.reason, None
+    rate_by_profile = profile_result is not None and profile_result.rate is not None
+    energy_by_profile = profile_result is not None and profile_result.energy is not None
+
     skipped: Dict[str, str] = {k.value: v for k, v in _P1_OR_UNSUPPORTED.items()}
     unavailable = normalized.unavailable
-    for feature, types in (
-        ("rate", (FlawType.TOO_FAST, FlawType.TOO_SLOW)),
-        ("energy", (FlawType.LOW_ENERGY, FlawType.HIGH_ENERGY)),
-        ("pauses", (FlawType.EXCESSIVE_PAUSE,)),
+    for feature, types, by_profile in (
+        ("rate", (FlawType.TOO_FAST, FlawType.TOO_SLOW), rate_by_profile),
+        ("energy", (FlawType.LOW_ENERGY, FlawType.HIGH_ENERGY), energy_by_profile),
+        ("pauses", (FlawType.EXCESSIVE_PAUSE,), False),
     ):
-        if feature in unavailable:
+        if feature in unavailable and not by_profile:
             for ftype in types:
                 skipped[ftype.value] = f"{feature} unavailable: {unavailable[feature]}"
-    if normalized.energy_hop_s is None and len(normalized.energy_z) and "energy" not in unavailable:
+    if normalized.energy_hop_s is None and len(normalized.energy_z) and "energy" not in unavailable and not energy_by_profile:
         for ftype in (FlawType.LOW_ENERGY, FlawType.HIGH_ENERGY):
             skipped[ftype.value] = "energy frame hop unknown"
 
     raw: List[FlawCandidate] = []
-    raw += _rate_candidates(normalized, cfg)
-    raw += _energy_candidates(normalized, cfg)
+    if not rate_by_profile:
+        raw += _rate_candidates(normalized, cfg)
+    if not energy_by_profile:
+        raw += _energy_candidates(normalized, cfg)
     pause_candidates = _pause_candidates(normalized, cfg)
 
     z_by_feature = {"rate_z": normalized.rate_z, "energy_z": normalized.energy_z}
     final = merge_candidates(raw, z_by_feature, cfg.merge_gap_s)
-    if cfg.refine_rate and aligned is not None and baseline is not None and len(normalized.rate_z):
+    if cfg.refine_rate and not rate_by_profile and aligned is not None and baseline is not None and len(normalized.rate_z):
         if baseline.sha256 != normalized.baseline_sha256:
             raise ValueError("the baseline given for refinement is not the one the features were normalized with")
         final = refine_rate_candidates(final, normalized, aligned, baseline, cfg)
+    if profile_result is not None:
+        final += _profile_candidates(profile_result)
     final += pause_candidates  # pauses are never merged; their floor was applied when they were created
     final.sort(key=lambda c: (c.start_s, c.end_s, c.type.value))
-    return CandidateDetectionResult(candidates=final, skipped=skipped, config=cfg)
+    modes = {"rate": "profile" if rate_by_profile else "windows", "energy": "profile" if energy_by_profile else "frames"}
+    return CandidateDetectionResult(candidates=final, skipped=skipped, config=cfg, modes=modes, profile_note=profile_note)

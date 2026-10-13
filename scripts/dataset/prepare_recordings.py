@@ -606,6 +606,12 @@ def render(report: Report, data_dir: Path) -> str:
                       f"{data_dir / BASELINE_STATS_SUBDIR / (passage_id + '.json')}",
                   f"  pitch {record.f0_voiced_hz_mean:.0f} Hz on average, speech rate {record.rate_wpm_mean:.0f} +/- {record.rate_wpm_std:.0f} words per minute, "
                   f"{record.n_pauses_within_phrase} short and {record.n_pauses_cross_sentence} sentence pauses measured."]
+        if record.word_profile is not None:
+            lines.append(f"  word-by-word profile: built ({record.word_profile.n_takes} take(s) matched the passage text); pace and loudness are compared "
+                         "with how the baseline read the same words.")
+        else:
+            lines.append("  word-by-word profile: NOT built (it needs the passage text in data/metadata/passages.json and at least 3 baseline takes that "
+                         "match it); pace and loudness will be compared with the overall averages, which is much less precise.")
         if thin:
             lines.append(f"  Note: few observations for {' and '.join(thin)}; scores for them will be noisier. More baseline takes make them steadier.")
     if report.dataset_ok is not None:

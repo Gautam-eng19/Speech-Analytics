@@ -80,6 +80,7 @@ from app.services.grounding import (
     clip_to_audio,
     detect_candidates,
     ground_flaws,
+    measure_words,
     normalize_features,
     to_api_flaw,
 )
@@ -357,7 +358,14 @@ class AnalysisPipeline:
 
             try:
                 normalized = normalize_features(record, f0=f0, energy=energy, rate=rate, pauses=pauses.events)
-                detection = detect_candidates(normalized, cfg.detection, aligned=aligned, baseline=record)
+                # The words are measured the way the baseline's word profile was built (its own gap cap and activity threshold).
+                profile = record.word_profile
+                observations = measure_words(
+                    aligned, energy,
+                    max_gap_s=profile.max_gap_s if profile is not None else cfg.rate.max_gap_s,
+                    active_threshold_dbfs=profile.active_threshold_dbfs if profile is not None else cfg.pause.vad_energy_threshold_dbfs,
+                )
+                detection = detect_candidates(normalized, cfg.detection, aligned=aligned, baseline=record, observations=observations)
                 grounded = clip_to_audio(
                     ground_flaws(detection, normalized, record, rate=rate, energy=energy, aligned=aligned, severity=cfg.severity), audio.duration_s)
                 scoring = score_analysis(grounded, detection.skipped, settings.CONFIG_VERSION, cfg.scoring)
@@ -378,7 +386,7 @@ class AnalysisPipeline:
             notes = self._notes(
                 request=request, record=record, aligned=aligned, transcript=transcript, alignment_warnings=alignment_warnings,
                 normalized=normalized, scoring=scoring, mfcc_available=mfcc_summary is not None, fallback_used=fallback_used,
-                energy=energy,
+                energy=energy, detection=detection,
             )
             summary = build_overall_summary(
                 source_flaws, scoring.scores, scoring.unevaluated, audio.duration_s,
@@ -481,7 +489,7 @@ class AnalysisPipeline:
     def _notes(
         self, *, request: AnalyzeRequest, record: BaselineStatsRecord, aligned: AlignedTranscript, transcript: Transcript,
         alignment_warnings: Sequence[str], normalized: Any, scoring: Any, mfcc_available: bool, fallback_used: bool,
-        energy: Any,
+        energy: Any, detection: Any,
     ) -> List[AnalysisNote]:
         notes: List[AnalysisNote] = []
 
@@ -520,8 +528,25 @@ class AnalysisPipeline:
         for warning in alignment_warnings:
             add("alignment_warning", warning)
 
+        judged_by_profile = {name for name, mode in detection.modes.items() if mode == "profile"}
         for name in sorted(normalized.unavailable):
+            if name in judged_by_profile:
+                continue          # the word-by-word comparison judged it, whatever the overall statistics could not
             add(f"{name}_unavailable", f"The {name} analysis was not available: {normalized.unavailable[name]}.")
+
+        if detection.profile_note == "baseline_without_profile":
+            add("baseline_without_profile",
+                "This baseline has no word-by-word profile (it was built before profiles existed, or from fewer than three recordings that "
+                "match the passage text), so pace and loudness were compared with its overall averages, which is much less precise. "
+                "Rebuild the baseline to compare word by word.")
+        elif detection.profile_note == "transcript_mismatch":
+            add("profile_not_applicable",
+                "Too few of the recognised words match the passage text for the word-by-word comparison with the baseline, so pace and "
+                "loudness were compared with the baseline's overall averages, which is much less precise.")
+        elif detection.profile_note == "too_few_words":
+            add("profile_not_applicable",
+                "Too few words could be compared with the baseline's reading of the same words, so pace and loudness were compared with the "
+                "baseline's overall averages, which is much less precise.")
 
         uncomparable = sum(1 for p in normalized.pauses if not math.isfinite(p.z_score))
         if uncomparable:

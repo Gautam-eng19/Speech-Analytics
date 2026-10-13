@@ -703,10 +703,20 @@ def test_the_report_names_every_take_with_its_state_and_the_next_step(world: Wor
     assert f"CHECK   {take_id('flaw_fast', 2)}" in text and "weak example" in text
     assert "FAILED  notes" in text and "does not follow the protocol" in text
     assert "Baseline for p001: built from 3 take(s)" in text
+    assert "word-by-word profile: built (3 take(s) matched the passage text)" in text
     assert "Dataset check: valid" in text
     assert "Next: start the site with   python -m uvicorn app.main:app --app-dir backend" in text
     assert "PROPOSED from the plan" in text and "File > Import > Labels" in text
     assert "11 file(s):" in text and "not registered" in text
+
+
+def test_the_report_says_when_the_baseline_has_no_word_profile_and_what_that_costs(world: World):
+    (world.incoming / f"{take_id('base', 3)}.wav").unlink()                 # two baseline takes: enough for the overall statistics, not for a profile
+    report, _ = world.prepare(build_baseline=True)
+    text = pr.render(report, world.data)
+    assert "Baseline for p001: built from 2 take(s)" in text
+    assert "word-by-word profile: NOT built" in text and "at least 3 baseline takes" in text and "much less precise" in text
+    text.encode("ascii")
 
 
 def test_two_fresh_runs_write_identical_files(source: World, tmp_path: Path):

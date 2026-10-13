@@ -36,6 +36,21 @@ describe('FlawsPage', () => {
     expect(panel.textContent).toContain(`${rate.rule!.min_duration_s.toFixed(1)} s`);
   });
 
+  it('says what a word-by-word rule compares with, and uses the plain rule text for the overall one', () => {
+    const rate = flaws.find((f) => f.type === 'too_fast')!;
+    expect(rate.rule!.feature).toBe('rate_run_z');
+    const { unmount } = render(<FlawsPage analysis={analysis} flawId={rate.flaw_id} />);
+    let panel = screen.getByRole('heading', { name: 'Detection rule' }).closest('.panel')!;
+    expect(panel.textContent).toContain('word-by-word pace z-score');
+    expect(panel.textContent).toContain('what the baseline readings of the passage did with these same words');
+    unmount();
+    const overall = { ...mixedResult, flaws: mixedResult.flaws.map((f) => (f.flaw_id === rate.flaw_id ? { ...f, rule: { ...f.rule!, feature: 'rate_z' } } : f)) };
+    render(<FlawsPage analysis={loaded(overall)} flawId={rate.flaw_id} />);
+    panel = screen.getByRole('heading', { name: 'Detection rule' }).closest('.panel')!;
+    expect(panel.textContent).toContain('speech-rate z-score');
+    expect(panel.textContent).not.toContain('what the baseline readings of the passage did with these same words');
+  });
+
   it('shows the finding’s own warnings', () => {
     const f = flaws.find((x) => (x.warnings?.length ?? 0) > 0)!;
     render(<FlawsPage analysis={analysis} flawId={f.flaw_id} />);

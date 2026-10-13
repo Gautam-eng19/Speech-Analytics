@@ -28,12 +28,12 @@ export const FLAW_META: Record<FlawType, FlawMeta> = {
   too_fast: {
     type: 'too_fast', label: 'Too fast', family: 'rate', icon: 'g-fast', available: true,
     definition: 'Speech rate stayed well above the baseline for a sustained stretch.',
-    measured: 'Words per minute over a rolling window, compared with the baseline mean and spread (z-score).',
+    measured: 'Words per minute over a run of words, compared with the pace the baseline readings had for those same words. (A baseline without a word-by-word profile: a rolling window against the overall mean and spread.)',
   },
   too_slow: {
     type: 'too_slow', label: 'Too slow', family: 'rate', icon: 'g-slow', available: true,
-    definition: 'Speech rate stayed well below the baseline for a sustained stretch. Long pauses inside the window lower the measured rate.',
-    measured: 'Words per minute over a rolling window, compared with the baseline mean and spread (z-score).',
+    definition: 'Speech rate stayed well below the baseline for a sustained stretch. Pauses are judged on their own: only a short silence after a word counts towards its pace.',
+    measured: 'Words per minute over a run of words, compared with the pace the baseline readings had for those same words. (A baseline without a word-by-word profile: a rolling window against the overall mean and spread.)',
   },
   excessive_pause: {
     type: 'excessive_pause', label: 'Excessive pause', family: 'pause', icon: 'g-pause', available: true,
@@ -43,12 +43,12 @@ export const FLAW_META: Record<FlawType, FlawMeta> = {
   low_energy: {
     type: 'low_energy', label: 'Low energy', family: 'energy', icon: 'g-quiet', available: true,
     definition: 'Loudness stayed well below the baseline speaking level.',
-    measured: 'Frame loudness in dB compared with the baseline mean and spread (z-score).',
+    measured: 'Loudness of a run of words in dB, compared with the level the baseline readings had for those same words, after removing the recording’s overall level. (A baseline without a word-by-word profile: frame loudness against the overall mean and spread.)',
   },
   high_energy: {
     type: 'high_energy', label: 'High energy', family: 'energy', icon: 'g-loud', available: true,
     definition: 'Loudness stayed well above the baseline speaking level.',
-    measured: 'Frame loudness in dB compared with the baseline mean and spread (z-score).',
+    measured: 'Loudness of a run of words in dB, compared with the level the baseline readings had for those same words, after removing the recording’s overall level. (A baseline without a word-by-word profile: frame loudness against the overall mean and spread.)',
   },
   flat_pitch: {
     type: 'flat_pitch', label: 'Flat pitch', family: 'pitch', icon: 'g-flat', available: false,

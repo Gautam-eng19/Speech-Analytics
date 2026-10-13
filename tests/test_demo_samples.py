@@ -52,13 +52,21 @@ def test_stored_ground_truth_lies_inside_the_recording_and_its_outcome_is_record
         assert bool(overlapping) == truth["detected"], f"{sample['id']}: stored 'detected' disagrees with the stored result"
 
 
-def test_the_clean_control_has_no_flaw_and_the_mixed_sample_keeps_its_documented_miss():
+def test_the_clean_control_has_no_flaw_and_every_injected_flaw_of_the_mixed_sample_is_found():
     by_id = {s["id"]: s for s in INDEX["samples"]}
     clean = AnalysisResult.model_validate_json((SAMPLES / by_id["clean-delivery"]["result"]).read_text(encoding="utf-8"))
     assert clean.flaws == [] and clean.scores.composite_score == 100.0
     mixed = by_id["mixed-flaws"]["injected"]
     assert [t["type"] for t in mixed] == ["too_fast", "excessive_pause", "low_energy"]
-    assert [t["detected"] for t in mixed] == [True, True, False]
+    assert [t["detected"] for t in mixed] == [True, True, True]          # the quiet sentence is found by the word-by-word loudness comparison (DEC-040)
+    assert by_id["mixed-flaws"]["extra_detections"] == 0
+
+
+def test_the_samples_were_judged_word_by_word_against_the_baseline():
+    result = AnalysisResult.model_validate_json((SAMPLES / "mixed-flaws.json").read_text(encoding="utf-8"))
+    assert {f.rule.feature for f in result.flaws} == {"rate_run_z", "pause_z", "energy_run_z"}
+    assert not any(n.code in ("baseline_without_profile", "profile_not_applicable") for n in result.notes)
+    assert INDEX["diagnostics"]["clean_takes_flagged"] == 0
 
 
 def _ffmpeg_has_flite() -> bool:
