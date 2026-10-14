@@ -7,7 +7,7 @@ Updated by:
 Coding agent (registration tools, then rounds of accuracy work after the first tests on real recordings, then flat pitch; control files synchronised, delegated by the team leader)
 
 All statements below were checked against the repository and full test runs on 2026-10-13
-(1389 backend tests passed, 2 smoke tests deselected; 322 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
+(1389 backend tests passed, 2 smoke tests deselected; 333 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -61,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch is judged by the word profile's pitch part (DEC-042; synthetic speech only); pitch_instability is not detected
 
 Testing:
-🟢 1389 backend + 322 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 1389 backend + 333 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -190,6 +190,7 @@ The team leader decided speakers (2 dev + 2 test), equipment (USB headset) and l
   mixed sample is found, the voice keeps its loudness when stretched). In simulation: clean takes flagged 46 % -> 3 to 5 %, a 1.33 times faster sentence found 33 % -> 78 % with ranges 2 to 3 times too long -> 0.9 times, 5 dB louder or quieter
   sentences 0 % -> 89 to 91 %. Not verified on real recordings; baselines must be rebuilt (`prepare_recordings.py data/incoming --build-baseline`).
 
+2026-10-14 (after): score profile chart. The Overview page shows the score of each dimension as an interactive radar (`charts/ScoreRadar.tsx`): the outer ring is 100 (no deviation from the baseline), the shaded shape is where the delivery stands, and the stretch between a corner and the ring (what the dimension lost) lights up on hover or focus; a spoke opens the dimension's strongest finding (click, Enter or Space; arrow keys move between spokes); a dimension the backend did not score keeps a dashed spoke and no corner and is never drawn as perfect; the list beside it carries the same numbers as text and highlights in step. Presentation only: every value is the backend's. 11 new dashboard tests, axe without violations, keyboard and pointer checked in a real browser.
 2026-10-14 (latest): custom passages (TASK-136, DEC-044).
 - **A user can bring their own passage.** New dashboard page *Custom passage*: paste a text (30 to 400 words, two sentences or more), add two to six recordings of a good reading (upload or record in the browser), make the baseline, then analyse their own reading against it. Backend: `POST /api/v1/custom/baselines`, `DELETE /api/v1/custom/baselines/{id}`, API contract 1.3.0 (`BaselineSummary.custom`); the ordinary `/analyze` runs unchanged on the result.
   The baseline is built by the same code as the dataset tool (moved to `app.services.baseline_builder`); three recordings give the word profile, two fall back to the overall averages and say so; a recording that is not a reading of the text or in which too few words can be timed is refused with a plain sentence. Only statistics and the text are stored (`data/custom/`, git-ignored), never the audio.

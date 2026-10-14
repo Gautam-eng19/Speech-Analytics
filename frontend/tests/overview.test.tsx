@@ -36,6 +36,35 @@ describe('OverviewPage', () => {
     expect(window.location.hash).toBe(row.getAttribute('href'));
   });
 
+  it('draws the score profile from the backend\'s dimension scores and keeps it in step with the list', async () => {
+    await renderAsync(<OverviewPage analysis={loaded(mixedResult)} />);
+    const axes = screen.getAllByRole('button', { name: /out of 100|not scored/ });
+    expect(axes).toHaveLength(4);
+    const scores = mixedResult.scores.feature_scores;
+    for (const [key, label] of [['speech_rate', 'Speech rate'], ['pauses', 'Pauses'], ['energy', 'Energy']] as const) {
+      const entry = scores[key]!;
+      expect(screen.getByRole('button', { name: new RegExp(`^${label}: ${entry.score.toFixed(1)} out of 100`) })).toBeInTheDocument();
+    }
+    const rows = [...document.querySelectorAll<HTMLElement>('.dims .dim')];
+    fireEvent.pointerEnter(axes[1]!);
+    expect(rows.map((r) => r.classList.contains('is-active'))).toEqual([false, true, false, false]);
+    fireEvent.pointerEnter(rows[2]!);
+    expect(document.querySelector('.radar__axis.is-active')!.getAttribute('aria-label')).toMatch(/^Energy/);
+    fireEvent.pointerLeave(rows[2]!);
+    expect(document.querySelector('.radar__axis.is-active')).toBeNull();
+  });
+
+  it('opens the strongest finding of a dimension when its spoke is clicked, and does nothing for a dimension without findings', async () => {
+    await renderAsync(<OverviewPage analysis={loaded(mixedResult)} />);
+    window.location.hash = '#/start';
+    const strongest = [...mixedResult.flaws].filter((f) => f.type === 'too_fast' || f.type === 'too_slow').sort((a, b) => b.severity - a.severity)[0]!;
+    fireEvent.click(screen.getByRole('button', { name: /^Speech rate:/ }));
+    expect(window.location.hash).toBe(`#${analysisPath(mixedResult.analysis_id, 'flaws', strongest.flaw_id)}`);
+    window.location.hash = '#/start';
+    const quiet = screen.getAllByRole('button', { name: /out of 100/ }).find((b) => /, 0 findings/.test(b.getAttribute('aria-label') ?? ''));
+    if (quiet) { fireEvent.click(quiet); expect(window.location.hash).toBe('#/start'); }
+  });
+
   it('scores pitch when the baseline has a pitch profile (the demo baseline has one)', async () => {
     await renderAsync(<OverviewPage analysis={loaded(mixedResult)} />);
     const pitch = screen.getByText('Pitch', { selector: '.dim__name' }).closest('.dim')! as HTMLElement;
