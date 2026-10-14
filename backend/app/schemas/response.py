@@ -1,9 +1,9 @@
-"""Response contract for the public API (ARCHITECTURE.md §6.3, §9.9-9.11, §21, §23).
+"""Response contract for the public API.
 
 Every field here maps to an object produced by the analytical pipeline; this
 module defines SHAPE only. No analytical value is computed or defaulted here.
 `AnalysisResult` is the serialization of ExplanationResult (the final pipeline
-object, ARCHITECTURE.md §9.11).
+object).
 
 Reproducibility: everything in `AnalysisResult` except `analysis_id` and
 `processing_meta` is a deterministic function of (audio, baseline, config).
@@ -62,7 +62,7 @@ class StatusResponse(ContractModel):
 
 
 class ErrorResponse(ContractModel):
-    """Body of every non-2xx response (ARCHITECTURE.md §23 error format)."""
+    """Body of every non-2xx response (error format)."""
 
     error: ErrorCode
     detail: str = Field(min_length=1)
@@ -73,7 +73,7 @@ class ErrorResponse(ContractModel):
 # Input / provenance
 # --------------------------------------------------------------------------
 class AudioInfo(ContractModel):
-    """Participant audio after preprocessing (PreprocessedAudio, §9.1).
+    """Participant audio after preprocessing (PreprocessedAudio).
 
     `duration_s` is the duration of the ANALYSED audio (leading/trailing silence removed). Every time in
     the result (alignment, feature timelines, pauses, flaws) is expressed in SOURCE time, i.e. on the
@@ -97,7 +97,7 @@ class AudioInfo(ContractModel):
 
 
 class BaselineInfo(ContractModel):
-    """Baseline used for comparison (BaselineStats identity, §9.5, §26.3)."""
+    """Baseline used for comparison (BaselineStats identity)."""
 
     baseline_id: str
     passage_id: str
@@ -106,7 +106,7 @@ class BaselineInfo(ContractModel):
 
 
 class AlignedWord(ContractModel):
-    """Word timing (AlignedTranscript.words, §9.3)."""
+    """Word timing (AlignedTranscript.words)."""
 
     word: str
     start_s: float = _NonNeg
@@ -121,7 +121,7 @@ class AlignedWord(ContractModel):
 
 
 # --------------------------------------------------------------------------
-# Features (FeatureBundle, §9.4) — timelines are backend output for charts.
+# Features (FeatureBundle) — timelines are backend output for charts.
 # --------------------------------------------------------------------------
 def _same_length(**arrays: list) -> None:
     lengths = {k: len(v) for k, v in arrays.items()}
@@ -198,7 +198,7 @@ class MfccSummary(ContractModel):
 
 
 class ClarityTimeline(ContractModel):
-    """P1 acoustic clarity proxy (DEC-012), not an intelligibility score."""
+    """P1 acoustic clarity proxy, not an intelligibility score."""
 
     times_s: list[float]
     hf_ratio: list[float]
@@ -219,7 +219,7 @@ class FeatureSet(ContractModel):
 
 
 class BaselineStats(ContractModel):
-    """Baseline statistics used for normalization (§9.5)."""
+    """Baseline statistics used for normalization."""
 
     f0_voiced_hz_mean: float
     f0_voiced_hz_std: float = _NonNeg
@@ -240,7 +240,7 @@ class BaselineStats(ContractModel):
 
 
 # --------------------------------------------------------------------------
-# Evidence — one model per flaw family, fields exactly as ARCHITECTURE.md §21.
+# Evidence — one model per flaw family, fields exactly as
 # All values come from the analytical pipeline; never from an LLM.
 # --------------------------------------------------------------------------
 class RateEvidence(ContractModel):  # too_fast, too_slow
@@ -314,14 +314,14 @@ _EVIDENCE_FOR_TYPE: dict[FlawType, type] = {
 
 
 class DetectionRule(ContractModel):
-    """The rule that flagged a finding (§17), so each flaw states WHY it was flagged.
+    """The rule that flagged a finding, so each flaw states WHY it was flagged.
 
     The finding was flagged where the named normalized signal was `above` (z > threshold_z) or `below`
     (z < threshold_z) the threshold for at least `min_duration_s` of flagged time. The thresholds are
-    initial, uncalibrated values (DEC-P005).
+    initial, uncalibrated values.
     """
 
-    # normalized signal: "rate_z", "energy_z", "pause_z", or for a word-by-word comparison with the baseline (DEC-040) "rate_run_z",
+    # normalized signal: "rate_z", "energy_z", "pause_z", or for a word-by-word comparison with the baseline "rate_run_z",
     # "rate_overall_z" or "energy_run_z"
     feature: str = Field(min_length=1)
     direction: Literal["above", "below"]
@@ -330,7 +330,7 @@ class DetectionRule(ContractModel):
 
 
 class Flaw(ContractModel):
-    """GroundedFlaw (§9.9) + explanation fields (§9.11)."""
+    """GroundedFlaw + explanation fields."""
 
     flaw_id: str = Field(pattern=r"^flaw_\d{3,}$")
     type: FlawType
@@ -338,7 +338,7 @@ class Flaw(ContractModel):
     end_s: float = _NonNeg
     duration_s: float = _NonNeg
     severity: float = _Unit
-    reliability: float = _Unit  # 1.0 at P0 (§19)
+    reliability: float = _Unit  # 1.0 at P0
     low_confidence: bool
     evidence: Evidence
     explanation: str = Field(min_length=1)
@@ -364,7 +364,7 @@ class Flaw(ContractModel):
 
 
 # --------------------------------------------------------------------------
-# Scores (ScoredResult, §9.10)
+# Scores (ScoredResult)
 # --------------------------------------------------------------------------
 class FeatureScore(ContractModel):
     score: float = Field(ge=0.0, le=100.0)
@@ -430,7 +430,7 @@ class BaselineSummary(ContractModel):
     passage_title: Optional[str] = None
     passage_text: Optional[str] = None
     passage_word_count: Optional[int] = Field(default=None, ge=0)
-    # True for a baseline made from a user's own passage and recordings (contract 1.3.0, DEC-044).
+    # True for a baseline made from a user's own passage and recordings (contract 1.3.0).
     custom: bool = False
 
 
@@ -449,7 +449,7 @@ class BaselineListResponse(ContractModel):
 
 
 # --------------------------------------------------------------------------
-# Custom passages (contract 1.3.0, DEC-044)
+# Custom passages (contract 1.3.0)
 # --------------------------------------------------------------------------
 class CustomTakeSummary(ContractModel):
     """What was measured on one baseline recording of a custom passage (nothing of the audio itself is kept)."""

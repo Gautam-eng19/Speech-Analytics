@@ -1,4 +1,4 @@
-"""Tests for BaselineStatsRecord and BaselineProvider (TASK-040, DEC-015).
+"""Tests for BaselineStatsRecord and BaselineProvider.
 
 Covers:
 - Record validation (finite numbers, ordering, ids, extra fields) and the canonical sha256
@@ -233,7 +233,7 @@ def test_a_baseline_cannot_be_applied_to_another_passage(tmp_path):
 def test_without_a_passage_the_baseline_id_must_equal_the_recorded_passage(tmp_path):
     _write(tmp_path, _record(passage_id="p001"), name="p001_male.json")
     with pytest.raises(BaselinePassageMismatchError):
-        BaselineProvider(tmp_path).get("p001_male")                                  # DEC-015 form: id is the passage id
+        BaselineProvider(tmp_path).get("p001_male")                                  # id is the passage id
 
 
 def test_unsafe_passage_ids_are_rejected(tmp_path):

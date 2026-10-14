@@ -1,4 +1,4 @@
-"""Recording quality checker (TASK-122, docs/methodology/recording-protocol.md section 11).
+"""Recording quality checker (docs/methodology/recording-protocol.md section 11).
 
 Run it on a folder of freshly recorded WAV files, right after a session, to learn which takes are usable and, for the others, what to
 change before recording again:
@@ -35,7 +35,7 @@ AUDIO_SUFFIXES = {".wav", ".m4a", ".mp3", ".flac", ".aac", ".ogg", ".mp4", ".wma
 
 @dataclass(frozen=True)
 class Gates:
-    """Every threshold in one place (AGENTS.md section 20). Values come from the recording protocol, section 11."""
+    """Every threshold in one place. Values come from the recording protocol, section 11."""
 
     max_upload_bytes: int = 10_485_760          # the API's default MAX_UPLOAD_BYTES
     max_duration_s: float = 300.0               # the API's default MAX_DURATION_S

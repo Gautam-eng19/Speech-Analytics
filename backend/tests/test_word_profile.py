@@ -1,5 +1,5 @@
 """Tests for the word profile: tokens, matching to the passage, measuring a reading, the run statistics, building the profile, and its place in the
-baseline record (DEC-040).
+baseline record.
 
 Expected values are worked out here from the raw numbers, not by calling the code under test: the geometric mean of the baseline slots, the level
 profile after each reading's own offset is removed, the slot of a word after a long silence, the median of runs. Covers normal input, edge cases

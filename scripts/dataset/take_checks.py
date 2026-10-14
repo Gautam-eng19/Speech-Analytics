@@ -1,9 +1,9 @@
-"""Checks on aligned takes (TASK-126): is the word alignment plausible, and did the speaker really perform the planned flaw?
+"""Checks on aligned takes: is the word alignment plausible, and did the speaker really perform the planned flaw?
 
 Pure and deterministic: the same alignment and audio give the same findings. Nothing here changes a file or a number of the analysis. The
 findings are ADVICE for the people who record and annotate (docs/methodology/dataset-guide.md): a take that earns a warning is still
 registered, but the warning travels with its annotation so nobody mistakes a weak example for a clear one. Every threshold sits in one
-frozen dataclass (AGENTS.md section 20) and is a PROPOSED starting value, not a calibrated one.
+frozen dataclass and is a PROPOSED starting value, not a calibrated one.
 
 Time bases: alignments are in PROCESSED-audio time (0 = first retained sample), the same time the analysis uses. Word numbers are the
 1-based global positions that the recording plan uses (make_plan.py), so the plan's stretch maps straight onto the aligned words.

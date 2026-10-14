@@ -1,4 +1,4 @@
-"""Overall summary text (TASK-070; ARCHITECTURE.md §9.11 `overall_summary`).
+"""Overall summary text (`overall_summary`).
 
 A short, deterministic paragraph for the top of the results page, built only from already-computed values: the
 number and kinds of flaws, the analysed duration, the composite score and which features were NOT evaluated. Like

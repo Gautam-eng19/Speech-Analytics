@@ -1,4 +1,4 @@
-"""Replay registered takes through the analysis and compare the findings with the annotations (TASK-127a, DEC-039).
+"""Replay registered takes through the analysis and compare the findings with the annotations.
 
     python scripts/dataset/evaluate_takes.py                       # every dev take that is not a baseline take
     python scripts/dataset/evaluate_takes.py --only flaw_fast      # takes whose id contains this text
@@ -28,7 +28,7 @@ Rules that protect the dataset:
   * Baseline takes are left out unless --include-baseline: they are part of the baseline, so a good score on them proves nothing.
   * Annotations that are only "proposed" count, but the report says how many; --confirmed-only keeps the confirmed ones.
 
-A planned flaw counts as FOUND when a detection of the same type covers at least half of the annotated interval (ARCHITECTURE.md section 25.3).
+A planned flaw counts as FOUND when a detection of the same type covers at least half of the annotated interval.
 Times are in the time of the original file, the same as the annotations and the site.
 
 Exit code: 0 when the replay ran, 1 when a take could not be replayed or nothing was selected.
@@ -232,10 +232,10 @@ def describe_stretch(flaw_type: str, reading: StretchReading, rules: DetectionCo
 #: settings of the detection that --detect may change: name -> how to read the value
 DETECT_SETTINGS = {"z_rate_fast": float, "z_rate_slow": float, "z_energy": float, "z_pause_within": float, "z_pause_cross": float,
                    "merge_gap_s": float, "refine_rate": "bool", "refine_min_words": int, "min_pause_s": float, "min_flaw_s": float,
-                   # word-by-word comparison with the baseline (DEC-040)
+                   # word-by-word comparison with the baseline
                    "use_profile": "bool", "z_run_rate": float, "z_run_energy": float, "run_min_words": int, "min_rate_change_pct": float,
                    "min_energy_change_db": float, "global_tempo_change_pct": float,
-                   # flat pitch (DEC-042)
+                   # flat pitch
                    "z_run_pitch": float, "min_flat_pitch_change_pct": float, "global_pitch_change_pct": float}
 
 

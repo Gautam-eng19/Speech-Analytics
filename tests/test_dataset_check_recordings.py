@@ -1,4 +1,4 @@
-"""Tests for scripts/dataset/check_recordings.py (TASK-122, recording-protocol.md section 11).
+"""Tests for scripts/dataset/check_recordings.py (recording-protocol.md section 11).
 
 Synthetic takes with known level, room noise, silences and defects are written as WAV files and judged. Covers normal input, every gate
 (pass / warn / fail), unreadable or wrongly formatted files, the length expectation (group median, passage estimate, skipped), the CLI,

@@ -1,4 +1,4 @@
-"""Unit tests for the pipeline's own logic: error mapping, content check, config fingerprint (DEC-016, DEC-032).
+"""Unit tests for the pipeline's own logic: error mapping, content check, config fingerprint.
 
 The analytical stages are tested elsewhere; here only the orchestration contract is exercised: which failure becomes which public
 error code, that failures never leave anything in the cache and never leak internals, and how the content check and the
@@ -42,7 +42,7 @@ USABLE_SNAPSHOT = {"energy_frame_selection": "active", "energy_active_threshold_
 def usable_record(**overrides):
     """A baseline record the normalizer accepts (the provider tests' default snapshot has no energy threshold).
 
-    Its energy statistics match a steady tone after the loudness scaling (typical speech level -26 dBFS, DEC-036), whose frame
+    Its energy statistics match a steady tone after the loudness scaling (typical speech level -26 dBFS), whose frame
     level is -26 dBFS, so the test tones below are "normal" delivery against it unless a test overrides the statistics.
     """
     overrides.setdefault("config_snapshot", dict(USABLE_SNAPSHOT))

@@ -1,12 +1,11 @@
 # Dashboard (frontend)
 
-The dashboard is the judges' view of the project: it shows a participant's delivery against the baseline, where it deviated, the
-measured evidence, why that is a flaw, and what to try. It is decided in **DEC-033** (stack, boundary, serving), **DEC-034**
-(demo samples) and **DEC-035** (in-browser recording, CSV export). This page describes how it is built and where each number on screen comes from.
+The dashboard presents the analysis: it shows a participant's delivery against the baseline, where it deviated, the
+measured evidence, why that is a flaw, and what to try. This page describes how it is built and where each number on screen comes from.
 
 ## 1. The boundary
 
-The dashboard **renders the backend's `AnalysisResult` and computes no analytics** (AGENTS.md section 9). It may:
+The dashboard **renders the backend's `AnalysisResult` and computes no analytics**. It may:
 
 - look values up: the frame nearest a time, the pause that contains a time, the word being spoken (`src/lib/lookup.ts`);
 - order, filter and group lists, format numbers with fixed decimals, choose axis ranges;
@@ -36,7 +35,7 @@ numbers on screen with the numbers in the result.
 | Baseline bands, baseline statistics page | `baseline_stats` |
 | Notes and limitations | `notes[]` (every note is shown) |
 | Provenance | `analysis_id`, `audio.sha256`, `baseline.sha256`, `config_version`, `config_fingerprint`, `pipeline_version`, `scores.scoring_version`, `processing_meta` |
-| Time of everything | source time: the timeline of the uploaded file (`audio.trim_start_s`, `audio.source_duration_s`; DEC-029) |
+| Time of everything | source time: the timeline of the uploaded file (`audio.trim_start_s`; `audio.source_duration_s`) |
 
 ## 2. Running it
 
@@ -64,7 +63,7 @@ After a backend change that alters the API schema: `python scripts/export_openap
 
 ```
 frontend/
-  public/samples/        demo recordings, their results and index.json (DEC-034)
+  public/samples/        demo recordings, their results and index.json
   scripts/screenshots.mjs  visual QA: every page, light and dark, desktop / tall / phone
   scripts/a11y.mjs         axe-core audit of every page and interactive state, both themes
   scripts/smoke.mjs        end-to-end checks in a real Chromium (42 of them), incl. the landing page and a take from the fake microphone
@@ -100,7 +99,7 @@ History (`sa.history.v1`): id, title, score, counts of the last 40 opened analys
 
 ## 4. Design system
 
-Identity (DEC-045): **VAANI, a precision acoustic instrument.** Obsidian and graphite surfaces, hairline rules, ivory type, and two colours that carry meaning
+Identity: **VAANI, a precision acoustic instrument.** Obsidian and graphite surfaces, hairline rules, ivory type, and two colours that carry meaning
 and nothing else: **cyan is signal** (the delivery, live audio, anything interactive) and **copper is deviation** (only where the pipeline reported one); steel is the quiet voice
 (the reference, secondary text). Dark is the primary theme; the light theme is the same system on ivory. Large serif titles, monospace for every measurement and
 technical label, thin dividers and open layouts instead of a card around everything, two very faint pools of light and a fine grain on the large dark fields.
@@ -166,7 +165,7 @@ traces are drawn in from the left when a plot first appears (once; not in print)
 
 "Record now" shows the passage to read (from the chosen baseline), asks for the microphone only when **Start** is pressed, and shows a
 scope of the recent input level on a dB scale, the elapsed time, and the chosen microphone. The level and the clipping warning (a peak at
-or above 0.99) are capture aids for placing the microphone; nothing is measured about the delivery in the browser (AGENTS.md section 9).
+or above 0.99) are capture aids for placing the microphone; nothing is measured about the delivery in the browser.
 
 - The browser's echo cancellation, noise suppression and automatic gain control are requested **off**; if the browser reports that it kept any
   on, the panel warns before the take is used.

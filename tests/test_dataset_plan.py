@@ -1,4 +1,4 @@
-"""Tests for scripts/dataset/make_plan.py and passage_text.py (TASK-122, recording-protocol.md sections 4, 5 and 7).
+"""Tests for scripts/dataset/make_plan.py and passage_text.py (recording-protocol.md sections 4, 5 and 7).
 
 Covers: the take counts promised by the protocol, nested tiers, naming, where flaws are placed, the pause positions, determinism, input
 validation (plain-language errors, no overwriting of a plan that may hold progress), and the generated on-screen prompter.

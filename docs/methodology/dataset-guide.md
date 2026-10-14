@@ -94,9 +94,9 @@ Write the answers down; I will turn them into the plan.
    also works if every take uses **the same phone in the same position**. One small quiet room for all sessions.
 4. **Where the audio lives.** On a **shared drive or an external disk, not in GitHub**. These are people's voices. Each speaker signs the
    consent form ([`consent-form-template.md`](consent-form-template.md)) first.
-5. **Loudness (approved by you on 2026-10-11, now in the software):** the software scales each recording by its *typical speech level*
-   instead of its *loudest point*. Before, one loud stretch made the whole rest of the recording look quieter (by up to 12 dB in my test).
-   Details: decision DEC-036 and protocol section 8.3. **The recording instructions do not depend on this.** Since 2026-10-13 (DEC-040) the
+5. **Loudness (changed in the software on 2026-10-11):** the software scales each recording by its *typical speech level*
+   instead of its *loudest point*. Before, one loud stretch made the whole rest of the recording look quieter (by up to 12 dB in a test).
+   Details: protocol section 8.3. **The recording instructions do not depend on this.** Since 2026-10-13 the
    loudness detector compares every word with how the baseline readers read the same word, which finds a sentence that is about 5 dB louder
    or quieter; the loud and quiet takes are still recorded in an exaggerated way (+8 / +14 dB) so that a take is clearly a flaw.
 
@@ -278,7 +278,7 @@ It replays every dev take (not the baseline takes) through the real analysis, wi
 | `EXTRA` | something was flagged that nobody planned. On a clean take every `EXTRA` is a false alarm. On a take with a planned flaw the line ends with **where** it lies: `on the planned ... stretch` or `2.3 s after the planned ... stretch` is usually a side effect of how the flaw was performed (someone who speaks quietly often slows down too); `away from every planned flaw` is the kind to check by ear |
 
 The summary at the end has one line per kind of flaw: how many were found, how far off the start and end are, how many flags of that kind nobody planned, and two scores: **precision** (of the flags of that kind, how many were planned: low means many unplanned flags)
-and **F1** (one number from 0 to 1 that is high only when the flaws are found and few unplanned flags appear; the project proposes above 0.65 per kind, ARCHITECTURE.md 25.3 -- but unplanned flags next to a planned flaw are often real side effects, so judge them with the `EXTRA` lines).
+and **F1** (one number from 0 to 1 that is high only when the flaws are found and few unplanned flags appear; the project proposes above 0.65 per kind; 25.3 -- but unplanned flags next to a planned flaw are often real side effects; so judge them with the `EXTRA` lines).
 It then counts the false alarms on clean takes and ends with **Listen to these first**: the places where the plan and the analysis disagree (a planned flaw that was not found, a flag on a clean take, a flag away from the plan), with the seconds.
 Open that take in Audacity (`data\raw\<take>.wav`) and play the stretch: the ear decides who is right. To see the findings on the take itself, add `--labels` (`python scripts\dataset\evaluate_takes.py --labels`): it writes `data\processed\labels\<take>.detected.txt`, which you import in Audacity
 (**File, Import, Labels...**) next to the word and planned-flaw labels of 6e; each label says FOUND or EXTRA, the type, the severity and the evidence.
@@ -295,7 +295,7 @@ python scripts\dataset\evaluate_takes.py --sweep "z_run_rate=3,3.5,4,4.5,5" "run
 how many clean takes were flagged, and the false alarms per minute of clean speech (`away` counts the extras that are not on or right next to a planned flaw). A good setting finds more and flags less. It takes a few minutes. **Send me the whole table**; I choose
 the values from it. Do not choose by looking at one take: change nothing in a file, this command never does.
 
-Still to do: the final frozen test run (TASK-127).
+Still to do: the final frozen test run.
 
 ### Step 7: Record everyone else
 

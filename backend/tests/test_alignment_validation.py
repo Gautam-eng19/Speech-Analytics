@@ -1,4 +1,4 @@
-"""Unit tests for Alignment Validation (TASK-023, ARCHITECTURE.md §12).
+"""Unit tests for Alignment Validation.
 
 Tests cover all required validation dimensions:
 1. Valid aligned transcript
@@ -538,7 +538,7 @@ def test_deterministic_repeated_validation() -> None:
 
 
 # ---------------------------------------------------------------------------
-# 14. Low Coverage Warning (ARCHITECTURE.md §12)
+# 14. Low Coverage Warning
 # ---------------------------------------------------------------------------
 
 def test_low_coverage_warning_does_not_fail() -> None:

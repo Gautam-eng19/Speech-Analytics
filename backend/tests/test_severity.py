@@ -1,4 +1,4 @@
-"""Unit tests for flaw severity (TASK-052, DEC-028).
+"""Unit tests for flaw severity.
 
 Covers:
 - Exact magnitude / duration / product values and every clipping boundary

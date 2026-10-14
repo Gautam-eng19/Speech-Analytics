@@ -1,4 +1,4 @@
-"""Tests for flat pitch, judged word by word against the baseline's reading of the same words (DEC-042).
+"""Tests for flat pitch, judged word by word against the baseline's reading of the same words.
 
 The pitch of each word is measured as its movement around the reading's own median pitch (semitones, root mean square, deviations clipped); the
 baseline profile keeps how much the same words moved in the baseline readings; a run of words that moves clearly less is flat pitch. The tests

@@ -1,4 +1,4 @@
-"""Unit tests for evidence attachment and grounded flaws (TASK-053/054, ARCHITECTURE.md §9.9, §21).
+"""Unit tests for evidence attachment and grounded flaws.
 
 Expected evidence values are recomputed here from the raw arrays and the baseline numbers
 (NOT by calling the code under test). Covers rate / energy / pause evidence, internal consistency of
@@ -211,7 +211,7 @@ def test_within_phrase_pause_evidence_and_words():
     assert ev.pause_delta_s == 1.1 and ev.pause_z_score == pytest.approx(11.0)
     assert ev.boundary_type == W and ev.detection_source == PauseDetectionSource.BOTH
     assert flaw.affected_words == ("a", "b")
-    assert flaw.severity == pytest.approx(1.1 / 3.5, abs=1e-4)   # DEC-040: the size of the excess (1.1 s of 3.5 s), not the z-score, which is far past saturation
+    assert flaw.severity == pytest.approx(1.1 / 3.5, abs=1e-4)   # the size of the excess (1.1 s of 3.5 s), not the z-score, which is far past saturation
     assert flaw.rule.threshold_z == 2.0 and flaw.rule.feature == "pause_z" and flaw.rule.min_duration_s == 1.2
     assert flaw.warnings == (WARNING_PAUSE,)
 

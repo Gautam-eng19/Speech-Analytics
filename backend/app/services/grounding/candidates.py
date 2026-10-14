@@ -1,5 +1,4 @@
-"""Flaw candidate generation, minimum-duration filtering and merging (TASK-050, TASK-051;
-ARCHITECTURE.md §17 steps 1-3, §9.8; DEC-P005 thresholds).
+"""Flaw candidate generation, minimum-duration filtering and merging (steps 1-3; thresholds).
 
 Input is a `NormalizedFeatureBundle` (z-scores against the baseline). Output is a deterministic,
 time-sorted list of `FlawCandidate`s, each with a start and end time in processed-audio time.
@@ -14,7 +13,7 @@ NOT flagged):
     high_energy      energy_z >  +Z_ENERGY
     excessive_pause  pause_z  >  Z_PAUSE_WITHIN (within_phrase) / Z_PAUSE_CROSS (cross_sentence)
 
-With a baseline that has a word profile (DEC-040) rate and loudness are not detected by the rules above but by comparing every word with the
+With a baseline that has a word profile rate and loudness are not detected by the rules above but by comparing every word with the
 baseline's reading of the same word (`profile_detection`): a finding is a run of words, so its boundaries are word boundaries, and the
 rolling-window rate rule and the frame energy rule below are only the fallback for a baseline without a profile, or for a transcript that does
 not match the passage. The result states which was used (`CandidateDetectionResult.modes`).
@@ -24,7 +23,7 @@ Intervals:
       rolling window makes rate detection window-resolution (several seconds), so a short fast or slow
       stretch is first found as a much wider interval. When the aligned words and the baseline are
       given, each such interval is then NARROWED to the words that were really faster (slower)
-      (`refine_rate_candidates`, DEC-039); without them, or when no run of words qualifies, the window
+      (`refine_rate_candidates`); without them, or when no run of words qualifies, the window
       interval is kept. Overlapping flagged windows merge into one interval before the narrowing.
     * energy: a run of consecutive flagged frames, from half a hop before the first frame to
       half a hop after the last, clipped to the span the frame centres cover (frames are centred, so
@@ -36,7 +35,7 @@ Intervals:
 
 Pipeline (§17 order): [1] threshold -> [2] minimum-duration filter -> [3] merge
 same-type windows whose gap is < MERGE_GAP_S -> [4] narrow rate intervals to the words that deviate
-(DEC-039). Smoothing and hysteresis are P1 and absent.
+. Smoothing and hysteresis are P1 and absent.
 
 Energy runs are formed over COVERED frames (those with a z-score). Uncovered frames (NaN: pauses and
 inter-word silence under the baseline's "active frames" rule) neither flag nor break a run, so a
@@ -46,10 +45,10 @@ frame within normal range DOES break the run, so isolated low-energy blips (word
 cannot chain across a recording. A run also breaks where the uncovered stretch reaches MERGE_GAP_S.
 The minimum duration applies to the run's FLAGGED time (flagged frames only), not its span.
 
-Choices where §17 / DEC-P005 are silent (documented, to be confirmed):
+Design choices (documented):
     * Excessive pauses are NOT merged: two nearby long pauses are two pieces of evidence.
     * The minimum duration is configurable per flaw type; it defaults to MIN_FLAW_DURATION_S for
-      rate and energy findings and to MIN_PAUSE_FLAW_S (0.8 s, DEC-039) for pauses: a pause is a
+      rate and energy findings and to MIN_PAUSE_FLAW_S (0.8 s) for pauses: a pause is a
       measured event that must exceed the baseline by a z threshold AND be long enough to be heard as
       a hesitation. Without the second condition a baseline whose pauses are all alike (a synthetic
       voice, a very even reader) turns every 0.3 to 0.5 s breath into an "excessive pause".
@@ -61,7 +60,7 @@ Choices where §17 / DEC-P005 are silent (documented, to be confirmed):
       and can be very small, which makes the rate z-score hypersensitive (see BaselineStatsRecord
       n_rate_windows).
 
-Flat pitch (DEC-042) is judged only word by word, like the pace and the loudness: the pitch movement of the words against how much the baseline
+Flat pitch is judged only word by word, like the pace and the loudness: the pitch movement of the words against how much the baseline
 readings moved on the same words. `BaselineStats` holds only the pooled global F0 std, which is not a valid reference for a local movement, so
 without the word profile's pitch part (or when too few words have enough voiced speech) flat_pitch is reported in `skipped` with the reason.
 
@@ -101,7 +100,7 @@ def _default_min_durations() -> Dict[FlawType, float]:
 
 @dataclass(frozen=True)
 class DetectionConfig:
-    """Thresholds for candidate generation (defaults: PROPOSED values, uncalibrated, DEC-P005).
+    """Thresholds for candidate generation (defaults: PROPOSED values, uncalibrated).
 
     min_duration_s maps each detectable flaw type to its minimum duration in seconds.
     """
@@ -113,10 +112,10 @@ class DetectionConfig:
     z_pause_cross: float = settings.Z_PAUSE_CROSS
     merge_gap_s: float = settings.MERGE_GAP_S
     min_duration_s: Mapping[FlawType, float] = None  # type: ignore[assignment]
-    # Narrowing of rate intervals to the words that deviate (DEC-039): on/off and the fewest words a narrowed stretch may have.
+    # Narrowing of rate intervals to the words that deviate: on/off and the fewest words a narrowed stretch may have.
     refine_rate: bool = settings.REFINE_RATE_BOUNDARIES
     refine_min_words: int = settings.REFINE_MIN_WORDS
-    # Word-by-word comparison with the baseline's reading of the same words (DEC-040); see `profile_detection` for what each one does.
+    # Word-by-word comparison with the baseline's reading of the same words; see `profile_detection` for what each one does.
     use_profile: bool = settings.PROFILE_ENABLED
     z_run_rate: float = settings.Z_RUN_RATE
     z_run_energy: float = settings.Z_RUN_ENERGY
@@ -131,7 +130,7 @@ class DetectionConfig:
     sigma_floor_level_drift: float = settings.SIGMA_FLOOR_LEVEL_DRIFT_DB
     sigma_floor_level_word: float = settings.SIGMA_FLOOR_LEVEL_WORD_DB
     sigma_floor_tempo: float = settings.SIGMA_FLOOR_TEMPO
-    # Flat pitch, judged word by word like the pace and the loudness (DEC-042).
+    # Flat pitch, judged word by word like the pace and the loudness.
     z_run_pitch: float = settings.Z_RUN_PITCH
     min_flat_pitch_change_pct: float = settings.MIN_FLAT_PITCH_CHANGE_PCT
     global_pitch_change_pct: float = settings.GLOBAL_PITCH_CHANGE_PCT
@@ -182,7 +181,7 @@ class DetectionConfig:
 
 @dataclass(frozen=True)
 class FlawCandidate:
-    """A time interval where a feature deviates beyond its threshold (ARCHITECTURE.md §9.8).
+    """A time interval where a feature deviates beyond its threshold.
 
     Attributes:
         type: flaw type.
@@ -194,13 +193,13 @@ class FlawCandidate:
             frames, or pause events) so later stages can extract evidence without re-detecting.
         flagged_intervals: disjoint, sorted (start, end) intervals that were actually flagged;
             their total length is `flagged_duration_s` (<= the span `duration_s` after merging).
-        stretch_rate_wpm: set only for a rate candidate narrowed to a run of words (DEC-039): the speech
+        stretch_rate_wpm: set only for a rate candidate narrowed to a run of words: the speech
             rate of that run, words per minute. Then `mean_z` is the z-score of THIS rate (not of the
             windows), `member_indices` still name the windows that triggered the detection.
-        effect: the measured size of the change, in the unit severity scales it in (DEC-040): the natural-log ratio of
+        effect: the measured size of the change, in the unit severity scales it in: the natural-log ratio of
             durations for a pace finding, dB for a loudness finding, seconds beyond the baseline's mean for a pause. None
             for a finding of the fallback rules, whose severity then comes from the z-score alone.
-        run: set for a finding of the word-by-word comparison (DEC-040): the run of words with its measured and expected values.
+        run: set for a finding of the word-by-word comparison: the run of words with its measured and expected values.
             Then `member_indices` are indices of the aligned words, not of windows or frames, and `mean_z` / `peak_z` are the run's z-score.
     """
 
@@ -454,22 +453,22 @@ def refine_rate_candidates(
     baseline: BaselineStatsRecord,
     cfg: DetectionConfig,
 ) -> List[FlawCandidate]:
-    """Narrow each too_fast / too_slow candidate to the words that really deviate (DEC-039).
+    """Narrow each too_fast / too_slow candidate to the words that really deviate.
 
     Why: the rate is measured in rolling windows, so a flagged window is as long as the window (8 s) and neighbouring flagged windows merge:
-    a 3 s fast sentence was reported as a 10 to 16 s stretch. Per-word durations are too noisy to DETECT a flaw (DEC-020), but they are good
+    a 3 s fast sentence was reported as a 10 to 16 s stretch. Per-word durations are too noisy to DETECT a flaw, but they are good
     enough to LOCATE one inside a region that the windows already flagged.
 
     Method (deterministic, no free parameter besides `refine_min_words`):
       * every word gets a "slot": the time from its start to the start of the next word (a pause after it counts, up to the rate extractor's cap on a
-        gap, DEC-039), so a fast stretch has short slots;
+        gap), so a fast stretch has short slots;
       * the reference slot is the baseline's (60 / mean rate); the window with the largest deviation gives the peak slot (60 / its rate);
         a word counts for the flaw by how far its slot lies beyond the HALFWAY slot between the two (halfway slot minus slot for too_fast, the
         reverse for too_slow);
       * the stretch is the run of consecutive words inside the flagged region with the largest summed score (maximum-subarray), which tolerates the
         odd long or short word; the same is repeated on what is left of the region, so two separate stretches stay two findings;
       * a run is accepted only if it has at least `refine_min_words` words, lasts at least the minimum duration, and its OWN rate (words / span, the
-        definition of DEC-020) is beyond the same z threshold as the windows. If no run qualifies, the window candidate is kept unchanged.
+        definition of) is beyond the same z threshold as the windows. If no run qualifies, the window candidate is kept unchanged.
     A short stretch varies more than an 8 s window (fewer words to average over), so its z-score uses the baseline's window spread scaled for the
     length: ``z = (rate - mean) / (std * sqrt(max(1, window_words / stretch_words)))`` with ``window_words = mean * window_s / 60``. Without that
     scaling the best five words of ordinary speech would look like a flaw. The narrowed candidate carries the run's rate and this z-score, so the
@@ -484,7 +483,7 @@ def refine_rate_candidates(
     window_s = float(np.median(normalized.rate_window_end_s - normalized.rate_window_start_s)) if len(normalized.rate_window_end_s) else 0.0
     window_words = mu * window_s / 60.0       # words in a typical baseline window: what a stretch's rate is compared against
     cap = normalized.rate_max_gap_s if normalized.rate_max_gap_s is not None else float("inf")
-    beyond = np.zeros(len(timed), dtype=np.float64)           # silence after each word beyond the cap: not speaking time (DEC-039)
+    beyond = np.zeros(len(timed), dtype=np.float64)           # silence after each word beyond the cap: not speaking time
     beyond[:-1] = np.clip(starts[1:] - ends[:-1] - cap, 0.0, None)
     slots = np.empty(len(timed), dtype=np.float64)
     slots[:-1] = starts[1:] - starts[:-1]
@@ -586,9 +585,9 @@ def detect_candidates(
     """Generate, duration-filter and merge flaw candidates from normalized features.
 
     With `observations` (the measured words of the reading, `profile.measure_words`) and a `baseline` that has a word profile, pace and loudness
-    are judged word by word against the baseline's reading of the same words (DEC-040) when `config.use_profile` is on and the words match the
+    are judged word by word against the baseline's reading of the same words when `config.use_profile` is on and the words match the
     passage; the rolling-window rate rule and the frame energy rule then do not run. Otherwise those two rules run as before, and with `aligned`
-    and `baseline` and `config.refine_rate` the rate candidates are narrowed to the words that deviate (`refine_rate_candidates`, DEC-039);
+    and `baseline` and `config.refine_rate` the rate candidates are narrowed to the words that deviate (`refine_rate_candidates`);
     without them the window intervals are returned as before.
 
     Raises:

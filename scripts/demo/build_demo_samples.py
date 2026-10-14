@@ -347,7 +347,7 @@ def overlap(a_start: float, a_end: float, b_start: float, b_end: float) -> float
 def match_injected(injected: List[dict], flaws) -> tuple:
     """For each injected flaw, whether it was found, and how many detections remain unexplained.
 
-    A flaw is found when a detection of the same type overlaps at least 50 % of the injected window (ARCHITECTURE.md §25.3).
+    A flaw is found when a detection of the same type overlaps at least 50 % of the injected window.
     This is evaluation done at build time by the generator; the dashboard only displays the stored outcome.
     """
     used = set()

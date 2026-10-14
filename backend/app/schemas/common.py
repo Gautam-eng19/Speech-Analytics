@@ -1,7 +1,7 @@
-"""Shared building blocks for the public API contract (TASK-002).
+"""Shared building blocks for the public API contract.
 
 Contains only: the strict base model, enumerations, and the contract version.
-Every enum value maps to a concept defined in ARCHITECTURE.md / DECISIONS.md.
+Every enum value maps to a documented concept of the analysis pipeline.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict
 # PIPELINE_VERSION, which version analytical behaviour). Bump:
 #   - MAJOR on breaking changes (URL prefix /api/v1 -> /api/v2 as well)
 #   - MINOR on backward-compatible additions (new optional fields)
-# History: 1.0.0 initial contract (TASK-002); 1.1.0 adds Flaw.rule / affected_words / warnings,
+# History: 1.0.0 initial contract; 1.1.0 adds Flaw.rule / affected_words / warnings,
 #          AudioInfo.trim_start_s / source_duration_s, AnalysisResult.notes / config_fingerprint;
 #          1.2.0 adds GET /baselines (BaselineSummary, BaselineListResponse) for the dashboard.
 API_CONTRACT_VERSION = "1.3.0"
@@ -31,7 +31,7 @@ class _StrEnum(str, Enum):
 
 
 class FlawType(_StrEnum):
-    """ARCHITECTURE.md §17/§21. P0 = first six; P1 = last two (DEC-013)."""
+    """Flaw categories. The first six are detected; the last two are defined for later detection."""
 
     TOO_FAST = "too_fast"
     TOO_SLOW = "too_slow"
@@ -44,7 +44,7 @@ class FlawType(_StrEnum):
 
 
 class FeatureName(_StrEnum):
-    """Feature score dimensions (ARCHITECTURE.md §20). mfcc/clarity are P1."""
+    """Feature score dimensions. mfcc/clarity are P1."""
 
     SPEECH_RATE = "speech_rate"
     PITCH = "pitch"
@@ -55,7 +55,7 @@ class FeatureName(_StrEnum):
 
 
 class AlignmentMethod(_StrEnum):
-    """DEC-009."""
+    """Forced-alignment method."""
 
     WHISPERX = "whisperx"
     WHISPER_WORD_TIMESTAMPS = "whisper_word_timestamps"
@@ -63,14 +63,14 @@ class AlignmentMethod(_StrEnum):
 
 
 class TranscriptSource(_StrEnum):
-    """ARCHITECTURE.md §9.2."""
+    """Where a transcript came from."""
 
     ASR = "asr"
     MANUAL = "manual"
 
 
 class PauseDetectionSource(_StrEnum):
-    """DEC-011."""
+    """Which detector found a pause."""
 
     VAD = "vad"
     ALIGNMENT = "alignment"
@@ -78,7 +78,7 @@ class PauseDetectionSource(_StrEnum):
 
 
 class PauseBoundaryType(_StrEnum):
-    """DEC-011 / §9.4."""
+    """Where in the text a pause occurs."""
 
     WITHIN_PHRASE = "within_phrase"
     CROSS_SENTENCE = "cross_sentence"
@@ -86,14 +86,14 @@ class PauseBoundaryType(_StrEnum):
 
 
 class ExplanationMethod(_StrEnum):
-    """DEC-018 / §22."""
+    """How an explanation was produced."""
 
     TEMPLATE = "template"
     GEMINI = "gemini"
 
 
 class SpeakerGender(_StrEnum):
-    """Optional request hint (ARCHITECTURE.md §6.1)."""
+    """Optional request hint."""
 
     MALE = "male"
     FEMALE = "female"
@@ -102,19 +102,19 @@ class SpeakerGender(_StrEnum):
 class AnalysisStatus(_StrEnum):
     """GET /status values.
 
-    P0 (synchronous, DEC-016) only ever emits DONE and NOT_FOUND.
-    PROCESSING and FAILED are reserved for the DEC-016 async upgrade path and
-    are not emitted unless that upgrade is approved and implemented.
+    P0 (synchronous) only ever emits DONE and NOT_FOUND.
+    PROCESSING and FAILED are reserved for a future asynchronous mode and
+    are not emitted today.
     """
 
     DONE = "done"
     NOT_FOUND = "not_found"
-    PROCESSING = "processing"  # reserved (DEC-016 upgrade path)
-    FAILED = "failed"  # reserved (DEC-016 upgrade path)
+    PROCESSING = "processing"  # reserved (upgrade path)
+    FAILED = "failed"  # reserved (upgrade path)
 
 
 class ErrorCode(_StrEnum):
-    """Machine-readable error codes (ARCHITECTURE.md §23 error format)."""
+    """Machine-readable error codes (error format)."""
 
     VALIDATION_ERROR = "VALIDATION_ERROR"
     UNSUPPORTED_AUDIO_FORMAT = "UNSUPPORTED_AUDIO_FORMAT"
@@ -126,8 +126,7 @@ class ErrorCode(_StrEnum):
     PROCESSING_ERROR = "PROCESSING_ERROR"
 
 
-# HTTP status per error code, following the status codes listed in
-# ARCHITECTURE.md §23 (400 invalid input, 404 not found, 422 validation, 500).
+# HTTP status per error code (400 invalid input, 404 not found, 422 validation, 500).
 ERROR_HTTP_STATUS: dict[ErrorCode, int] = {
     ErrorCode.VALIDATION_ERROR: 422,
     ErrorCode.UNSUPPORTED_AUDIO_FORMAT: 400,

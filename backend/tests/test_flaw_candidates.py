@@ -1,4 +1,4 @@
-"""Unit tests for flaw candidate generation, duration filtering and merging (TASK-050/051).
+"""Unit tests for flaw candidate generation, duration filtering and merging.
 
 Covers:
 - Detection rules and directions for every supported P0 type (strict thresholds)
@@ -281,7 +281,7 @@ def test_unsupported_and_unavailable_types_are_reported_not_silent():
     assert result.skipped["too_fast"] == "rate unavailable: not_provided"
     assert result.skipped["too_slow"] == "rate unavailable: not_provided"
     assert result.skipped["excessive_pause"] == "pauses unavailable: not_provided"
-    assert "word by word" in result.skipped["flat_pitch"]                      # judged only against the baseline's reading of the same words (DEC-042)
+    assert "word by word" in result.skipped["flat_pitch"]                      # judged only against the baseline's reading of the same words
     assert "not implemented" in result.skipped["pitch_instability"] and "P1" in result.skipped["reduced_clarity"]
     assert "low_energy" not in result.skipped                                  # energy not flagged unavailable here
 

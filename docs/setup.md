@@ -1,7 +1,7 @@
 # Development Environment Setup Guide
 
 ## Track C — Contrastive Speech Analytics & Temporal Flaw Grounding
-**Task:** TASK-004 — Development Environment
+**Task:** Development Environment
 **Last Updated:** 2026-10-09
 
 ---
@@ -11,7 +11,7 @@
 - **OS:** Windows, macOS or Linux (the commands below are given for PowerShell and for bash).
 - **Python:** 3.10 – 3.13 (the 2026-10-09 verification used 3.13).
 - **Git.**
-- **Node.js ≥ 20.19 / npm ≥ 10** — only to build or develop the dashboard (React + Vite + TypeScript, DEC-002, DEC-033). Not needed to run the API or its tests.
+- **Node.js ≥ 20.19 / npm ≥ 10** — only to build or develop the dashboard (React + Vite + TypeScript). Not needed to run the API or its tests.
 - **ffmpeg is NOT required.** MP3 decoding uses PyAV (`av`), and Whisper receives NumPy arrays directly.
 - **Disk / network:** `openai-whisper` pulls in PyTorch (several GB). The first real Whisper/WhisperX run downloads model weights.
 
@@ -107,16 +107,16 @@ Notes for the first real run:
 
 ## 3. Dependencies (`requirements.txt`)
 
-Ranges (`>=`) without a lockfile; ARCHITECTURE.md §26.5 asks for exact pins, which is still to do.
+Ranges (`>=`) without a lockfile.5 asks for exact pins, which is still to do.
 
 | Package | Used for |
 |---|---|
-| `fastapi`, `uvicorn[standard]`, `python-multipart` | API and uploads (DEC-003) |
+| `fastapi`, `uvicorn[standard]`, `python-multipart` | API and uploads |
 | `pydantic`, `python-dotenv` | contracts and settings |
 | `numpy`, `scipy`, `av` | audio decoding, resampling, numerics |
 | `librosa` | pYIN F0, MFCC, RMS energy |
-| `openai-whisper` | transcription (DEC-P001) |
-| `whisperx` | forced alignment (DEC-P002) |
+| `openai-whisper` | transcription |
+| `whisperx` | forced alignment |
 | `pytest` | tests |
 
 ---
@@ -128,7 +128,7 @@ There are no recordings yet, so no baseline statistics file exists. With recordi
 ```bash
 python scripts/dataset/build_baseline_stats.py --passage-id p001 --splits dev
 ```
-`--splits` is required on purpose (it decides which speakers' baselines may contribute). See DEC-024.
+`--splits` is required on purpose (it decides which speakers' baselines may contribute). See.
 
 ---
 

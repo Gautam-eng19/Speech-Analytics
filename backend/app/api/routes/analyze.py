@@ -1,4 +1,4 @@
-"""Analysis endpoint: POST /api/v1/analyze (ARCHITECTURE.md §6.1, §23; DEC-016, DEC-032; api-contract.md).
+"""Analysis endpoint: POST /api/v1/analyze (api-contract.md).
 
 Validates the multipart upload (presence, extension, size, content type, config_version) with the public request schemas, then runs the
 analysis pipeline synchronously in a worker thread and returns the `AnalysisResult`. Pipeline failures are returned as `ErrorResponse`
@@ -50,7 +50,7 @@ async def analyze_audio(
     manual_transcript: Optional[str] = Form(None),
     pipeline: AnalysisPipeline = Depends(get_pipeline),
 ):
-    """Receive multipart/form-data, validate fields and file part per TASK-012."""
+    """Receive multipart/form-data, validate fields and file part per."""
     # 1. Validate file presence
     if participant_audio is None or not participant_audio.filename:
         return error_response(
@@ -74,7 +74,7 @@ async def analyze_audio(
             f"Invalid request parameters: {exc}",
         )
 
-    # 3. Check config_version mismatch if provided (ARCHITECTURE.md §23)
+    # 3. Check config_version mismatch if provided
     if parsed_request.config_version is not None:
         if parsed_request.config_version != settings.CONFIG_VERSION:
             return error_response(
@@ -135,7 +135,7 @@ async def analyze_audio(
             err_msg,
         )
 
-    # Validation succeeded: run the pipeline (CPU-bound, synchronous per DEC-016) off the event loop.
+    # Validation succeeded: run the pipeline (CPU-bound, synchronous per) off the event loop.
     try:
         return await run_in_threadpool(pipeline.analyze, content, parsed_request)
     except PipelineError as exc:

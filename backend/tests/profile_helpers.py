@@ -1,4 +1,4 @@
-"""Hand-made readings for the tests of the word profile (DEC-040): numbers only, no audio.
+"""Hand-made readings for the tests of the word profile: numbers only, no audio.
 
 A passage of alphabetic "words" whose expected slot and level differ from word to word (as real words do: long words take longer, stressed ones are
 louder), and readings of it that differ from take to take by a known amount. Because every reading is built from known numbers, a test can say exactly

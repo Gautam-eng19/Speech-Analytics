@@ -30,7 +30,7 @@ class PassageCatalog:
     """Read-only lookup of passage texts."""
 
     def __init__(self, path: Optional[Union[str, Path]] = None, custom_path: Optional[Union[str, Path]] = None) -> None:
-        """`path` is the project catalog, `custom_path` the user's own passages (DEC-044). Naming `path` alone means no custom passages."""
+        """`path` is the project catalog, `custom_path` the user's own passages. Naming `path` alone means no custom passages."""
         self.path = Path(path) if path is not None else Path(settings.DATA_DIR) / "metadata" / "passages.json"
         if custom_path is not None:
             self.custom_path: Optional[Path] = Path(custom_path)

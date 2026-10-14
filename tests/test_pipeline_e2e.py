@@ -1,4 +1,4 @@
-"""The orchestrated pipeline on synthetic speech with injected, known flaws (DEC-016, DEC-023, DEC-029, DEC-032).
+"""The orchestrated pipeline on synthetic speech with injected, known flaws.
 
 Everything is real - preprocessing, F0 / energy / rate / pause features, normalization, detection, severity, evidence, scoring,
 explanations, assembly, cache - except the two heavyweight models. Whisper and WhisperX cannot be downloaded in CI, so they are
@@ -171,7 +171,7 @@ def test_flaws_are_located_on_the_injected_words(plain):
     assert low.affected_words == [f"w{i}" for i in range(12, 20)]
     assert pause.start_s == pytest.approx(w[19].end_s, abs=0.03) and pause.end_s == pytest.approx(w[20].start_s, abs=0.03)
     assert pause.affected_words == ["w19", "w20"]
-    # The rate finding is narrowed to the fast words (DEC-039): it starts where the fast stretch starts, not several seconds earlier.
+    # The rate finding is narrowed to the fast words: it starts where the fast stretch starts, not several seconds earlier.
     assert fast.start_s == pytest.approx(w[20].start_s, abs=0.05) and fast.end_s == pytest.approx(w[35].end_s, abs=0.05)
     assert fast.affected_words == [f"w{i}" for i in range(20, 36)]
 

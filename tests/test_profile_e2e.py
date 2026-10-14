@@ -1,4 +1,4 @@
-"""End to end: the word-by-word comparison with the baseline on synthetic readings that behave like a person's (DEC-040).
+"""End to end: the word-by-word comparison with the baseline on synthetic readings that behave like a person's.
 
 Readings of the real passage (tests/dataset_takes.human_layout: what a word is decides how long it takes and how loud it is, plus chance variation and
 two speakers of a slightly different pace) are registered with the stand-in aligner, the baseline is built from them (with its word profile), and the
@@ -200,7 +200,7 @@ def test_the_sweep_table_compares_settings_on_these_takes(registered: World):
 
 
 # ------------------------------------------------------------------------------------------------------------------------------
-# The evaluation tool helps a person judge a miss (DEC-041)
+# The evaluation tool helps a person judge a miss
 # ------------------------------------------------------------------------------------------------------------------------------
 def test_a_missed_flaw_is_explained_by_how_big_the_change_was_and_what_the_registration_check_said(registered: World):
     blind = ev.Evaluator(registered.data, detection=ev.detection_config(["z_run_rate=1000", "z_run_energy=1000"]))     # no finding can reach z 1000

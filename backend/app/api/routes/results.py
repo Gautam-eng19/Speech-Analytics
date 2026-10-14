@@ -1,4 +1,4 @@
-"""Result retrieval endpoints: GET /status/{analysis_id} and GET /result/{analysis_id} (ARCHITECTURE.md §23, DEC-016).
+"""Result retrieval endpoints: GET /status/{analysis_id} and GET /result/{analysis_id}.
 
 Results are read from the deterministic file cache, so they persist across restarts. At P0 the analysis is synchronous, so
 the only statuses are `done` and `not_found`. The handlers are plain functions (not coroutines) because they read and validate a file:

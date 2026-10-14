@@ -1,4 +1,4 @@
-"""Tests for audio upload and validation endpoint (TASK-012)."""
+"""Tests for audio upload and validation endpoint."""
 from __future__ import annotations
 
 import asyncio

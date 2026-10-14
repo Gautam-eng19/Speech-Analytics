@@ -4,27 +4,27 @@
     "split": "dev",
     "gender": "unspecified",
     "native_language": "unspecified",
-    "notes": "Development speaker: records the baseline takes and the controlled flaws (DEC-037)."
+    "notes": "Development speaker: records the baseline takes and the controlled flaws."
   },
   {
     "speaker_id": "spk_dev_02",
     "split": "dev",
     "gender": "unspecified",
     "native_language": "unspecified",
-    "notes": "Development speaker: records the baseline takes and the controlled flaws (DEC-037)."
+    "notes": "Development speaker: records the baseline takes and the controlled flaws."
   },
   {
     "speaker_id": "spk_test_01",
     "split": "test",
     "gender": "unspecified",
     "native_language": "unspecified",
-    "notes": "Held-out test speaker: never used in development or calibration (DEC-017)."
+    "notes": "Held-out test speaker: never used in development or calibration."
   },
   {
     "speaker_id": "spk_test_02",
     "split": "test",
     "gender": "unspecified",
     "native_language": "unspecified",
-    "notes": "Held-out test speaker: never used in development or calibration (DEC-017)."
+    "notes": "Held-out test speaker: never used in development or calibration."
   }
 ]

@@ -1,4 +1,4 @@
-"""Word profile: measuring the words of a reading, and building the baseline's profile from the baseline readings (DEC-040).
+"""Word profile: measuring the words of a reading, and building the baseline's profile from the baseline readings.
 
 Why a profile
     The baseline is the effective delivery of ONE passage. Comparing a participant with only the baseline's overall averages (mean rate and
@@ -29,9 +29,9 @@ pace (`overall_tempo`, the median over runs of 10 words) is removed, so a speake
 is compared with their OWN pace and only local departures stand out; a reading that is off as a whole is judged separately (profile_detection).
 
 Level statistic: the word's level minus the profile's, minus the reading's own median difference, averaged over a run (positive = louder).
-Recordings are scaled to a common speech level (DEC-036), so only the pattern within the reading is comparable, never the overall level.
+Recordings are scaled to a common speech level, so only the pattern within the reading is comparable, never the overall level.
 
-Pitch movement (DEC-042), when the pitch track is given: the pitch of each voiced frame is expressed in semitones from the reading's OWN median
+Pitch movement, when the pitch track is given: the pitch of each voiced frame is expressed in semitones from the reading's OWN median
 pitch, so the speaker's register drops out and only how far the voice moves is left. A word's movement is the mean squared deviation (semitones
 squared) of its voiced frames, each deviation clipped at `deviation_clip_st` (a tracking error must not dominate), at least `MIN_MOVEMENT_ST2`
 (a word that does not move at all would give a zero, whose logarithm is not defined); a word needs `min_voiced_frames` voiced frames. The statistic
@@ -107,7 +107,7 @@ class WordObservations:
     level_db: np.ndarray
     max_gap_s: float
     active_threshold_dbfs: float
-    # Pitch movement (DEC-042); None when no pitch track was given or it had too little voiced speech to give a reference.
+    # Pitch movement; None when no pitch track was given or it had too little voiced speech to give a reference.
     pitch_movement_st2: Optional[np.ndarray] = None   # mean squared deviation of the word's voiced frames from the reading's median pitch; NaN = not measurable
     pitch_voiced_frames: Optional[np.ndarray] = None  # voiced frames of each word
     pitch_frames: Optional[np.ndarray] = None         # all frames of each word

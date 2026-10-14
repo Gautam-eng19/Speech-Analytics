@@ -1,8 +1,8 @@
-"""Custom passages: POST /api/v1/custom/baselines and DELETE /api/v1/custom/baselines/{baseline_id} (API contract 1.3.0; DEC-044).
+"""Custom passages: POST /api/v1/custom/baselines and DELETE /api/v1/custom/baselines/{baseline_id} (API contract 1.3.0).
 
 A user supplies their own passage text and 2 to 6 recordings of a good reading; the service makes a baseline from them
 (`app.services.custom`) that `POST /analyze` and `GET /baselines` then treat like any other. The work is CPU-bound and synchronous (as
-the analysis is, DEC-016); it holds the pipeline's lock because the speech models are shared. Nothing of the uploaded audio is kept.
+the analysis is); it holds the pipeline's lock because the speech models are shared. Nothing of the uploaded audio is kept.
 """
 from __future__ import annotations
 

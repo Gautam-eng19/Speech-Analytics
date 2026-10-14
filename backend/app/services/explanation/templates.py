@@ -1,10 +1,10 @@
-"""Evidence-backed template explanations and recommendations (TASK-070, TASK-071; DEC-018, DEC-021).
+"""Evidence-backed template explanations and recommendations.
 
 `explain_flaw(flaw)` turns ONE grounded flaw into readable text using only its fact sheet (`facts.py`): what
 happened, where, which measurement supports it, how far it was from the baseline, and why the rule flagged it,
 followed by a practical recommendation. The text is deterministic: the same flaw always yields the same words.
 
-Boundaries (AGENTS.md §6.2, §6.3):
+Boundaries:
     * no number is ever typed into a template: every figure is inserted from the fact sheet;
     * after rendering, both texts are re-checked by the independent guard (`guard.assert_grounded`);
     * if a template is missing, a fact is missing, or the guard rejects the text, a minimal fallback that states
@@ -12,7 +12,7 @@ Boundaries (AGENTS.md §6.2, §6.3):
     * the wording describes a difference from the BASELINE recording of the same passage. It does not judge
       content, and does not infer confidence, emotion or any other state of the speaker.
 
-Times are those of the flaw passed in; the pipeline passes flaws already converted to source time (DEC-023).
+Times are those of the flaw passed in; the pipeline passes flaws already converted to source time.
 """
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def _words_clause(flaw: GroundedFlaw) -> str:
 
 
 def _by_words(flaw: GroundedFlaw) -> bool:
-    """True for a finding of the word-by-word comparison with the baseline (DEC-040), whose 'baseline' is the baseline's reading of the same words."""
+    """True for a finding of the word-by-word comparison with the baseline, whose 'baseline' is the baseline's reading of the same words."""
     return flaw.rule.feature.endswith("_run_z") or flaw.rule.feature.endswith("_overall_z")
 
 

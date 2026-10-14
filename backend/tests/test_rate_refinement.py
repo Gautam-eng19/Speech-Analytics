@@ -1,4 +1,4 @@
-"""Tests for the narrowing of rate findings to the words that deviate and for the cap on long silences (DEC-039).
+"""Tests for the narrowing of rate findings to the words that deviate and for the cap on long silences.
 
 The speech here is hand-made so that every expected number can be worked out on paper: words of 0.25 s whose start-to-start "slot" is 0.6 s at the
 baseline pace (100 words/min, std 10) and 0.3 s in a fast stretch (200 words/min), 1.2 s in a slow one. Covers a fast and a slow stretch located on

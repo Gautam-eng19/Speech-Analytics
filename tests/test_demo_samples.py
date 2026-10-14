@@ -58,7 +58,7 @@ def test_the_clean_control_has_no_flaw_and_every_injected_flaw_of_the_mixed_samp
     assert clean.flaws == [] and clean.scores.composite_score == 100.0
     mixed = by_id["mixed-flaws"]["injected"]
     assert [t["type"] for t in mixed] == ["too_fast", "excessive_pause", "low_energy"]
-    assert [t["detected"] for t in mixed] == [True, True, True]          # the quiet sentence is found by the word-by-word loudness comparison (DEC-040)
+    assert [t["detected"] for t in mixed] == [True, True, True]          # the quiet sentence is found by the word-by-word loudness comparison
     assert by_id["mixed-flaws"]["extra_detections"] == 0
 
 

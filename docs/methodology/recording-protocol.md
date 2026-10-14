@@ -1,7 +1,7 @@
 # Recording Protocol — Building the Track C Dataset by Hand
 
-**Status:** PROPOSED protocol, drafted by the coding agent on 2026-10-10 for the team leader to confirm (decisions in §1).
-It changes neither the dataset schema (`docs/methodology/dataset-schema.md` stays canonical) nor any accepted decision.
+**Status:** Recording protocol for the team's dataset (decisions in §1).
+The dataset schema (`docs/methodology/dataset-schema.md`) is the reference for file formats.
 
 **Audience:** the people who will record, label and use the data.
 
@@ -9,7 +9,7 @@ It changes neither the dataset schema (`docs/methodology/dataset-schema.md` stay
 **Update 2026-10-11:** the plan generator with an on-screen prompter (`scripts/dataset/make_plan.py`) and the recording checker
 (`scripts/dataset/check_recordings.py`) now exist and are tested on synthetic audio only; the final passages are in `data/plan/passages_v1.json`.
 
-**Tool status key:** `[exists]` works today · `[planned]` the coding agent can build it (§14; names are proposals) · `[manual]` done by people.
+**Tool status key:** `[exists]` works today · `[manual]` done by people.
 
 **Evidence status:** everything below that describes what the software does was checked against the code on 2026-10-10.
 The loudness experiments in §8 were run on *synthetic* speech only. The real Whisper/WhisperX models and real recordings have
@@ -35,7 +35,7 @@ The five rules:
 2. **Record raw.** No normalising, compression, noise reduction, EQ, trimming or editing of any kind. The software processes every
    file in the same way; manual processing only creates differences between files that the software would then mistake for delivery.
 3. **One deliberate flaw per flawed take**, in a planned stretch; everything else in the take is normal delivery.
-4. **Dev and test speakers are different people**, fixed *before* the first recording (DEC-017). Test recordings are not analysed
+4. **Dev and test speakers are different people**, fixed *before* the first recording. Test recordings are not analysed
    by the system until the thresholds are frozen.
 5. **Accept or reject a take by the checklist in §7, before looking at any system output.** Never retake because the system got a
    take wrong; that would tune the data to the system.
@@ -49,10 +49,10 @@ The five rules:
 | 1 | Speakers and split | 4 speakers: 2 dev + 2 test. With 3: 2 dev + 1 test (§2) | Baseline needs more than one voice; test must be unseen voices |
 | 2 | Passages | Pilot with 1, then 2 passages of 100–130 words (§4) | Variety without exploding the workload |
 | 3 | Where the audio lives | **Outside git** (shared drive); git keeps metadata, annotations, alignments, baseline statistics | Size (about 5 MB per take) and consent; `data/raw/` is *not* git-ignored today |
-| 4 | Loudness normalisation in the software | **Approved and implemented 2026-10-11 (DEC-036)**, see §8.3 | Peak scaling made a loud stretch look normal and pushed the rest of the take down |
+| 4 | Loudness normalisation in the software | **Approved and implemented 2026-10-11**, see §8.3 | Peak scaling made a loud stretch look normal and pushed the rest of the take down |
 | 5 | Who annotates test takes | Someone who did not perform the take | Avoids the performer marking what they meant instead of what is audible |
-| 6 | `flat_pitch` takes | Optional now | The detector exists (DEC-042) but has only been tried on synthetic speech; two real monotone takes per speaker (one sentence, one whole passage) are what it needs to be checked and calibrated |
-| 7 | Consent and sharing | Written consent from every speaker (§13) | Voices are personal data (`AGENTS.md` §22) |
+| 6 | `flat_pitch` takes | Optional now | The detector exists but has only been tried on synthetic speech; two real monotone takes per speaker (one sentence, one whole passage) are what it needs to be checked and calibrated |
+| 7 | Consent and sharing | Written consent from every speaker (§13) | Voices are personal data |
 
 ---
 
@@ -167,7 +167,7 @@ Baseline takes are recorded by **dev speakers only** and are the *only* recordin
 | Clean (`clean_01`…) | 2 | 3 | False-alarm measurement; speaker-variation check on test speakers |
 | Flawed | 10 | 10 | 5 flaw types × 2 takes |
 | **Reads of the passage** | **15** | **13** | |
-| Optional `flat_pitch` | +2 | +2 | Recommended now: one monotone sentence, one monotone whole passage (DEC-042 needs real examples to be calibrated) |
+| Optional `flat_pitch` | +2 | +2 | Recommended now: one monotone sentence, one monotone whole passage (needs real examples to be calibrated) |
 
 The 10 flawed takes per passage:
 
@@ -211,7 +211,7 @@ and the real Whisper/WhisperX models have not run yet, so surprises are likely. 
 | `flat_pitch` *(optional)* | Monotone: minimal pitch movement, normal pace | reduced intonation | robot-like | Slow down at the same time |
 
 Why the loud and quiet takes are exaggerated: real speech varies a lot from syllable to syllable and from word to word, and a change that
-nobody could hear is not a flaw. Since DEC-040 the system compares every word with how the baseline readers read **the same word** and reports
+nobody could hear is not a flaw. The system compares every word with how the baseline readers read **the same word** and reports
 a run of at least 10 words that is louder or quieter by at least about 3 dB and clearly beyond the natural variation (in simulation a change of
 5 dB over a sentence is found in about 9 of 10 cases, 8 dB in practically every case). The planned +8 / +14 dB and −8 / −14 dB are kept so
 that a take is clearly a flaw even if the performer reaches only part of it; a performer who reaches only +2 to +4 dB did not perform the flaw
@@ -335,7 +335,7 @@ The microphone and conditions also go into the manifest (`microphone`, `recordin
 
 ---
 
-## 8. Loudness — what you do, what the software does, and the problem I measured
+## 8. Loudness — what you do, what the software does, and the problem that was measured
 
 ### 8.1 What you do: nothing
 **Do not normalise loudness by hand.** Keep the recording exactly as captured, at a healthy level (§6) and without clipping.
@@ -345,8 +345,8 @@ The microphone and conditions also go into the manifest (`microphone`, `recordin
 - The software scales every file, baseline and participant alike, in its preprocessing step. That is the only place loudness is
   adjusted, so that the baseline and the participant are always treated identically.
 
-### 8.2 What the software did until 2026-10-11, and what I measured (synthetic speech)
-Until DEC-036 each recording was scaled so that its **loudest sample is −3 dBFS**. Consequences, measured on synthetic speech with one stretch
+### 8.2 What the software did until 2026-10-11, and what was measured (synthetic speech)
+Until 2026-10-11 each recording was scaled so that its **loudest sample is −3 dBFS**. Consequences, measured on synthetic speech with one stretch
 of six words changed (baseline built the same way):
 
 | Scenario | Today: peak scaled to −3 dBFS | Proposed: median speech level scaled to −26 dBFS |
@@ -363,13 +363,13 @@ normal. Scaling by the **typical speech level** fixes that: the loud stretch get
 But the current frame-by-frame energy rule still only fires for large changes, because the baseline spread of single frames is wide and
 any in-range frame breaks a run.
 
-### 8.3 The change (approved by the team leader and implemented on 2026-10-11 as DEC-036; the text below is the proposal it implements)
+### 8.3 The change (implemented on 2026-10-11)
 
-**Status 2026-10-11:** implemented as described, with the cap added. Measured end to end on synthetic voice (DEC-036 has the table), the new scaling
+**Status 2026-10-11:** implemented as described, with the cap added. Measured end to end on synthetic voice (has the table), the new scaling
 keeps the rest of a take within about 1 dB of the baseline while a loud sentence gets a z-score that grows with its loudness (the old scaling gave every
 loud sentence the same z and pushed the rest down by 3 to 12 dB). It does **not** make the current frame-level energy rule detect moderate loudness
-flaws: that needs a windowed energy rule and calibration (TASK-128). The exaggerated loud and quiet takes of §5.4 therefore remain the right plan.
-**Update 2026-10-13 (DEC-040):** the frame-level energy rule is now only the fallback; loudness is compared word by word with the baseline, which finds a
+flaws: that needs a windowed energy rule and calibration. The exaggerated loud and quiet takes of §5.4 therefore remain the right plan.
+**Update 2026-10-13:** the frame-level energy rule is now only the fallback; loudness is compared word by word with the baseline, which finds a
 sentence that is about 5 dB louder or quieter. The first real replay (0 of 12 loud and quiet flaws found) is what motivated it; the thresholds still
 have to be calibrated on the real dev takes (`evaluate_takes.py --sweep`).
 Replace "scale so the peak is −3 dBFS" by "scale so the typical speech level is −26 dBFS":
@@ -388,7 +388,7 @@ Effects: baseline statistics must be rebuilt (none exist yet, so this is cheap n
 
 Remaining limits, which real data will have to resolve: (a) if most of a take is loud or quiet, it looks like a recording at another gain
 and the flaw is invisible; (b) the frame-level energy rule probably needs smoothing over about 0.5–1 s windows before moderate loudness
-flaws are detected reliably (resolved by DEC-040: runs of words are compared with the baseline's level for the same words). That is why §5.4 asks for exaggerated loud and quiet takes first.
+flaws are detected reliably (resolved by : runs of words are compared with the baseline's level for the same words). That is why §5.4 asks for exaggerated loud and quiet takes first.
 
 **The recording instructions in this protocol do not depend on this decision.**
 
@@ -449,7 +449,7 @@ The validator checks: type is in the canonical vocabulary, `0 <= start_s < end_s
 
 `prepare_recordings.py` writes one extra top-level field, `annotation_status`: `"proposed"` (made from the plan and the alignment, not yet heard by a
 person) or, after a person has listened and corrected the numbers, `"confirmed"` (set by editing the file). A re-run regenerates a `proposed` annotation
-(it follows a changed plan) but never touches a `confirmed` one, nor one written by hand without the field. The evaluation tools (TASK-127) must score
+(it follows a changed plan) but never touches a `confirmed` one, nor one written by hand without the field. The evaluation tools must score
 the **test** split with `confirmed` annotations only. The `annotator_notes` of a proposed annotation also carry the "was the flaw really performed" check
 (§9.4a); `flaw_id` is `ann_<recording_id>_01`.
 
@@ -506,7 +506,7 @@ Sequence once the WAVs exist (run from the repository root with the environment 
 |---|---|---|
 | 1. Audio quality check of every WAV (§11) | `python scripts/dataset/check_recordings.py <folder> --passages data/plan/passages_v1.json` | `[exists]` |
 | 2. Environment check, once per computer (installs nothing; `--download-models` fetches the speech models) | `python scripts/check_environment.py --download-models` | `[exists]` |
-| 3. Register: quality check again, copy to `data/raw/` (not committed, decision 3), hash, measure, preprocess, align with the passage text (WhisperX), plausibility checks, `alignment.json`, manifest/speaker/passage entries, proposed flaw annotations with the "was it performed" check, Audacity label files, dataset validation | `python scripts/dataset/prepare_recordings.py data/incoming` | `[exists]` TASK-126 (tested with a stand-in aligner; the real WhisperX run is the first real test) |
+| 3. Register: quality check again, copy to `data/raw/` (not committed, decision 3), hash, measure, preprocess, align with the passage text (WhisperX), plausibility checks, `alignment.json`, manifest/speaker/passage entries, proposed flaw annotations with the "was it performed" check, Audacity label files, dataset validation | `python scripts/dataset/prepare_recordings.py data/incoming` | `[exists]` (tested with a stand-in aligner; the real WhisperX run is the first real test) |
 | 4. A person listens to the proposed flaws with the label files and sets `"annotation_status": "confirmed"` (§9.4) | Audacity + a text editor | `[manual]` |
 | 5. Check schema, speaker separation, hashes | `python scripts/dataset/validate_dataset.py --check-files` (step 3 already runs it) | `[exists]` |
 | 6. Build the baseline from dev baseline takes | add `--build-baseline` to step 3, or `python scripts/dataset/build_baseline_stats.py --passage-id p001 p002 --splits dev --overwrite` | `[exists]` |
@@ -516,10 +516,10 @@ Step 3 can be repeated safely: an unchanged take keeps its alignment and its con
 `--realign` to align again. Without WhisperX, steps 3 can be done by hand with the examples in §9 (hash, duration, alignment script).
 
 `data/` in the repository holds no recordings: `passages.json` has the two real passages, `speakers.json` the four anonymous speakers (details to be filled in),
-`manifest.json` is empty until takes are registered (the schema fixtures were retired with TASK-126).
+`manifest.json` is empty until takes are registered (the schema fixtures were retired with).
 
 `--splits dev` is deliberate: the baseline statistics come from **dev** speakers only, so test speakers never influence the baseline they
-are measured against. (Whether test-speaker baselines may ever contribute is an open question recorded in `PROJECT_STATE.md`.)
+are measured against. (Whether test-speaker baselines may ever contribute is an open question recorded in .)
 
 ---
 
@@ -558,7 +558,7 @@ Start the API (`docs/setup.md`) or call the pipeline in-process. For every dev f
 `passage_id` = the passage. Use the real transcription for the realistic case; passing the passage text as `manual_transcript` removes
 transcription errors and isolates the delivery analysis. Do both and compare.
 
-### 12.3 Evaluate (per ARCHITECTURE.md §25)
+### 12.3 Evaluate
 - **True positive:** a predicted flaw of the right type whose interval overlaps at least **50 % of an annotated flaw window**; each annotation
   matches at most one prediction. Unmatched prediction = false positive; unmatched annotation = false negative.
 - **Per flaw type:** precision, recall, F1, and the mean absolute error of start and end times. Always report the number of events (n).
@@ -566,16 +566,16 @@ transcription errors and isolates the delivery analysis. Do both and compare.
 - **Speaker variation:** clean takes of every speaker scored against the dev baseline (proposed: composite above 75).
 - **Determinism:** run each take three times; `deterministic_json()` must be identical.
 - A flaw type the system does not implement (`pitch_instability`) is reported as "not implemented", not as a failure of the others.
-- Report **dev and test separately** and **human and synthetic separately** (DEC-022). The F1 > 0.65 target is aspirational, not a gate.
+- Report **dev and test separately** and **human and synthetic separately**. The F1 > 0.65 target is aspirational, not a gate.
 
 ### 12.4 Calibrate on dev only
 Tunable constants (all in `backend/app/core/config.py`, currently uncalibrated starting values): `Z_RATE_FAST`, `Z_RATE_SLOW`, `Z_ENERGY`,
 `Z_PAUSE_WITHIN`, `Z_PAUSE_CROSS`, `MIN_FLAW_DURATION_S`, `MERGE_GAP_S`, the severity constants, `BASE_PENALTY` and the score weights.
 Method: change one constant at a time, re-run the dev evaluation, keep a table of (value → F1 per type, false-alarm rate); choose the
-value that maximises F1 while keeping false alarms on clean dev takes under 10 %. Record the choices in `DECISIONS.md`.
+value that maximises F1 while keeping false alarms on clean dev takes under 10 %. Record the choices in.
 
 ### 12.5 Freeze, then test once
-1. Freeze: set `THRESHOLDS_CALIBRATED=true`, bump `CONFIG_VERSION` (DEC-014), commit.
+1. Freeze: set `THRESHOLDS_CALIBRATED=true`, bump `CONFIG_VERSION`, commit.
 2. Run the test split **once**. No constant may be changed after looking at test results.
 3. Publish dev and test numbers side by side with their sample sizes. If a result is poor, say so; a documented limitation is better than a
    tuned-to-test number.
@@ -605,17 +605,13 @@ value that maximises F1 while keeping false alarms on clean dev takes under 10 %
 | Schema / split / hash validation | tool | `[exists]` `validate_dataset.py` |
 | Baseline statistics from dev baseline takes | tool | `[exists]` `build_baseline_stats.py` |
 | Analysis of a recording (API or in-process) | tool | `[exists]` |
-| Recording plan sheet (take list, shuffled order, stretches, target durations, on-screen prompter page) | agent | `[exists]` `make_plan.py` (target durations are estimates at 150 words a minute until a speaker's own baseline takes are measured) |
-| Audio quality check (format, clipping, noise floor, silence, duration, hum) | agent | `[exists]` `check_recordings.py` |
-| Hashing, metadata, alignment with the passage text, manifest and `speakers.json`/`passages.json` handling | agent | `[exists]` `prepare_recordings.py` (WhisperX must run on your machine; first real run pending) |
-| Planned stretch → annotation JSON (proposed), "was the flaw performed" check, word and flaw labels for Audacity | agent | `[exists]` `prepare_recordings.py` + `take_checks.py`; Audacity-label → JSON conversion (workflow B) is not built |
-| Environment check and model download | agent | `[exists]` `scripts/check_environment.py` |
-| Evaluation (matching, P/R/F1, boundary error, false-alarm rate, determinism, speaker variation) with a guard against peeking at the test split | agent | `[planned]` `evaluate.py` |
-| Threshold sweep on dev (tables of F1 vs. constant) | agent | `[planned]` `sweep.py` |
-| Synthetic flaws with exact labels (time-stretch, gain change, inserted silence) | agent | `[planned]` `make_synthetic_flaws.py` |
-| Loudness normalisation change (§8.3) | agent | `[exists]` since 2026-10-11 (DEC-036) |
-| Energy-rule smoothing over 0.5 to 1 s windows (TASK-128) | agent | `[planned]`, needs approval |
-| Retire the schema fixtures when real data arrives; `.gitignore` for audio | agent | `[exists]` (TASK-126, 2026-10-13) |
+| Recording plan sheet (take list, shuffled order, stretches, target durations, on-screen prompter page) | tool | `[exists]` `make_plan.py` (target durations are estimates at 150 words a minute until a speaker's own baseline takes are measured) |
+| Audio quality check (format, clipping, noise floor, silence, duration, hum) | tool | `[exists]` `check_recordings.py` |
+| Hashing, metadata, alignment with the passage text, manifest and `speakers.json`/`passages.json` handling | tool | `[exists]` `prepare_recordings.py` (WhisperX must run on your machine; first real run pending) |
+| Planned stretch → annotation JSON (proposed), "was the flaw performed" check, word and flaw labels for Audacity | tool | `[exists]` `prepare_recordings.py` + `take_checks.py`; Audacity-label → JSON conversion (workflow B) is not built |
+| Environment check and model download | tool | `[exists]` `scripts/check_environment.py` |
+| Loudness normalisation change (§8.3) | tool | `[exists]` since 2026-10-11 |
+| Retire the schema fixtures when real data arrives; `.gitignore` for audio | tool | `[exists]` (2026-10-13) |
 
 ---
 

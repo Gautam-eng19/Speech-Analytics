@@ -1,4 +1,4 @@
-"""Unit tests for audio preprocessing service (TASK-013)."""
+"""Unit tests for audio preprocessing service."""
 from __future__ import annotations
 
 import io
@@ -111,7 +111,7 @@ def test_mp3_input_decoding():
     assert len(res.audio_array) > 0
     # Expected duration close to 1.0s (resampled to 16 kHz)
     assert 0.9 <= res.duration_s <= 1.1
-    # Verify loudness scaling (DEC-036): a steady sine has its peak 3 dB above its RMS, so the median speech level -26 dBFS puts the peak at -23
+    # Verify loudness scaling: a steady sine has its peak 3 dB above its RMS, so the median speech level -26 dBFS puts the peak at -23
     assert math.isclose(res.peak_dbfs, -23.0, abs_tol=0.3)
     assert math.isclose(speech_level_dbfs(res.audio_array, res.sample_rate_hz, 30.0), -26.0, abs_tol=0.3)
     # Check deterministic hash exists and non-empty
@@ -212,7 +212,7 @@ def test_speech_level_normalization_sets_the_target_level():
 
 
 def test_speech_level_normalization_keeps_differences_inside_the_recording():
-    """The point of DEC-036: a loud stretch stays exactly as loud as it was relative to the rest, and the rest is barely pushed down by it."""
+    """The point of a loud stretch stays exactly as loud as it was relative to the rest, and the rest is barely pushed down by it."""
     sr = 16000
     third = len(_speechlike()) // 3
     rms = lambda x: float(np.sqrt(np.mean(x ** 2)))
@@ -325,7 +325,7 @@ def test_all_silence_audio_edge_case():
 
 
 # ---------------------------------------------------------------------------
-# TASK-013A: source-time provenance of silence trimming
+# source-time provenance of silence trimming
 # ---------------------------------------------------------------------------
 
 TARGET_SR = 16000
@@ -333,7 +333,7 @@ VAD_FRAME_S = 0.02  # trim_silence frame size; offsets are frame-quantized
 
 
 def _legacy_trim_silence(audio, sample_rate, threshold_dbfs=-50.0, frame_duration_ms=20.0):
-    """Verbatim copy of trim_silence() as it was before TASK-013A (regression oracle)."""
+    """Verbatim copy of trim_silence() as it was before the trim provenance change (regression oracle)."""
     if len(audio) == 0:
         return audio
     frame_length = max(1, int(sample_rate * (frame_duration_ms / 1000.0)))
@@ -519,7 +519,7 @@ def test_find_active_span_results():
 
 
 def test_trim_silence_unchanged_from_legacy_behavior():
-    """trim_silence() must be value- and dtype-identical to its pre-TASK-013A implementation."""
+    """trim_silence() must be value- and dtype-identical to its earlier implementation."""
     rng = np.random.default_rng(1234)
     sr = TARGET_SR
     frame = int(sr * VAD_FRAME_S)

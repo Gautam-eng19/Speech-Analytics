@@ -224,7 +224,7 @@ def test_pause_evidence_and_bounding_words(grounded, baseline):
         ev.pause_z_score, abs=1e-2)
     assert ev.boundary_type.value == "within_phrase"
     assert pause.affected_words == ("w19", "w20")
-    assert pause.severity == pytest.approx(ev.pause_delta_s / 3.5, abs=1e-3)       # DEC-040: size of the excess over the baseline's mean pause, 3.5 s = maximum
+    assert pause.severity == pytest.approx(ev.pause_delta_s / 3.5, abs=1e-3)       # size of the excess over the baseline's mean pause, 3.5 s = maximum
     assert pause.rule.feature == "pause_z" and pause.rule.threshold_z == 2.0
 
 

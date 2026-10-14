@@ -1,4 +1,4 @@
-"""Custom passages (DEC-044): a user's own passage text and 2 to 6 of their own baseline recordings become a baseline the ordinary analysis uses.
+"""Custom passages: a user's own passage text and 2 to 6 of their own baseline recordings become a baseline the ordinary analysis uses.
 
 Synthetic readings of the real passage p001 (tests/dataset_takes.human_layout) stand in for the user's recordings, the stand-in aligner finds the word
 bursts, and a stand-in recogniser says what was "heard". Everything else is real: the service, the baseline builder shared with the dataset tool, the

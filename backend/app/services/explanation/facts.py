@@ -1,4 +1,4 @@
-"""Fact sheet: the only numbers an explanation may use (TASK-070; ARCHITECTURE.md §22).
+"""Fact sheet: the only numbers an explanation may use.
 
 `build_fact_sheet(flaw)` formats every number that can appear in a flaw's explanation or recommendation, ONCE,
 from the grounded evidence, the detection rule and the flaw interval. Templates insert these strings verbatim;

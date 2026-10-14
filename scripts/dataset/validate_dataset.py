@@ -172,7 +172,7 @@ class DatasetValidator:
         test_speakers = {s for s, sp in speaker_splits.items() if sp == "test"}
         overlap = dev_speakers.intersection(test_speakers)
         if overlap:
-            self.errors.append(f"CRITICAL: Speaker overlap between dev and test: {overlap}. Rule DEC-017 violated.")
+            self.errors.append(f"CRITICAL: Speaker overlap between dev and test: {overlap}. Rule  violated.")
 
         return speaker_splits
 

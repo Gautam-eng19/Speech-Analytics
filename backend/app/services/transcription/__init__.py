@@ -1,4 +1,4 @@
-"""Transcription service package (TASK-021, ARCHITECTURE.md §7.2, §11).
+"""Transcription service package.
 
 Public surface:
     WhisperTranscriber  — service class

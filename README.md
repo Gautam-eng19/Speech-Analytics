@@ -32,7 +32,7 @@
 
 ## Contents
 
-[Overview](#overview) · [Features](#features) · [Screenshots](#screenshots) · [How it works](#how-it-works) · [Flaw types](#flaw-types) · [Tech stack](#tech-stack) · [Project structure](#project-structure) · [Quick start](#quick-start) · [Using the dashboard](#using-the-dashboard) · [Configuration](#configuration) · [API reference](#api-reference) · [Running the tests](#running-the-tests) · [Dataset kit](#dataset-kit) · [Documentation](#documentation) · [Engineering rules](#engineering-rules) · [Roadmap](#roadmap) · [AI-assisted development](#ai-assisted-development) · [Privacy and consent](#privacy-and-consent) · [Acknowledgements and licence](#acknowledgements-and-licence)
+[Overview](#overview) · [Features](#features) · [Screenshots](#screenshots) · [How it works](#how-it-works) · [Flaw types](#flaw-types) · [Tech stack](#tech-stack) · [Project structure](#project-structure) · [Quick start](#quick-start) · [Using the dashboard](#using-the-dashboard) · [Configuration](#configuration) · [API reference](#api-reference) · [Running the tests](#running-the-tests) · [Dataset kit](#dataset-kit) · [Documentation](#documentation) · [Engineering principles](#engineering-principles) · [Roadmap](#roadmap) · [Privacy and consent](#privacy-and-consent) · [Acknowledgements and licence](#acknowledgements-and-licence)
 
 ## Overview
 
@@ -290,8 +290,6 @@ flowchart LR
 ```text
 speechdummy/
 ├── README.md
-├── ARCHITECTURE.md           the canonical design
-├── DECISIONS.md              design decisions with their reasons
 ├── requirements.txt          Python dependencies
 ├── .env.example              optional settings
 ├── backend/
@@ -576,25 +574,17 @@ Recordings go in `data/incoming/` (or any folder) and are never committed. `scri
 | [`docs/setup.md`](docs/setup.md) | Environment setup, dependencies, baselines, notes for the first real run |
 | [`docs/architecture/api-contract.md`](docs/architecture/api-contract.md) | The API contract (1.3.0) |
 | [`docs/architecture/frontend.md`](docs/architecture/frontend.md) | The dashboard's architecture and design system |
-| [`docs/architecture/architecture-proposal.md`](docs/architecture/architecture-proposal.md) | The original architecture proposal |
 | [`docs/methodology/dataset-guide.md`](docs/methodology/dataset-guide.md) | How to record, check, register and evaluate a dataset, in plain language |
 | [`docs/methodology/recording-protocol.md`](docs/methodology/recording-protocol.md) | The recording protocol and quality gates |
 | [`docs/methodology/dataset-schema.md`](docs/methodology/dataset-schema.md) | Dataset files and fields |
 | [`docs/methodology/consent-form-template.md`](docs/methodology/consent-form-template.md) | A consent form for people who are recorded |
-| [`docs/submission/`](docs/submission) | Hackathon submission material: demo video script, Devpost description draft, checklist |
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | The canonical design |
-| [`DECISIONS.md`](DECISIONS.md) | Every design decision with its reason |
-| [`AGENTS.md`](AGENTS.md) | The project constitution |
 
-## Engineering rules
-
-[`AGENTS.md`](AGENTS.md) governs how this repository is developed. The rules that shape the product:
+## Engineering principles
 
 - **Deterministic numbers.** Feature extraction, normalisation, comparison, detection, severity and scoring are deterministic. Randomness never affects a score.
-- **LLM boundary.** An LLM may phrase already-computed evidence; it must never invent timestamps, values, percentages, severities, scores or evidence. Today none is used.
-- **Evidence before explanation.** No explanation without measurable evidence.
+- **Evidence before explanation.** No explanation without measurable evidence; an LLM, if one is ever added, may only phrase already-computed evidence.
 - **One implementation per concept.** Pitch lives in `services/features/`, scoring in `services/scoring/`, grounding in `services/grounding/`, schemas in `schemas/`. The frontend consumes the canonical backend output and never recomputes it.
-- **No silent changes** to the pipeline, scoring method, API contract or flaw taxonomy; each is recorded in `DECISIONS.md`.
+- **Stable contract.** The API contract is versioned, and the dashboard's types are generated from it.
 - **Explicit configuration.** Every analysis parameter is a named setting.
 
 ## Roadmap
@@ -602,16 +592,6 @@ Recordings go in `data/incoming/` (or any folder) and are never committed. `scri
 - Detection of pitch instability and reduced vocal clarity.
 - Coaching phrased by an LLM that receives only the measured fact sheet and must pass the same number guard.
 - More speakers and passages in the dataset kit.
-
-## AI-assisted development
-
-This project was built with substantial help from AI coding agents (Claude Code), and the repository is organised so that help stays safe and auditable:
-
-- **A constitution.** [`AGENTS.md`](AGENTS.md) tells every agent which files to read first, to work on one task at a time within a stated file scope, never to change the architecture, pipeline, scoring, API contract or flaw taxonomy silently, and to say "Architectural decision required" when unsure.
-- **Human decisions on record.** [`DECISIONS.md`](DECISIONS.md) states for each decision whether the team leader approved it or an agent decided it under delegated authority, which the leader may revise.
-- **No AI in the numbers.** All analysis is deterministic code, and no LLM runs when the product runs. AI assistance went into writing, testing and documenting that code, never into producing a result a user sees.
-- **Tests as the safety net.** The analytical modules have tests for normal input, edge cases, invalid input and repeated-run determinism, and several were checked by injecting bugs to see whether the tests noticed.
-- **Human oversight.** The team leader approves architectural decisions, and the recordings are the team's own.
 
 ## Privacy and consent
 

@@ -63,12 +63,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Recordings of people stay out of git (AGENTS.md section 22, recording protocol decision 3). The dataset metadata, annotations and
+# Recordings of people stay out of git (recording protocol decision 3). The dataset metadata, annotations and
 # baseline statistics are committed; the audio lives on the team's shared drive. data/incoming/ is a drop folder for fresh exports.
 data/raw/*
 !data/raw/.gitkeep
 data/incoming/
-# Custom passages and their baselines come from users' own recordings and text (DEC-044): never committed.
+# Custom passages and their baselines come from users' own recordings and text: never committed.
 data/custom/
 # Personal copies of the recording plan (for example made with --done after the pilot) are not committed.
 data/plan/local/

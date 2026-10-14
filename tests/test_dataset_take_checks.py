@@ -1,4 +1,4 @@
-"""Tests for scripts/dataset/take_checks.py (TASK-126): alignment plausibility and "was the planned flaw performed".
+"""Tests for scripts/dataset/take_checks.py: alignment plausibility and "was the planned flaw performed".
 
 Hand-built alignments and tone signals with known levels. Covers a clean alignment, every warning and failure of the plausibility check
 (word count, word text, untimed words, edges, scores, coverage) on both sides of its limit, the word and gap geometry, the loudness

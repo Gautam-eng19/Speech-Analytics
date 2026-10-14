@@ -1,12 +1,12 @@
-"""Tests for scripts/dataset/evaluate_takes.py (TASK-127a, DEC-039).
+"""Tests for scripts/dataset/evaluate_takes.py.
 
 The matching and the report are tested on hand-made intervals; the replay is tested on synthetic takes registered with a stand-in aligner, so the
 real analysis (preprocessing, features, baseline comparison, grounding, scoring) runs without any speech model. Covers the 50 % rule on both sides of its
 limit, best-overlap pairing and single use of a detection, boundary-error signs, extra detections, the summary and the report text, annotation status,
 what is selected (dev only, no baseline takes, the sealed test split), takes that cannot be replayed, the file written with --json, determinism, the
-sweep table that compares several values of a setting (DEC-040), and what helps a person judge the findings: where each extra flag lies against the planned
+sweep table that compares several values of a setting, and what helps a person judge the findings: where each extra flag lies against the planned
 flaws, why a planned flaw was missed (the registration check and the measured change), the list of places to listen to first, and the Audacity labels of the
-detections (DEC-041).
+detections.
 """
 from __future__ import annotations
 
@@ -148,7 +148,7 @@ def test_the_report_names_every_finding_miss_extra_and_failure():
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------
-# Helping a person judge the findings (DEC-041)
+# Helping a person judge the findings
 # ---------------------------------------------------------------------------------------------------------------------------------
 
 def test_an_extra_is_told_apart_by_where_it_lies_against_the_planned_flaws():

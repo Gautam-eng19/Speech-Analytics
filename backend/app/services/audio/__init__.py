@@ -1,4 +1,4 @@
-"""Audio service package exports (ARCHITECTURE.md §7.1)."""
+"""Audio service package exports."""
 from .preprocessor import (
     AudioPreprocessingError,
     AudioPreprocessor,

@@ -1,4 +1,4 @@
-"""Analysis pipeline orchestration (ARCHITECTURE.md §4, §6, §23, §26; DEC-016, DEC-019, DEC-023, DEC-029, DEC-032).
+"""Analysis pipeline orchestration.
 
 `AnalysisPipeline.analyze(audio_bytes, request)` runs the canonical pipeline once, synchronously, and returns the public
 `AnalysisResult`:
@@ -11,12 +11,12 @@ evaluated. It contains no analytics of its own.
 
 Key properties
     * Time: stages work in processed-audio time. All times in the result are converted to SOURCE time (the uploaded recording's
-      timeline) exactly once, by adding `PreprocessedAudio.trim_start_s` while assembling the result (DEC-023, DEC-029).
+      timeline) exactly once, by adding `PreprocessedAudio.trim_start_s` while assembling the result.
     * Honesty: everything not evaluated or limited is listed in `AnalysisResult.notes` (unavailable features, features left out
       of the score, thin baselines, a transcript that does not match the passage, alignment warnings, uncalibrated thresholds).
     * Reproducibility: the cache key covers the audio, its trim offset, the baseline, the transcript override, all versions, a
       fingerprint of every analytical constant in effect and the library versions; the `analysis_id` is derived from it.
-    * One analysis at a time (a lock): the Whisper/WhisperX models are shared and the work is CPU-bound (DEC-016).
+    * One analysis at a time (a lock): the Whisper/WhisperX models are shared and the work is CPU-bound.
     * Models are injected (`transcriber`, `aligner`), created lazily on first use otherwise, so the logic is testable without them.
 
 Errors are reported as `PipelineError(code, detail)`, mapped onto the public `ErrorCode`s; unexpected exceptions are not
@@ -155,7 +155,7 @@ def analysis_config_fingerprint(config: PipelineConfig) -> str:
 
 
 def library_versions() -> Dict[str, Optional[str]]:
-    """Installed versions of the libraries whose numerics can change results (ARCHITECTURE.md §26.5)."""
+    """Installed versions of the libraries whose numerics can change results."""
     versions: Dict[str, Optional[str]] = {}
     for name in ("numpy", "scipy", "librosa", "av", "openai-whisper", "whisperx", "torch"):
         try:

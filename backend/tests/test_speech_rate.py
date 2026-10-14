@@ -1,4 +1,4 @@
-"""Unit and contract tests for rolling-window speech-rate extraction (TASK-033, DEC-020).
+"""Unit and contract tests for rolling-window speech-rate extraction.
 
 Covers:
 - Exact WPM values against hand-computed windows (rolling-window formula)
@@ -65,7 +65,7 @@ def test_second_window_uses_step_grid_and_effective_span():
 
 
 def test_rate_is_not_inverse_of_individual_word_duration():
-    # Same word timing pattern except one very long word: DEC-020 uses the span of the
+    # Same word timing pattern except one very long word: the rate uses the span of the
     # window, so doubling a single word's duration changes the span only through `end`.
     base = _uniform(20, 0.4)
     longer = list(base)

@@ -1,4 +1,4 @@
-"""Deterministic delivery scoring (TASK-060, TASK-061, TASK-062; ARCHITECTURE.md §20; DEC-014 as amended by DEC-030).
+"""Deterministic delivery scoring.
 
 The score summarises how many and how severe the detected deviations from the BASELINE are. It is not a
 speech-quality or intelligibility score, it says nothing about content, and it is not calibrated (all
@@ -7,7 +7,7 @@ dimensions that were evaluated".
 
 Per feature (speech_rate, pitch, pauses, energy, mfcc, clarity):
 
-    penalty(flaw)   = BASE_PENALTY * severity * reliability          (duration is already inside severity; DEC-028)
+    penalty(flaw)   = BASE_PENALTY * severity * reliability          (duration is already inside severity)
     penalty_total   = sum of its flaws' penalties (rounded to 2 dp)
     sub_score       = max(0, 100 - penalty_total)
 
@@ -52,7 +52,7 @@ FEATURE_FOR_FLAW: Mapping[FlawType, FeatureName] = {
     FlawType.REDUCED_CLARITY: FeatureName.CLARITY,
 }
 
-# Flaw types of the P0 scope (DEC-013). A feature is evaluated only if all of ITS P0 types were checked.
+# Flaw types of the P0 scope. A feature is evaluated only if all of ITS P0 types were checked.
 _P0_FLAW_TYPES = frozenset(
     {
         FlawType.TOO_FAST,

@@ -1,4 +1,4 @@
-"""Unit and contract tests for Fundamental Frequency (Pitch/F0) Feature Extraction (TASK-030).
+"""Unit and contract tests for Fundamental Frequency (Pitch/F0) Feature Extraction.
 
 Covers:
 - Deterministic repeated extraction
@@ -40,7 +40,7 @@ def _generate_sine(
 
 
 def test_deterministic_repeated_extraction() -> None:
-    """Verify same input + same configuration produces bit-identical outputs (ARCHITECTURE.md §2)."""
+    """Verify same input + same configuration produces bit-identical outputs."""
     sr = 16000
     # Create multi-frequency composite signal
     audio = _generate_sine(180.0, duration_s=0.5, sample_rate=sr) + 0.3 * _generate_sine(
