@@ -15,7 +15,7 @@ audio → preprocessing → transcription → forced alignment → feature extra
 
 ## Status (2026-10-13)
 
-Working and tested (1304 backend and 293 dashboard tests, on synthetic speech):
+Working and tested (1369 backend and 296 dashboard tests, on synthetic speech):
 
 - audio preprocessing with source-time provenance, Whisper transcription, WhisperX alignment and validation
 - features: pitch (pYIN), MFCC, energy (dBFS), rolling-window speech rate, pauses (energy VAD + alignment gaps)
@@ -39,8 +39,10 @@ Working and tested (1304 backend and 293 dashboard tests, on synthetic speech):
 - the **evaluation tool** (`scripts/dataset/evaluate_takes.py`): replays registered takes through the real analysis without any speech model and measures, against the annotations, which flaws were found, how far off the start and end are, and how many false alarms a clean take gets; for a missed flaw it says how big the change really was and what the registration check said, tells a flag next to a planned flaw (a side effect of how it was performed) from one far away, lists what to listen to first and writes the detections as Audacity labels (`--labels`); `--sweep` compares several values of a setting in one table
 - **word-by-word comparison** (DEC-040): the baseline keeps how the same passage words were read (expected duration and level of every word, and how much a reading varies), and pace and loudness findings are runs of words judged against it, so a
   finding starts and ends on word boundaries and the content of the words is not mistaken for delivery
+- **flat pitch** (DEC-042): the same word profile also keeps how much the pitch moved on every word, so a stretch or a whole reading that is more monotone than the baseline readers read the same words is reported with the movement in Hz,
+  the baseline's movement on the same words and where it happened (tried on synthetic speech with a real pitch tracker; no real monotone recording exists yet)
 
-Not done yet: `flat_pitch` detection, an LLM explanation provider. The in-browser recorder has only been tried with Chromium's fake
+Not done yet: `pitch_instability` detection, an LLM explanation provider. The in-browser recorder has only been tried with Chromium's fake
 microphone, not with a real microphone, Safari, Firefox or a phone. There are **no recordings** in the repository,
 so detection thresholds and weights are uncalibrated starting values and nothing has been evaluated on real speech. The real
 Whisper/WhisperX models were not run in the development sandbox: the pipeline is tested end to end with stand-ins for those two

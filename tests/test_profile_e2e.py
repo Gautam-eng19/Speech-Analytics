@@ -106,6 +106,7 @@ def test_registration_builds_the_word_profile_and_says_so(registered: World):
     assert 0.1 < profile.rate_noise.word < 0.35 and 1.0 < profile.level_noise.word < 4.0
     text = pr.render(registered.report, registered.data)
     assert "word-by-word profile: built (6 take(s) matched the passage text)" in text
+    assert profile.pitch is not None and "pitch profile: built" in text                          # the synthetic voice has a pitch, so flat pitch can be checked
 
 
 def test_every_planned_flaw_is_found_where_it_was_put(replay):

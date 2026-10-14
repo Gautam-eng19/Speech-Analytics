@@ -53,6 +53,7 @@ class Layout:
     lead_s: float = 0.8
     tail_s: float = 0.8
     pitches: List[float] = field(default_factory=list)
+    glides: List[float] = field(default_factory=list)       # semitones the pitch of word i rises over the word (negative: falls); none = all flat
 
     def times(self) -> List[Tuple[float, float]]:
         """True (start, end) of every word on the timeline of the written file."""
@@ -88,7 +89,9 @@ def normal_layout(words: Sequence[str], pace: float = 1.0, lead_s: float = 0.8, 
 def human_layout(words: Sequence[str], seed: int, *, passage_seed: int = 7, tempo: float = 1.0, word_sd: float = 0.20, gap_sd: float = 0.30,
                  take_sd: float = 0.04, drift_sd: float = 0.05, level_pos_sd_db: float = 3.0, level_take_sd_db: float = 1.5,
                  level_drift_sd_db: float = 1.0, level_word_sd_db: float = 2.0, amplitude: float = NORMAL_AMPLITUDE,
-                 lead_s: float = 0.8, tail_s: float = 0.8) -> Layout:
+                 lead_s: float = 0.8, tail_s: float = 0.8, expressive_pitch: bool = False, pitch_scale: float = 1.0, base_pitch_hz: float = 120.0,
+                 pitch_pos_sd_st: float = 2.5, pitch_glide_sd_st: float = 2.0, pitch_take_sd_st: float = 0.8, pitch_drift_sd_st: float = 0.8,
+                 pitch_word_sd_st: float = 0.8) -> Layout:
     """A reading by a person, for tests of the word-by-word comparison: what a word is decides how long it takes and how loud it is.
 
     Word length (letters) sets the duration, punctuation sets the pause after the word (0.59 s after a full stop, 0.36 s after a comma, 0.04 s
@@ -117,7 +120,29 @@ def human_layout(words: Sequence[str], seed: int, *, passage_seed: int = 7, temp
     level_db = stress_db + rng.normal(0.0, level_take_sd_db) + wander(level_drift_sd_db, 0.9) + rng.normal(0.0, level_word_sd_db, n)
     amplitudes = amplitude * 10 ** (level_db / 20)
     pitches = [118.0 + 9.0 * (i % 7) for i in range(n)]
-    return Layout(list(words), [float(d) for d in durations], [float(g) for g in gaps], [float(a) for a in amplitudes], lead_s, tail_s, pitches)
+    glides: List[float] = []
+    if expressive_pitch:
+        # The intonation of the PASSAGE (which words are stressed, which words rise or fall) is shared by every reading of it; each reading then
+        # differs by its register, a slow wander, word jitter and a little glide jitter. `pitch_scale` is how expressive the SPEAKER is (1.0 normal).
+        pitch_rng = np.random.default_rng(passage_seed + 1)
+        contour = pitch_rng.normal(0.0, pitch_pos_sd_st, n) * pitch_scale
+        glide_pattern = pitch_rng.normal(0.0, pitch_glide_sd_st, n) * pitch_scale
+        register = rng.normal(0.0, pitch_take_sd_st)
+        semitones = contour + register + wander(pitch_drift_sd_st, 0.9) + rng.normal(0.0, pitch_word_sd_st, n) * pitch_scale
+        pitches = [float(base_pitch_hz * 2.0 ** (s / 12.0)) for s in semitones]
+        glides = [float(g) for g in glide_pattern + rng.normal(0.0, 0.5 * pitch_scale, n)]
+    return Layout(list(words), [float(d) for d in durations], [float(g) for g in gaps], [float(a) for a in amplitudes], lead_s, tail_s, pitches, glides)
+
+
+def flatten_pitch(layout: Layout, first: int, last: int, scale: float = 0.1) -> Layout:
+    """Words first..last (1-based, as in the plan) are spoken in a monotone: their pitch moves only `scale` times as far from the reading's
+    median pitch as it did, and their glide shrinks the same way."""
+    median = float(np.median(layout.pitches))
+    for i in range(first - 1, last):
+        layout.pitches[i] = float(median * 2.0 ** (scale * math.log2(layout.pitches[i] / median)))
+        if layout.glides:
+            layout.glides[i] *= scale
+    return layout
 
 
 def speed_stretch(layout: Layout, first: int, last: int, factor: float) -> Layout:
@@ -142,10 +167,15 @@ def pause_after(layout: Layout, word: int, seconds: float) -> Layout:
     return layout
 
 
-def burst(duration_s: float, pitch_hz: float, amplitude: float, sr: int = SR) -> np.ndarray:
+def burst(duration_s: float, pitch_hz: float, amplitude: float, sr: int = SR, glide_st: float = 0.0) -> np.ndarray:
     n = int(round(duration_s * sr))
     t = np.arange(n) / sr
-    tone = sum(np.sin(2 * np.pi * pitch_hz * k * t) / k for k in range(1, 6))
+    if glide_st:
+        frequency = pitch_hz * 2.0 ** (glide_st * (t / max(duration_s, 1e-9) - 0.5) / 12.0)          # pitch glides linearly (in semitones) across the word
+        phase = 2 * np.pi * np.cumsum(frequency) / sr
+        tone = sum(np.sin(k * phase) / k for k in range(1, 6))
+    else:
+        tone = sum(np.sin(2 * np.pi * pitch_hz * k * t) / k for k in range(1, 6))
     fade = min(int(0.015 * sr), n // 2)
     envelope = np.ones(n)
     envelope[:fade] = 0.5 - 0.5 * np.cos(np.pi * np.arange(fade) / max(fade, 1))
@@ -161,7 +191,7 @@ def synth_take(layout: Layout, seed: int = 0, sr: int = SR) -> np.ndarray:
     pieces = [np.zeros(int(round(layout.lead_s * sr)))]
     for i, word in enumerate(layout.words):
         pitch = layout.pitches[i] if layout.pitches else 120.0
-        pieces.append(burst(layout.durations[i], pitch, layout.amplitudes[i], sr))
+        pieces.append(burst(layout.durations[i], pitch, layout.amplitudes[i], sr, layout.glides[i] if layout.glides else 0.0))
         if i < len(layout.gaps):
             pieces.append(np.zeros(int(round(layout.gaps[i] * sr))))
     pieces.append(np.zeros(int(round(layout.tail_s * sr))))

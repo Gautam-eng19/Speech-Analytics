@@ -31,6 +31,14 @@ is compared with their OWN pace and only local departures stand out; a reading t
 Level statistic: the word's level minus the profile's, minus the reading's own median difference, averaged over a run (positive = louder).
 Recordings are scaled to a common speech level (DEC-036), so only the pattern within the reading is comparable, never the overall level.
 
+Pitch movement (DEC-042), when the pitch track is given: the pitch of each voiced frame is expressed in semitones from the reading's OWN median
+pitch, so the speaker's register drops out and only how far the voice moves is left. A word's movement is the mean squared deviation (semitones
+squared) of its voiced frames, each deviation clipped at `deviation_clip_st` (a tracking error must not dominate), at least `MIN_MOVEMENT_ST2`
+(a word that does not move at all would give a zero, whose logarithm is not defined); a word needs `min_voiced_frames` voiced frames. The statistic
+of a run of words is ``0.5 * ln(sum of observed movement / sum of expected movement)``: the natural-log ratio of the root-mean-square movement
+(negative = the voice moved less than the baseline's did on the same words). The reading's own overall movement (median over runs of 10 words)
+is removed first, exactly as the overall pace is, so a reserved speaker is compared with their own range.
+
 Everything here is deterministic. The profile needs at least `PROFILE_MIN_TAKES` baseline readings that match the passage text; with fewer
 none is built and the analysis falls back to the overall statistics.
 """
@@ -38,14 +46,14 @@ from __future__ import annotations
 
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from difflib import SequenceMatcher
 from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 from scipy.optimize import nnls
 
-from app.schemas.contracts import NoiseModel, WordProfile
+from app.schemas.contracts import NoiseModel, PitchProfile, WordProfile
 
 PROFILE_MIN_TAKES = 3            # baseline readings needed: the expectation of one is built from the other readings (at least two)
 MIN_SLOT_S = 0.05                # a slot shorter than five frames is an alignment artefact, not a measurement
@@ -55,6 +63,8 @@ TEMPO_WINDOW_WORDS = 10          # run length of the overall-pace estimate (medi
 NOISE_GRID = (6, 10, 16, 26, 40, 60)   # run lengths at which the spread is measured; sigma(n) is fitted through them
 MIN_WINDOWS_PER_ROW = 5          # runs needed at one length before it counts for the fit
 DECIMALS = 6                     # stored precision, so the baseline file and its hash do not depend on last-bit differences
+MIN_MOVEMENT_ST2 = 0.01          # the smallest pitch movement a word can have (semitones squared, 0.1 semitone root mean square)
+MIN_PITCH_FRAMES_FOR_REFERENCE = 20   # voiced frames a reading needs for its median pitch to mean anything
 
 _TOKEN_PARTS = re.compile(r"[a-z']+")
 
@@ -97,6 +107,13 @@ class WordObservations:
     level_db: np.ndarray
     max_gap_s: float
     active_threshold_dbfs: float
+    # Pitch movement (DEC-042); None when no pitch track was given or it had too little voiced speech to give a reference.
+    pitch_movement_st2: Optional[np.ndarray] = None   # mean squared deviation of the word's voiced frames from the reading's median pitch; NaN = not measurable
+    pitch_voiced_frames: Optional[np.ndarray] = None  # voiced frames of each word
+    pitch_frames: Optional[np.ndarray] = None         # all frames of each word
+    pitch_reference_hz: float = math.nan              # the reading's median pitch
+    pitch_min_voiced_frames: int = 0
+    pitch_clip_st: float = math.nan
 
     @property
     def n_words(self) -> int:
@@ -107,15 +124,19 @@ class WordObservations:
         return int(np.count_nonzero(np.isfinite(self.start_s)))
 
 
-def measure_words(aligned: Any, energy: Any, *, max_gap_s: float, active_threshold_dbfs: float) -> WordObservations:
-    """Slot and level of every aligned word (see the module docstring).
+def measure_words(
+    aligned: Any, energy: Any, *, max_gap_s: float, active_threshold_dbfs: float,
+    f0: Any = None, pitch_min_voiced_frames: int = 5, pitch_deviation_clip_st: float = 6.0,
+) -> WordObservations:
+    """Slot and level of every aligned word, and with `f0` its pitch movement (see the module docstring).
 
-    `aligned` is an `AlignedTranscript` (or anything with a `words` list); `energy` an `EnergyExtractionResult` (`times_s`, `values_db`).
-    Words without a time, and a word followed by an untimed word, get no slot; they are never guessed.
+    `aligned` is an `AlignedTranscript` (or anything with a `words` list); `energy` an `EnergyExtractionResult` (`times_s`, `values_db`); `f0` an
+    `F0ExtractionResult` (`times_s`, `values_hz`, `voiced`) or None. Words without a time, and a word followed by an untimed word, get no slot;
+    they are never guessed.
 
     Raises:
         TypeError: `aligned` has no `words` list.
-        ValueError: the energy arrays are not one-dimensional and equal in length, or a parameter is not usable.
+        ValueError: the energy (or pitch) arrays are not one-dimensional and equal in length, or a parameter is not usable.
     """
     words = getattr(aligned, "words", None)
     if not isinstance(words, (list, tuple)):
@@ -159,7 +180,50 @@ def measure_words(aligned: Any, energy: Any, *, max_gap_s: float, active_thresho
         frames = values[lo:hi][active[lo:hi]]
         if len(frames) >= MIN_ACTIVE_FRAMES:
             level[i] = float(np.median(frames))
-    return WordObservations(tokens, start, end, slot, level, float(max_gap_s), float(active_threshold_dbfs))
+    observations = WordObservations(tokens, start, end, slot, level, float(max_gap_s), float(active_threshold_dbfs))
+    if f0 is None:
+        return observations
+    movement = _pitch_movement(f0, start, end, pitch_min_voiced_frames, pitch_deviation_clip_st)
+    if movement is None:
+        return observations
+    return replace(observations, **movement)
+
+
+def _pitch_movement(f0: Any, start: np.ndarray, end: np.ndarray, min_voiced_frames: int, clip_st: float) -> Optional[Dict[str, Any]]:
+    """The pitch part of `WordObservations` (a dict of its fields), or None if the pitch track has too little voiced speech."""
+    if not (isinstance(min_voiced_frames, int) and min_voiced_frames >= 1):
+        raise ValueError(f"pitch_min_voiced_frames must be an integer >= 1, got {min_voiced_frames}")
+    if not (math.isfinite(clip_st) and clip_st > 0.0):
+        raise ValueError(f"pitch_deviation_clip_st must be a positive finite number, got {clip_st}")
+    times = np.asarray(f0.times_s, dtype=np.float64)
+    values = np.asarray(f0.values_hz, dtype=np.float64)
+    voiced = np.asarray(f0.voiced, dtype=bool)
+    if times.ndim != 1 or times.shape != values.shape or times.shape != voiced.shape:
+        raise ValueError("f0.times_s, f0.values_hz and f0.voiced must be 1D arrays of equal length")
+    usable = voiced & np.isfinite(values) & (values > 0.0)
+    if int(np.count_nonzero(usable)) < MIN_PITCH_FRAMES_FOR_REFERENCE:
+        return None
+    reference = float(np.median(values[usable]))
+    semitones = np.full(len(values), np.nan)
+    semitones[usable] = 12.0 * np.log2(values[usable] / reference)
+    n = len(start)
+    movement = np.full(n, np.nan)
+    n_voiced = np.zeros(n, dtype=np.int64)
+    n_frames = np.zeros(n, dtype=np.int64)
+    for i in range(n):
+        if not math.isfinite(start[i]):
+            continue
+        lo = int(np.searchsorted(times, start[i], side="left"))
+        hi = int(np.searchsorted(times, end[i], side="right"))
+        frames = semitones[lo:hi]
+        frames = frames[np.isfinite(frames)]
+        n_frames[i], n_voiced[i] = hi - lo, len(frames)
+        if len(frames) >= min_voiced_frames:
+            movement[i] = max(MIN_MOVEMENT_ST2, float(np.mean(np.minimum(np.abs(frames), clip_st) ** 2)))
+    return {
+        "pitch_movement_st2": movement, "pitch_voiced_frames": n_voiced, "pitch_frames": n_frames, "pitch_reference_hz": reference,
+        "pitch_min_voiced_frames": int(min_voiced_frames), "pitch_clip_st": float(clip_st),
+    }
 
 
 # ------------------------------------------------------------------------------------------------ run statistics
@@ -181,6 +245,19 @@ def overall_tempo(observed: np.ndarray, expected: np.ndarray, window: int = TEMP
     if n < 1:
         return 0.0
     return float(np.median(window_log_ratio(observed, expected, n)))
+
+
+def movement_log_ratio(observed: np.ndarray, expected: np.ndarray, n: int) -> np.ndarray:
+    """The natural-log ratio of the root-mean-square pitch movement over every run of `n` words: ``0.5 * ln(sum observed / sum expected)``."""
+    return 0.5 * window_log_ratio(observed, expected, n)
+
+
+def overall_movement(observed: np.ndarray, expected: np.ndarray, window: int = TEMPO_WINDOW_WORDS) -> float:
+    """The reading's overall pitch movement against the expectation: the median of `movement_log_ratio` over runs of `window` words (negative = flatter)."""
+    n = min(window, len(observed))
+    if n < 1:
+        return 0.0
+    return float(np.median(movement_log_ratio(observed, expected, n)))
 
 
 def window_mean(values: np.ndarray, n: int) -> np.ndarray:
@@ -259,6 +336,8 @@ def build_word_profile(
         return None
     slot_rows: List[np.ndarray] = []
     level_rows: List[np.ndarray] = []
+    pitch_rows: List[np.ndarray] = []
+    pitch_settings: Optional[Tuple[int, float]] = None
     for obs in takes:
         idx = map_to_passage(obs.tokens, passage)
         timed = np.isfinite(obs.start_s)
@@ -271,6 +350,11 @@ def build_word_profile(
         level_row[idx[mapped]] = obs.level_db[mapped]
         slot_rows.append(slot_row)
         level_rows.append(level_row)
+        if obs.pitch_movement_st2 is not None:
+            pitch_row = np.full(n_words, np.nan)
+            pitch_row[idx[mapped]] = obs.pitch_movement_st2[mapped]
+            pitch_rows.append(pitch_row)
+            pitch_settings = pitch_settings or (obs.pitch_min_voiced_frames, obs.pitch_clip_st)
     if len(slot_rows) < PROFILE_MIN_TAKES:
         return None
     slot = np.vstack(slot_rows)
@@ -310,8 +394,34 @@ def build_word_profile(
     def rounded(values: np.ndarray) -> List[Optional[float]]:
         return [round(float(v), DECIMALS) if math.isfinite(v) else None for v in values]
 
+    pitch = _build_pitch_profile(pitch_rows, pitch_settings) if pitch_settings is not None and len(pitch_rows) >= PROFILE_MIN_TAKES else None
     return WordProfile(
         words=list(passage), slot_s=rounded(expected_slot), level_db=rounded(expected_level), n_takes=n_takes,
         rate_noise=rate_noise, level_noise=level_noise, tempo_sd=round(tempo_sd, DECIMALS),
         tempo_window_words=TEMPO_WINDOW_WORDS, max_gap_s=float(max_gap_s), active_threshold_dbfs=float(active_threshold_dbfs),
+        pitch=pitch,
+    )
+
+
+def _build_pitch_profile(rows: Sequence[np.ndarray], settings: Tuple[int, float]) -> Optional[PitchProfile]:
+    """The pitch part of the profile from the baseline readings' per-word pitch movement (None if there is not enough to fit the spread)."""
+    movement = np.vstack(rows)
+    expected = _column_mean(movement)
+    runs: List[Tuple[np.ndarray, np.ndarray]] = []
+    scales: List[float] = []
+    for b in range(len(rows)):
+        others = _column_mean(np.delete(movement, b, axis=0))
+        usable = np.isfinite(movement[b]) & np.isfinite(others)
+        if np.count_nonzero(usable) >= TEMPO_WINDOW_WORDS:
+            observed, expectation = movement[b][usable], others[usable]
+            scale = overall_movement(observed, expectation)
+            scales.append(scale)
+            runs.append((observed, expectation * math.exp(2.0 * scale)))
+    noise = _fit_noise({n: np.concatenate([movement_log_ratio(o, e, n) for o, e in runs]) if runs else np.empty(0) for n in NOISE_GRID})
+    if noise is None or not np.isfinite(expected).any():
+        return None
+    scale_sd = float(np.std(scales, ddof=1)) if len(scales) >= 2 else 0.0
+    return PitchProfile(
+        movement_st2=[round(float(v), DECIMALS) if math.isfinite(v) else None for v in expected], noise=noise, scale_sd=round(scale_sd, DECIMALS),
+        min_voiced_frames=int(settings[0]), deviation_clip_st=float(settings[1]),
     )

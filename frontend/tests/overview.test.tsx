@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { OverviewPage } from '@/features/overview/OverviewPage';
 import { analysisPath } from '@/app/router';
+import { noteMeta } from '@/lib/notesMeta';
 import { cleanResult, hesitantResult, loaded, mixedResult, tinyResult } from './fixtures';
 import { renderAsync, stubFetch, stubLayout } from './helpers';
 
@@ -35,11 +36,21 @@ describe('OverviewPage', () => {
     expect(window.location.hash).toBe(row.getAttribute('href'));
   });
 
-  it('says plainly when a dimension was not scored and why', async () => {
+  it('scores pitch when the baseline has a pitch profile (the demo baseline has one)', async () => {
     await renderAsync(<OverviewPage analysis={loaded(mixedResult)} />);
+    const pitch = screen.getByText('Pitch', { selector: '.dim__name' }).closest('.dim')! as HTMLElement;
+    const entry = mixedResult.scores.feature_scores.pitch!;
+    expect(pitch.querySelector('.dim__value')!.textContent).toBe(entry.score.toFixed(1));
+    expect(within(pitch).queryByText('not scored')).toBeNull();
+  });
+
+  it('says plainly when a dimension was not scored and why', async () => {
+    const { pitch: _left_out, ...scored } = mixedResult.scores.feature_scores;       // a baseline built before the pitch profile existed: the backend leaves pitch out and says why
+    const note = { code: 'pitch_not_scored', message: 'Pitch was not evaluated and is not part of the score: flat_pitch: the baseline has no pitch profile.' };
+    const withoutPitch = { ...mixedResult, scores: { ...mixedResult.scores, feature_scores: scored }, notes: [...(mixedResult.notes ?? []), note] };
+    await renderAsync(<OverviewPage analysis={loaded(withoutPitch)} />);
     const pitch = screen.getByText('Pitch', { selector: '.dim__name' }).closest('.dim')!;
     expect(within(pitch as HTMLElement).getByText('not scored')).toBeInTheDocument();
-    const note = mixedResult.notes!.find((n) => n.code === 'pitch_not_scored')!;
     expect(pitch.textContent).toContain(note.message);
   });
 
@@ -55,7 +66,8 @@ describe('OverviewPage', () => {
     await renderAsync(<OverviewPage analysis={loaded(mixedResult)} />);
     const panel = screen.getByRole('heading', { name: 'Notes and limitations' }).closest('.panel') as HTMLElement;
     for (const note of mixedResult.notes!) expect(within(panel).getByText(note.message)).toBeInTheDocument();
-    expect(within(panel).getByText(/2 notes · 1 caution/)).toBeInTheDocument();
+    const cautions = mixedResult.notes!.filter((n) => noteMeta(n.code).level === 'caution').length;
+    expect(within(panel).getByText(new RegExp(`${mixedResult.notes!.length} notes? · ${cautions} caution`))).toBeInTheDocument();
   });
 
   it('shows provenance with the full hashes one hover away', async () => {

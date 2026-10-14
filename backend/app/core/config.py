@@ -103,6 +103,19 @@ class Settings:
         self.SIGMA_FLOOR_LEVEL_DRIFT_DB: float = float(os.getenv("SIGMA_FLOOR_LEVEL_DRIFT_DB", "0.3"))
         self.SIGMA_FLOOR_LEVEL_WORD_DB: float = float(os.getenv("SIGMA_FLOOR_LEVEL_WORD_DB", "1.0"))
         self.SIGMA_FLOOR_TEMPO: float = float(os.getenv("SIGMA_FLOOR_TEMPO", "0.04"))
+        # Flat pitch, judged the same way (DEC-042): how far the pitch of the words moves around the reading's own median pitch (root mean square, in
+        # semitones, per word, deviations clipped at PITCH_DEVIATION_CLIP_ST so a tracking error cannot dominate; a word needs PITCH_MIN_VOICED_FRAMES
+        # voiced frames) against what the baseline readings did with the same words. A run is flat if its movement is more than Z_RUN_PITCH spreads
+        # AND at least MIN_FLAT_PITCH_CHANGE_PCT below the baseline's; a whole reading that moves GLOBAL_PITCH_CHANGE_PCT less is also reported as a
+        # whole. The spread is in natural-log ratio of the root-mean-square movement. PROPOSED, uncalibrated; no real flat-pitch recordings exist yet.
+        self.PITCH_MIN_VOICED_FRAMES: int = int(os.getenv("PITCH_MIN_VOICED_FRAMES", "5"))
+        self.PITCH_DEVIATION_CLIP_ST: float = float(os.getenv("PITCH_DEVIATION_CLIP_ST", "6.0"))
+        self.Z_RUN_PITCH: float = float(os.getenv("Z_RUN_PITCH", "4.5"))
+        self.MIN_FLAT_PITCH_CHANGE_PCT: float = float(os.getenv("MIN_FLAT_PITCH_CHANGE_PCT", "35.0"))
+        self.GLOBAL_PITCH_CHANGE_PCT: float = float(os.getenv("GLOBAL_PITCH_CHANGE_PCT", "45.0"))
+        self.SIGMA_FLOOR_PITCH_DRIFT: float = float(os.getenv("SIGMA_FLOOR_PITCH_DRIFT", "0.05"))
+        self.SIGMA_FLOOR_PITCH_WORD: float = float(os.getenv("SIGMA_FLOOR_PITCH_WORD", "0.30"))
+        self.SIGMA_FLOOR_PITCH_SCALE: float = float(os.getenv("SIGMA_FLOOR_PITCH_SCALE", "0.08"))
 
         # Severity (DEC-P006 Option A as amended by DEC-028). PROPOSED, uncalibrated.
         self.SEVERITY_Z_MIN: float = float(os.getenv("SEVERITY_Z_MIN", "1.0"))
@@ -113,6 +126,8 @@ class Settings:
         self.SEVERITY_RATE_SEVERE_RATIO: float = float(os.getenv("SEVERITY_RATE_SEVERE_RATIO", "2.0"))
         self.SEVERITY_ENERGY_SEVERE_DB: float = float(os.getenv("SEVERITY_ENERGY_SEVERE_DB", "15.0"))
         self.SEVERITY_PAUSE_EXCESS_SEVERE_S: float = float(os.getenv("SEVERITY_PAUSE_EXCESS_SEVERE_S", "3.5"))
+        # Flat pitch: the pitch moves this many times less than the baseline's (3.0: a third as much is the most serious).
+        self.SEVERITY_PITCH_FLAT_SEVERE_RATIO: float = float(os.getenv("SEVERITY_PITCH_FLAT_SEVERE_RATIO", "3.0"))
 
         # Pipeline honesty flags and baseline/content checks (DEC-032). PROPOSED, uncalibrated.
         self.THRESHOLDS_CALIBRATED: bool = os.getenv("THRESHOLDS_CALIBRATED", "false").strip().lower() in ("1", "true", "yes")

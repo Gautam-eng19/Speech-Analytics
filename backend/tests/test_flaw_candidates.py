@@ -281,8 +281,8 @@ def test_unsupported_and_unavailable_types_are_reported_not_silent():
     assert result.skipped["too_fast"] == "rate unavailable: not_provided"
     assert result.skipped["too_slow"] == "rate unavailable: not_provided"
     assert result.skipped["excessive_pause"] == "pauses unavailable: not_provided"
-    assert "within a window" in result.skipped["flat_pitch"]
-    assert "P1" in result.skipped["pitch_instability"] and "P1" in result.skipped["reduced_clarity"]
+    assert "word by word" in result.skipped["flat_pitch"]                      # judged only against the baseline's reading of the same words (DEC-042)
+    assert "not implemented" in result.skipped["pitch_instability"] and "P1" in result.skipped["reduced_clarity"]
     assert "low_energy" not in result.skipped                                  # energy not flagged unavailable here
 
 

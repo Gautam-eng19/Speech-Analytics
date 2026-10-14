@@ -911,6 +911,7 @@ Remaining:
 1. Listen to the places the report lists under "Listen to these first" (`evaluate_takes.py --labels` writes `<take>.detected.txt` for Audacity) and confirm or correct the annotations (`annotation_status: confirmed`); re-record a take whose registration check says it is a weak example. Re-run `--sweep` with `--confirmed-only`.
 2. Choose the final values from that table, record them (DEC), then freeze with `THRESHOLDS_CALIBRATED=true` and a CONFIG_VERSION bump.
 3. Decide, with the confirmed labels, whether a shorter minimum run (`RUN_MIN_WORDS` 8) or a size guard of 4 dB for loudness is worth its cost (the planned stretches are all whole sentences, so the current takes cannot show it).
+4. After rebuilding the baselines (DEC-042), look at the flat-pitch flags the same replay now produces on the real clean and flawed takes: any of them is either a stretch that really was flat or a pitch-tracking error, and the ear and Praat decide (TASK-135).
 
 \## TASK-126 — Registration and Labelling Tools
 
@@ -963,6 +964,35 @@ Priority: P1
 
 Notes:
 Found 2026-10-14 on the real replay (DEC-041): a take with one clear planned flaw scores 86 to 98 (a 3 s pause 90 to 92, a slow sentence 86 to 95, a loud sentence 92 to 98), a take with nothing found 100. The score subtracts points only for the flawed seconds of the affected feature (DEC-030: penalty = 30 x severity x reliability, mapped to the feature; sub-scores combined with weights), which is a defensible rule, but the scale is still the initial one and has never been compared with what a listener would call a good, a fair and a poor delivery. Decide with the leader what a score should mean (for example which score a take with one clear flaw, three clear flaws or a flaw in every sentence should get), then set the constants from the real dev takes and record it (DEC). Until then every score is indicative, as the analysis notes already say (`thresholds_uncalibrated`). Not started; the constants must not change without that decision: the scoring methodology is protected (AGENTS.md section 18).
+
+\## TASK-133 — Flat Pitch Detection
+
+Status: REVIEW
+
+Priority: P0
+
+Delivered (2026-10-14, DEC-042), after the comparison with a competing project's approach showed that `flat_pitch` was the one core flaw category the system still did not judge: the word profile of the baseline (DEC-040) now also keeps how much the pitch moved on every word (the pitch part, `word_profile.pitch`: expected movement of each passage word, a leave-one-out noise model, the spread of the speaker's overall expressiveness), and `profile_detection.py` scans runs of at least 10 words for less movement than the baseline readers showed on the same words (one-sided, so livelier speech is never flagged), plus one whole-reading finding. The finding carries the movement in Hz (participant and baseline on the same words), the z-score, the voiced share and the words; severity follows the size of the change (a third of the baseline's movement = 1.0); the explanation is a template that passes the number guard; pitch is now part of the score when it was judged and the note `pitch_not_judged` says why when it was not. The dashboard, the evaluation tool (`flat_pitch` is measured, explained and counted like the other kinds), the baseline builder, the registration report and the demo builder know the new part. 9 new settings (`Z_RUN_PITCH` 4.5 and others, all in `core/config.py`). Hash-compatible: a baseline without the pitch part keeps its hash and answers "flat pitch not checked".
+
+Known limitation:
+Not run on real recordings: no real monotone recording exists, the thresholds come from simulation (synthetic expressive speech analysed with the real pitch tracker: 0 of 40 clean readings flagged; a stretch spoken with 0.1 or 0.3 times the movement found 8 of 8, 0.5 times 4 of 8, 0.7 times 0 of 8 -- by design, a mild loss of intonation is not reported). Pitch trackers make octave and voicing errors on real voices, so the first real replay will show whether clean takes get flat-pitch flags. Baselines must be rebuilt (`prepare_recordings.py data\incoming --build-baseline`) to get the pitch part. Scores of takes that were judged for pitch changed (pitch is now weighted). `pitch_instability` is still not detected (TASK-134).
+
+\## TASK-134 — Pitch Instability Detection
+
+Status: BACKLOG
+
+Priority: P1
+
+Notes:
+The remaining unjudged flaw category with a measurable definition. It needs recordings of unstable pitch (a shaky or jumping voice) to calibrate against, as the instability of a stretch cannot be separated from ordinary intonation by a rule written without examples. Do not add a detector from simulation alone: record the examples first (TASK-135), then decide the statistic (for example the frame-to-frame jump of the pitch contour on voiced stretches against the baseline readers') in a decision record.
+
+\## TASK-135 — Record Flat-Pitch Examples and Check the Pitch Detection on Them
+
+Status: BACKLOG
+
+Priority: P0
+
+Notes:
+Two monotone takes per dev speaker and passage (one planned sentence, one whole passage; recording protocol 5.2 and 6), registered and replayed with `evaluate_takes.py` like the other kinds. Check: is the monotone stretch found (and where), do the clean takes stay quiet, how large was the change (`flat_pitch` is explained like the others). If clean takes are flagged, listen to the stretch and look at the pitch in Praat: the likely causes are tracker errors (octave jumps, voicing flicker), and the remedy is a setting (`Z_RUN_PITCH`, `MIN_FLAT_PITCH_CHANGE_PCT`) chosen with `--sweep`, not a new rule. Then freeze together with TASK-131.
 
 \---
 

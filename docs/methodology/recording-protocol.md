@@ -51,7 +51,7 @@ The five rules:
 | 3 | Where the audio lives | **Outside git** (shared drive); git keeps metadata, annotations, alignments, baseline statistics | Size (about 5 MB per take) and consent; `data/raw/` is *not* git-ignored today |
 | 4 | Loudness normalisation in the software | **Approved and implemented 2026-10-11 (DEC-036)**, see §8.3 | Peak scaling made a loud stretch look normal and pushed the rest of the take down |
 | 5 | Who annotates test takes | Someone who did not perform the take | Avoids the performer marking what they meant instead of what is audible |
-| 6 | `flat_pitch` takes | Optional now | The detector is not implemented yet; recording them costs little and the data stays useful |
+| 6 | `flat_pitch` takes | Optional now | The detector exists (DEC-042) but has only been tried on synthetic speech; two real monotone takes per speaker (one sentence, one whole passage) are what it needs to be checked and calibrated |
 | 7 | Consent and sharing | Written consent from every speaker (§13) | Voices are personal data (`AGENTS.md` §22) |
 
 ---
@@ -167,7 +167,7 @@ Baseline takes are recorded by **dev speakers only** and are the *only* recordin
 | Clean (`clean_01`…) | 2 | 3 | False-alarm measurement; speaker-variation check on test speakers |
 | Flawed | 10 | 10 | 5 flaw types × 2 takes |
 | **Reads of the passage** | **15** | **13** | |
-| Optional `flat_pitch` | +2 | +2 | Only if you want it now |
+| Optional `flat_pitch` | +2 | +2 | Recommended now: one monotone sentence, one monotone whole passage (DEC-042 needs real examples to be calibrated) |
 
 The 10 flawed takes per passage:
 
@@ -565,7 +565,7 @@ transcription errors and isolates the delivery analysis. Do both and compare.
 - **False-alarm rate:** share of `clean_control` takes with any predicted flaw (proposed target < 10 %).
 - **Speaker variation:** clean takes of every speaker scored against the dev baseline (proposed: composite above 75).
 - **Determinism:** run each take three times; `deterministic_json()` must be identical.
-- A flaw type the system does not implement (`flat_pitch`) is reported as "not implemented", not as a failure of the others.
+- A flaw type the system does not implement (`pitch_instability`) is reported as "not implemented", not as a failure of the others.
 - Report **dev and test separately** and **human and synthetic separately** (DEC-022). The F1 > 0.65 target is aspirational, not a gate.
 
 ### 12.4 Calibrate on dev only

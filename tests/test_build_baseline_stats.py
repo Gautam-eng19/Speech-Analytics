@@ -431,6 +431,15 @@ def test_the_profile_is_added_without_changing_any_overall_statistic():
     assert profiled.sha256 != plain.sha256 and profiled.verify_sha256() and plain.verify_sha256()
 
 
+def test_the_pitch_part_of_the_profile_is_built_when_the_recordings_have_pitch_movement_and_otherwise_left_out_without_harm():
+    text = " ".join(make_tokens())
+    with_pitch = bbs.aggregate_baseline_stats("p001", "1.0.0", _with_words(baseline_readings(pitch=True)), passage_text=text)
+    without = bbs.aggregate_baseline_stats("p001", "1.0.0", _with_words(baseline_readings()), passage_text=text)
+    assert with_pitch.word_profile.pitch is not None and without.word_profile.pitch is None and without.verify_sha256() and with_pitch.verify_sha256()
+    assert without.word_profile.model_dump(exclude={"pitch"}) == with_pitch.word_profile.model_dump(exclude={"pitch"})      # pace and loudness are profiled the same
+    assert with_pitch.sha256 != without.sha256
+
+
 def test_the_profile_is_repeatable_and_independent_of_the_order_of_the_recordings():
     text = " ".join(make_tokens())
     readings = baseline_readings()
@@ -517,7 +526,8 @@ def test_without_the_passage_text_or_with_two_recordings_the_baseline_is_built_w
 def test_the_command_line_says_whether_a_profile_was_built(tmp_path, capsys):
     data = _profile_dataset(tmp_path / "with", 3)
     assert bbs.main(["--data-dir", str(data), "--passage-id", "p001", "--splits", "dev"]) == 0
-    assert "word profile built" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "word profile built" in out and "pitch part" in out                                  # built, or said not to be (the synthetic voice has pitch)
     bare = _profile_dataset(tmp_path / "without", 3, passage_text=False)
     assert bbs.main(["--data-dir", str(bare), "--passage-id", "p001", "--splits", "dev"]) == 0
     assert "NO word profile" in capsys.readouterr().out

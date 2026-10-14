@@ -210,8 +210,8 @@ def test_the_notes_of_an_annotation_are_read_with_it(copy: World):
 RULES = DetectionConfig()
 
 
-def stretch(rate=None, level=None, reason=None):
-    return StretchReading(rate, level, reason)
+def stretch(rate=None, level=None, reason=None, pitch=None):
+    return StretchReading(rate, level, reason, pitch)
 
 
 def test_a_stretch_below_the_limits_is_described_with_its_size_its_z_and_the_limits():
@@ -249,6 +249,56 @@ def test_a_stretch_that_changed_the_wrong_way_a_stretch_that_passes_every_limit_
     on_the_limit = ev.describe_stretch("too_fast", stretch(SignalReading(10, 60.0, 9.0)), RULES)                                    # exactly the words a finding needs
     assert "passes all three" in on_the_limit and "this stretch has only" not in on_the_limit
     assert "this stretch has only 9" in ev.describe_stretch("too_fast", stretch(SignalReading(9, 60.0, 9.0)), RULES)
+
+
+def test_a_planned_flat_pitch_stretch_is_described_by_how_much_less_the_pitch_moved():
+    text = ev.describe_stretch("flat_pitch", stretch(pitch=SignalReading(14, -22.4, -2.1)), RULES)
+    assert text == ("those 14 words moved the pitch 22% less than the baseline readers moved it on the same words (z 2.1); a finding needs a change of at "
+                    f"least {RULES.min_flat_pitch_change_pct:g}% with z above {RULES.z_run_pitch:g} over at least 10 words")
+    assert ev.describe_stretch("flat_pitch", stretch(SignalReading(14, 50.0, 5.0), SignalReading(14, 5.0, 5.0)), RULES).startswith("too few words")     # no pitch reading
+    wrong = ev.describe_stretch("flat_pitch", stretch(pitch=SignalReading(14, 40.0, 6.0)), RULES)
+    assert "40% more than" in wrong and wrong.endswith(". That is the opposite of what was planned")
+
+
+def test_a_flat_pitch_stretch_that_passes_every_limit_is_said_to_be_held_back_and_the_size_boundary_is_included():
+    limit = RULES.min_flat_pitch_change_pct
+    passes = ev.describe_stretch("flat_pitch", stretch(pitch=SignalReading(20, -limit, -9.0)), RULES)
+    assert passes.endswith("send this line to the developer") and "passes all three" in passes
+    assert "passes all three" not in ev.describe_stretch("flat_pitch", stretch(pitch=SignalReading(20, -limit + 0.1, -9.0)), RULES)
+    assert "passes all three" not in ev.describe_stretch("flat_pitch", stretch(pitch=SignalReading(20, -60.0, -RULES.z_run_pitch)), RULES)
+    assert "(this stretch has only 8)" in ev.describe_stretch("flat_pitch", stretch(pitch=SignalReading(8, -60.0, -9.0)), RULES)
+
+
+def test_the_flat_pitch_settings_can_be_changed_and_the_sweep_names_the_column():
+    cfg = ev.detection_config(["z_run_pitch=5", "min_flat_pitch_change_pct=40", "global_pitch_change_pct=50"])
+    assert (cfg.z_run_pitch, cfg.min_flat_pitch_change_pct, cfg.global_pitch_change_pct) == (5.0, 40.0, 50.0)
+    with pytest.raises(ev.EvaluationError, match="min_flat_pitch_change_pct"):
+        ev.detection_config(["min_flat_pitch_change_pct=100"])
+    assert ev.SHORT_TYPES["flat_pitch"] == "flat"
+    flawed = ev.TakeResult("rec_a_flaw_flat_01", "flawed_human_controlled", "spk_dev_01", 50.0, 80.0)
+    flawed.matches, flawed.extras = ev.match_flaws([A("flat_pitch", 10.0, 20.0, "proposed")], [det("flat_pitch", 11.0, 19.0)])
+    table = ev.render_sweep([("normal settings", ev.summarise([flawed]))], take_count=1)
+    assert " flat " in next(line for line in table.splitlines() if line.startswith("setting")) + " " and "1/1" in table
+
+
+def test_the_evidence_note_of_a_flat_pitch_finding_names_the_movement_in_hz():
+    from types import SimpleNamespace
+
+    flat = SimpleNamespace(evidence=SimpleNamespace(f0_std_hz_in_window=4.84, f0_std_baseline_hz=10.36, f0_std_z=-4.24))
+    assert ev.evidence_note(flat) == "pitch movement 4.8 Hz against 10.4 expected, z -4.2"
+
+
+def test_a_missed_flat_pitch_stretch_is_measured_and_explained(tmp_path: Path):
+    profile, obs = make_profile(pitch=True), hand_reading(600, pitch=True, flat=[(30, 47, 0.8)])           # barely flatter: the pitch moves 20 % less
+    start, end = float(obs.start_s[30]), float(obs.end_s[47])
+    match = ev.Match(A("flat_pitch", start + 1.0, end + 1.0, "proposed"), None)
+    ev.Evaluator(tmp_path).explain_miss(match, [], obs, profile, 1.0)
+    line = match.why[-1]
+    assert line.startswith("measured by the analysis: those 18 words moved the pitch ") and "% less than the baseline readers moved it" in line
+    assert f"at least {RULES.min_flat_pitch_change_pct:g}%" in line and match.measured["pitch"]["n_words"] == 18 and match.measured["pitch"]["change"] < -10.0
+    old_baseline = ev.Match(A("flat_pitch", start, end, "proposed"), None)
+    ev.Evaluator(tmp_path).explain_miss(old_baseline, [], obs, make_profile(), 0.0)                     # a baseline whose profile has no pitch part
+    assert old_baseline.measured["pitch"] is None and "has no word profile" not in " ".join(old_baseline.why)
 
 
 def test_a_stretch_the_profile_could_not_judge_is_described_by_the_reason():

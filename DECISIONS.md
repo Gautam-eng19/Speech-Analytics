@@ -1302,6 +1302,61 @@ Impact:
 Approved by: Team leader (delegated to coding agent)
 Date: 2026-10-14
 
+## DEC-042 — Flat Pitch Is Judged With the Word Profile (Pitch Part of the Profile)
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Why:
+- After DEC-040 and DEC-041 the five categories that were planned for recording were judged, but `flat_pitch`, a core category of AGENTS.md section 5 and of the problem definition, was still reported as "not implemented", and the pitch feature was left out of the score. A comparison with another team's
+  project on the same track (2026-10-14; ideas only, nothing copied) showed that they do judge pitch against the reference for the same content; leaving it out was the largest visible functional gap.
+- The reason it had been deferred is real (PROJECT_STATE: "BaselineStats has only the pooled global F0 std; a valid detector needs a baseline statistic of F0 variation within a window"). The word profile of DEC-040 solves exactly that: it already stores, for every word of the passage, what the same
+  readers did on that word, with a noise model that says how much a reading may vary. Pitch movement fits the same machinery.
+- Not adopted: pooled F0 standard deviation in Hz (depends on the speaker's register, and a speaker with a low voice would look monotone), and comparing pitch contours point by point (reading the same words with a different but natural melody would count as a flaw).
+
+Decision:
+- **Measure.** Per word: the mean over its voiced frames of clip(|semitones from the reading's own median pitch|, 6)^2, floor 0.01, only when the word has at least 5 voiced frames (otherwise the word is unusable for pitch). Semitones from the reading's own median remove the speaker's register; the clip stops a tracker's
+  octave error from dominating a word. Computed once, in `grounding/profile.py` (`measure_words`), for the baseline readings and for the participant alike.
+- **Profile.** `WordProfile.pitch` (`PitchProfile`: `movement_st2` per passage word, `noise` = drift/word, `scale_sd` = how much a reading's overall expressiveness varies, `min_voiced_frames`, `deviation_clip_st`), built when at least 3 readings have pitch, with the same leave-one-out noise model as pace and loudness
+  (sigma(n) = sqrt(drift^2 + word^2/n), fitted by non-negative least squares). Optional and hash-compatible: the canonical JSON leaves `pitch` out when absent, so every existing baseline keeps its hash and answers "flat pitch not checked" until it is rebuilt.
+- **Detection.** The same scan as pace and loudness over runs of at least 10 words, on the statistic 0.5 * ln(sum observed / (sum expected * exp(2 tau))), one-sided (only LESS movement counts; livelier speech is never a flaw), where tau is the median over 10-word runs of the participant's overall movement
+  against the baseline (so a speaker who is generally more or less expressive than the baseline readers is not flagged for it). A run is a finding when z is below -`Z_RUN_PITCH` (4.5) AND the RMS movement is at least `MIN_FLAT_PITCH_CHANGE_PCT` (35 %) smaller. A whole reading that moves at least `GLOBAL_PITCH_CHANGE_PCT` (45 %)
+  less AND whose overall movement is more than the threshold times max(`scale_sd`, 0.08) below the baseline's is reported as one finding over the recording (`rule.feature` `pitch_overall_z`); the best run wins, its words are removed, the scan repeats, exactly as for pace and loudness.
+  Floors keep a very regular baseline from producing impossible z-scores: drift 0.05, word 0.30, scale 0.08 (`SIGMA_FLOOR_PITCH_*`).
+- **Evidence and score.** The existing `FlatPitchEvidence` is reused without a contract change: `f0_std_hz_in_window` and `f0_std_baseline_hz` carry the movement as Hz above the median pitch of the reading (ref * (2^(rms_st/12) - 1)) for the participant and for the baseline readers on the same words, `f0_std_z` is negative,
+  `f0_voiced_fraction` the voiced share of the run. Severity: effect size ln of the ratio of baseline to observed movement divided by ln(3) (`SEVERITY_PITCH_FLAT_SEVERE_RATIO`: a third of the baseline's movement = 1.0) times the duration component. The explanation is a template (a run variant and a whole-reading variant) over the
+  fact sheet, so the number guard still applies. When flat pitch is judged by the profile, the `pitch` feature is no longer "skipped": it is evaluated and weighted like pace and loudness (`pitch_not_scored` and `f0_unavailable` no longer appear); when it is not judged the new note `pitch_not_judged` states why
+  (`transcript_mismatch`, `baseline_without_pitch_profile`, `pitch_not_measured` or `too_few_pitch_words`).
+- **Tools.** The baseline builder, registration report (`pitch profile: built` / `NOT built (reason)`), the evaluation tool (`flat_pitch` is measured over the planned words, explained when missed and counted in precision/F1 like the other kinds, `measure_stretch` includes pitch) and the demo builder use the same code.
+  The dashboard shows the evidence (movement in Hz against the baseline, z, voiced share), the help page explains it and the limits are stated on the baseline page.
+- `pitch_instability` stays "not implemented": it needs recordings of unstable pitch to calibrate against (TASK-134). No flaw category was added.
+
+Calibration (simulation only; no real flat-pitch recording exists):
+- Synthetic readings of the real passages whose pitch moves like a person's (shared intonation, each reading adds its own register, wander and word jitter; two speakers, one more reserved), analysed with the real pitch tracker (pYIN) and the stand-in aligner.
+- 40 clean readings with production code: **0 of 40 flagged** at `Z_RUN_PITCH` 4.0 and at 4.5. At 4.0 a stray extra range appeared next to the real one on a monotone take, at 4.5 it does not, so 4.5 was chosen (pace and loudness use 4.0 because their first real replay supported it; pitch has no real replay yet and the tracker adds noise, so it starts more careful).
+- A stretch spoken with 0.1 or 0.3 times the movement: **found 8 of 8**, at the right words (overlap at least 70 % of the planned sentence, start and end within 1.5 s); 0.5 times: 4 of 8; 0.7 times: 0 of 8. The last two are by design: the size guard says a flaw is a clearly smaller movement (35 % less), not any dip.
+- A reading that is flat as a whole is reported once, over the recording. An ordinary reading by the more reserved speaker is not flagged.
+
+Reason:
+Pitch must be judged against what the same words did, in semitones and relative to the reader, or a different voice would look like a flaw. One shared profile and one scan keep a single implementation (AGENTS.md section 11); reusing the evidence record keeps the API contract, so nothing downstream changes; keeping the pitch part optional keeps every
+existing baseline valid.
+
+Impact:
+- Backend: `core/config.py` and `.env.example` (9 settings), `schemas/contracts.py` (`PitchProfile`, `WordProfile.pitch`, hash-compatible canonical JSON), `grounding/profile.py`, `grounding/profile_detection.py`, `grounding/candidates.py`, `grounding/severity.py`, `grounding/flaws.py`, `explanation/facts.py`, `explanation/templates.py`, `pipeline.py`.
+  No API field changed: the rule features `pitch_run_z` and `pitch_overall_z` and the note code `pitch_not_judged` are new values (documented in `docs/architecture/api-contract.md`).
+- Tools: `scripts/dataset/build_baseline_stats.py`, `prepare_recordings.py`, `evaluate_takes.py`, `scripts/demo/build_demo_samples.py` (demo samples regenerated: the flawed samples' composite scores rose because pitch is now a scored feature, e.g. mixed-flaws 79.38 to 84.54; a clean probe of 10 gave no flat-pitch finding).
+- Dashboard: `evidence.ts`, `flawMeta.ts`, `FlawsPage`, `HelpPage`, `BaselinePage`, `notesMeta.ts` and their tests.
+- Baselines must be rebuilt to get the pitch part: `python scripts\dataset\prepare_recordings.py data\incoming --build-baseline` and look for `pitch profile: built`.
+- Tests (65 new; 1369 backend and 296 dashboard in all): 49 unit tests in `backend/tests/test_pitch_detection.py` (measurement, profile, hash compatibility, detection, `measure_stretch`, candidates, severity, evidence, explanation, settings) and one in `test_profile_detection.py` (notes),
+  nine end-to-end tests in `tests/test_pitch_e2e.py` (synthetic expressive readings, real pitch tracker: a monotone sentence is found where it was put, ordinary readings of both speakers are not flagged, a flat reading is one finding, the baseline without the pitch part says so, repeated runs are identical),
+  and updated tool tests (evaluation tool, baseline builder, registration report). A mutation check of the new code (53 injected bugs in the measurement, profile, detection, candidates, severity, evidence, notes and tools) first left 9 alive; tests were added for each and all are now caught except one
+  equivalent change (the sign of a difference that the explanation layer writes as an absolute number by design).
+- Docs: ARCHITECTURE.md 14.6, `docs/architecture/api-contract.md`, dataset guide, recording protocol (flat-pitch takes now recommended), README, PROJECT_STATE, TASKS (TASK-133 delivered; TASK-134, TASK-135 new).
+- Not verified: nothing was tried on a real monotone recording; pitch trackers make octave and voicing errors on real voices and room noise, so the first real replay may show flat-pitch flags on clean takes (the evaluation tool lists them under "Listen to these first"); the thresholds are from simulation; scores changed
+  for takes judged for pitch and are still uncalibrated (TASK-132).
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-14
+
 ---
 
 ## PROPOSED DECISIONS (require team approval before implementation)

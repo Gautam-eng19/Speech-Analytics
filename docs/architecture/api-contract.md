@@ -125,7 +125,7 @@ against that end. MP3 decoder delay is not compensated.
 
 ## Flaw grounding fields (1.1.0)
 - `rule`: why the finding was flagged: the normalized signal (`rate_z` / `energy_z` / `pause_z`; for a word-by-word comparison with the baseline (DEC-040) `rate_run_z`, `rate_overall_z` or
-  `energy_run_z`), the direction (`above` / `below`), `threshold_z` (signed) and `min_duration_s`. Thresholds are initial, uncalibrated values.
+  `energy_run_z`), the direction (`above` / `below`), `threshold_z` (signed) and `min_duration_s`. For flat pitch (DEC-042) the feature is `pitch_run_z` or `pitch_overall_z`, the direction is `below`, and `threshold_z` is `-Z_RUN_PITCH`. Thresholds are initial, uncalibrated values.
 - `affected_words`: words covered by the interval (rate/energy: midpoint inside the interval; pause: the word(s) it
   follows and precedes). The full alignment is in `alignment`.
 - `warnings`: plain-language limitations of that finding (e.g. a rate finding is narrowed from its rolling windows to the words that deviate and can still be off by a word or two).
@@ -138,6 +138,11 @@ against that end. MP3 decoder delay is not compensated.
   (first word start to last word end), `word_count_in_window` the words starting inside it. `rule.feature` is `rate_run_z`, `rate_overall_z` (the whole recording differs from the baseline readers' pace by more than readers
   differ among themselves; one finding over all comparable words) or `energy_run_z`; `rule.threshold_z` is the threshold for a run (`Z_RUN_RATE` / `Z_RUN_ENERGY`). `severity` follows the size of the change (twice as fast
   or half as fast, 15 dB, a pause 3.5 s longer than usual = 1.0) times the duration component, not the z-score.
+- **Flat pitch (DEC-042, no field changed).** A `flat_pitch` finding is a run of words (or, with `rule.feature` `pitch_overall_z`, the whole recording) whose pitch moved less than the baseline readings' pitch did on the
+  same words. The pitch of each voiced frame is taken in semitones from the recording's own median pitch; `f0_std_hz_in_window` is the root-mean-square distance from that median over the run, expressed as Hz above
+  the median pitch (the name keeps its contract-1.0 form: it is a movement, not a standard deviation of Hz), `f0_std_baseline_hz` is the same quantity for what the baseline readings did on these words (at the speaker's
+  own overall range), `f0_std_z` is negative (the voice moved less; the spread is that of a run of this many words between baseline readings), `f0_voiced_fraction` is the share of the run's frames that were voiced,
+  `window_duration_s` the span of the run. `severity` follows the size of the change (a third of the baseline's movement = 1.0) times the duration component. `pitch_instability` is not detected.
 - `reliability` is a constant `1.0` at P0 and `low_confidence` is `false`; neither is a measured confidence.
 
 ## Notes (1.1.0)
@@ -158,8 +163,9 @@ or a score dimension such as `pitch`, `speech_rate`):
 | `baseline_without_profile` | The baseline has no word-by-word profile (built before profiles existed, or from fewer than three recordings that match the passage text): pace and loudness were compared with its overall averages, which is much less precise (DEC-040) |
 | `profile_not_applicable` | The baseline has a profile but too few of the recognised words match the passage, or too few words could be compared: overall averages were used (DEC-040) |
 | `{feature}_unavailable` | A feature could not be normalized against the baseline (reason in the message); not added for pace or loudness when the word-by-word comparison judged them |
+| `pitch_not_judged` | Flat pitch was not checked word by word (DEC-042): the baseline has no pitch profile (rebuild it), the pitch of the words could not be measured, too few words had enough voiced speech, or the words did not match the passage; the message gives the reason and pitch is left out of the score |
 | `pauses_not_comparable` | Some pauses have no usable baseline statistic (unknown pause type or no baseline spread) |
-| `{feature}_not_scored` | A score dimension was not evaluated (for example `pitch_not_scored`: flat pitch is not implemented) and is left out of the composite |
+| `{feature}_not_scored` | A score dimension was not evaluated (for example `pitch_not_scored`: the baseline has no pitch profile, so flat pitch was not checked) and is left out of the composite |
 | `words_without_timing` | Words without complete timing were left out of `alignment` |
 | `speaker_gender_ignored` | The optional hint was ignored: baselines are not gender-specific |
 | `mfcc_unavailable` | The MFCC summary could not be computed |

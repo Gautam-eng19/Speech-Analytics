@@ -61,9 +61,11 @@ Choices where §17 / DEC-P005 are silent (documented, to be confirmed):
       and can be very small, which makes the rate z-score hypersensitive (see BaselineStatsRecord
       n_rate_windows).
 
+Flat pitch (DEC-042) is judged only word by word, like the pace and the loudness: the pitch movement of the words against how much the baseline
+readings moved on the same words. `BaselineStats` holds only the pooled global F0 std, which is not a valid reference for a local movement, so
+without the word profile's pitch part (or when too few words have enough voiced speech) flat_pitch is reported in `skipped` with the reason.
+
 Not covered, reported in `skipped`:
-    * flat_pitch: needs baseline statistics of F0 variation WITHIN a window; `BaselineStats`
-      only holds the pooled global F0 std, which is not a valid reference for a local std.
     * pitch_instability, reduced_clarity: P1 flaw types.
     * any type whose feature is unavailable in the bundle (with the reason).
 """
@@ -93,6 +95,7 @@ def _default_min_durations() -> Dict[FlawType, float]:
         FlawType.LOW_ENERGY: settings.MIN_FLAW_DURATION_S,
         FlawType.HIGH_ENERGY: settings.MIN_FLAW_DURATION_S,
         FlawType.EXCESSIVE_PAUSE: settings.MIN_PAUSE_FLAW_S,
+        FlawType.FLAT_PITCH: settings.MIN_FLAW_DURATION_S,
     }
 
 
@@ -128,6 +131,13 @@ class DetectionConfig:
     sigma_floor_level_drift: float = settings.SIGMA_FLOOR_LEVEL_DRIFT_DB
     sigma_floor_level_word: float = settings.SIGMA_FLOOR_LEVEL_WORD_DB
     sigma_floor_tempo: float = settings.SIGMA_FLOOR_TEMPO
+    # Flat pitch, judged word by word like the pace and the loudness (DEC-042).
+    z_run_pitch: float = settings.Z_RUN_PITCH
+    min_flat_pitch_change_pct: float = settings.MIN_FLAT_PITCH_CHANGE_PCT
+    global_pitch_change_pct: float = settings.GLOBAL_PITCH_CHANGE_PCT
+    sigma_floor_pitch_drift: float = settings.SIGMA_FLOOR_PITCH_DRIFT
+    sigma_floor_pitch_word: float = settings.SIGMA_FLOOR_PITCH_WORD
+    sigma_floor_pitch_scale: float = settings.SIGMA_FLOOR_PITCH_SCALE
 
     def __post_init__(self) -> None:
         if not (isinstance(self.refine_min_words, int) and self.refine_min_words >= 2):
@@ -142,10 +152,17 @@ class DetectionConfig:
                 raise ValueError(f"{name} must be a positive finite number, got {value}")
         if not (math.isfinite(self.profile_min_coverage) and 0.0 < self.profile_min_coverage <= 1.0):
             raise ValueError(f"profile_min_coverage must be in (0, 1], got {self.profile_min_coverage}")
-        for name in ("sigma_floor_rate_drift", "sigma_floor_rate_word", "sigma_floor_level_drift", "sigma_floor_level_word", "sigma_floor_tempo"):
+        for name in ("sigma_floor_rate_drift", "sigma_floor_rate_word", "sigma_floor_level_drift", "sigma_floor_level_word", "sigma_floor_tempo",
+                     "sigma_floor_pitch_drift", "sigma_floor_pitch_word", "sigma_floor_pitch_scale"):
             value = getattr(self, name)
             if not (math.isfinite(value) and value >= 0.0):
                 raise ValueError(f"{name} must be a finite number >= 0, got {value}")
+        if not (math.isfinite(self.z_run_pitch) and self.z_run_pitch > 0.0):
+            raise ValueError(f"z_run_pitch must be a positive finite number, got {self.z_run_pitch}")
+        for name in ("min_flat_pitch_change_pct", "global_pitch_change_pct"):
+            value = getattr(self, name)
+            if not (math.isfinite(value) and 0.0 < value < 100.0):
+                raise ValueError(f"{name} must be between 0 and 100 (percent less pitch movement than the baseline), got {value}")
         durations = dict(_default_min_durations())
         if self.min_duration_s is not None:
             durations.update(self.min_duration_s)
@@ -222,14 +239,12 @@ class CandidateDetectionResult:
     # for pace, "frames" for loudness). `profile_note` says why the profile was not used when the baseline has one.
     modes: Dict[str, str] = field(default_factory=dict)
     profile_note: Optional[str] = None
+    # Why flat pitch was not judged word by word (a key of `_PITCH_NOT_JUDGED`), when it was not.
+    pitch_note: Optional[str] = None
 
 
 _P1_OR_UNSUPPORTED = {
-    FlawType.FLAT_PITCH: (
-        "baseline has no statistic of F0 variation within a window (BaselineStats holds only the "
-        "pooled global F0 std); detection not implemented"
-    ),
-    FlawType.PITCH_INSTABILITY: "P1 flaw type; not implemented",
+    FlawType.PITCH_INSTABILITY: "not implemented: it needs recordings of unstable pitch to calibrate against",
     FlawType.REDUCED_CLARITY: "P1 flaw type; not implemented",
 }
 
@@ -534,16 +549,24 @@ _RUN_TYPES = {
     ("rate", False): FlawType.TOO_SLOW,
     ("energy", True): FlawType.HIGH_ENERGY,
     ("energy", False): FlawType.LOW_ENERGY,
+    ("pitch", False): FlawType.FLAT_PITCH,
 }
-_RUN_FEATURE = {"rate_run": "rate_run_z", "rate_overall": "rate_overall_z", "energy_run": "energy_run_z"}
+_RUN_FEATURE = {"rate_run": "rate_run_z", "rate_overall": "rate_overall_z", "energy_run": "energy_run_z", "pitch_run": "pitch_run_z",
+                "pitch_overall": "pitch_overall_z"}
+_PITCH_NOT_JUDGED = {
+    "transcript_mismatch": "the words of the recording do not match the passage well enough to compare them word by word",
+    "baseline_without_pitch_profile": "the baseline has no pitch profile (rebuild it with the current tools)",
+    "pitch_not_measured": "the pitch of the words was not measured",
+    "too_few_pitch_words": "too few words had enough voiced speech to compare their pitch with the baseline's",
+}
 
 
 def _profile_candidates(result: ProfileDetection) -> List[FlawCandidate]:
-    """FlawCandidates for the runs the word profile found (rate: positive z = faster; energy: positive z = louder)."""
+    """FlawCandidates for the runs the word profile found (rate: positive z = faster; energy: positive z = louder; pitch: negative z = flatter)."""
     out: List[FlawCandidate] = []
-    for findings in (result.rate or [], result.energy or []):
+    for findings in (result.rate or [], result.energy or [], result.pitch or []):
         for run in findings:
-            signal = "rate" if run.kind.startswith("rate") else "energy"
+            signal = run.kind.split("_")[0]
             out.append(FlawCandidate(
                 type=_RUN_TYPES[(signal, run.z > 0.0)], start_s=run.start_s, end_s=run.end_s, peak_z=abs(run.z), mean_z=run.z,
                 detection_feature=_RUN_FEATURE[run.kind], member_indices=run.word_indices,
@@ -578,19 +601,33 @@ def detect_candidates(
     word_profile = getattr(baseline, "word_profile", None) if baseline is not None else None
     profile_result: Optional[ProfileDetection] = None
     profile_note: Optional[str] = None
+    pitch_note: Optional[str] = None
     if cfg.use_profile and observations is not None and baseline is not None:
         if baseline.sha256 != normalized.baseline_sha256:
             raise ValueError("the baseline given for the word profile is not the one the features were normalized with")
         if word_profile is None:
-            profile_note = "baseline_without_profile"
+            profile_note, pitch_note = "baseline_without_profile", "baseline_without_pitch_profile"
         else:
             profile_result = detect_runs(observations, word_profile, cfg)
             if profile_result.rate is None and profile_result.energy is None:
-                profile_note, profile_result = profile_result.reason, None
+                profile_note = profile_result.reason
+                if profile_result.pitch is None:
+                    pitch_note = profile_result.pitch_reason
+                    profile_result = None
     rate_by_profile = profile_result is not None and profile_result.rate is not None
     energy_by_profile = profile_result is not None and profile_result.energy is not None
+    pitch_by_profile = profile_result is not None and profile_result.pitch is not None
+    if profile_result is not None and not pitch_by_profile:
+        pitch_note = profile_result.pitch_reason
 
     skipped: Dict[str, str] = {k.value: v for k, v in _P1_OR_UNSUPPORTED.items()}
+    if not pitch_by_profile:
+        why = _PITCH_NOT_JUDGED.get(pitch_note or "")
+        skipped[FlawType.FLAT_PITCH.value] = (
+            f"{why}" if why else
+            "pitch is judged word by word against the baseline's reading of the same words, which needs the word profile with its pitch part and the "
+            "measured words (use_profile, a baseline built with the current tools)"
+        )
     unavailable = normalized.unavailable
     for feature, types, by_profile in (
         ("rate", (FlawType.TOO_FAST, FlawType.TOO_SLOW), rate_by_profile),
@@ -621,5 +658,6 @@ def detect_candidates(
         final += _profile_candidates(profile_result)
     final += pause_candidates  # pauses are never merged; their floor was applied when they were created
     final.sort(key=lambda c: (c.start_s, c.end_s, c.type.value))
-    modes = {"rate": "profile" if rate_by_profile else "windows", "energy": "profile" if energy_by_profile else "frames"}
-    return CandidateDetectionResult(candidates=final, skipped=skipped, config=cfg, modes=modes, profile_note=profile_note)
+    modes = {"rate": "profile" if rate_by_profile else "windows", "energy": "profile" if energy_by_profile else "frames",
+             "pitch": "profile" if pitch_by_profile else "not judged"}
+    return CandidateDetectionResult(candidates=final, skipped=skipped, config=cfg, modes=modes, profile_note=profile_note, pitch_note=pitch_note)

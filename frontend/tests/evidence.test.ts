@@ -34,6 +34,24 @@ describe('evidence rows', () => {
     expect(rows[0]).toMatchObject({ label: 'Pause length', value: e.pause_duration_s.toFixed(2) });
     expect(rows.find((r) => r.label === 'Where')?.value).toBe('Cross sentence');
   });
+  it('shows a flat-pitch finding with the backend numbers: movement in Hz against the baseline, z-score, voiced share', () => {
+    const base = flawOfType(mixedResult, 'too_fast');
+    const flat = {
+      ...base, type: 'flat_pitch', rule: { feature: 'pitch_run_z', direction: 'below', threshold_z: -4, min_duration_s: 1 },
+      evidence: { f0_std_hz_in_window: 4.84, f0_std_baseline_hz: 10.36, f0_std_z: -4.24, f0_voiced_fraction: 0.4306, window_duration_s: 6.14 },
+    } as unknown as Flaw;
+    const rows = evidenceRows(flat);
+    expect(rows.map((r) => r.label)).toEqual(['Participant pitch movement', 'Baseline, same words', 'z-score', 'Voiced speech', 'Measured over']);
+    expect(rows[0]).toMatchObject({ value: '4.8', unit: 'Hz' });
+    expect(rows[1]).toMatchObject({ value: '10.4', unit: 'Hz' });
+    expect(rows[2]!.value).toBe('−4.24');
+    expect(rows[3]).toMatchObject({ value: '43', unit: '%' });
+    expect(rows[4]).toMatchObject({ value: '6.1', unit: 's' });
+    expect(evidenceHeadline(flat)).toBe('4.8 vs 10.4 Hz of movement');
+    expect(evidenceGauge(flat)).toBeNull();                                                      // the backend gives no separate spread to draw
+    const whole = { ...flat, rule: { ...flat.rule!, feature: 'pitch_z' } } as Flaw;
+    expect(evidenceRows(whole)[1]!.label).toBe('Baseline movement');
+  });
   it('falls back to listing whatever numbers arrive for evidence it does not know', () => {
     const odd = { ...flawOfType(mixedResult, 'too_fast'), evidence: { hf_ratio_z: 2.5, window_duration_s: 3 } } as unknown as Flaw;
     const rows = evidenceRows(odd);

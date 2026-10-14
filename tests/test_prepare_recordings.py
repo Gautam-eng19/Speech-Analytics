@@ -704,6 +704,7 @@ def test_the_report_names_every_take_with_its_state_and_the_next_step(world: Wor
     assert "FAILED  notes" in text and "does not follow the protocol" in text
     assert "Baseline for p001: built from 3 take(s)" in text
     assert "word-by-word profile: built (3 take(s) matched the passage text)" in text
+    assert "pitch profile: built" in text or "pitch profile: NOT built" in text                 # the report always says whether flat pitch can be checked
     assert "Dataset check: valid" in text
     assert "Next: start the site with   python -m uvicorn app.main:app --app-dir backend" in text
     assert "PROPOSED from the plan" in text and "File > Import > Labels" in text

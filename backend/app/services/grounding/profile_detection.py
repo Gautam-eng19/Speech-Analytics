@@ -23,6 +23,12 @@ Overall pace and level are removed first:
     * loudness: the reading's median difference from the profile is removed. Recordings are scaled to a common speech level (DEC-036), so
       only louder and quieter stretches WITHIN a reading are meaningful.
 
+Pitch (DEC-042): the pitch movement of the words (root-mean-square distance, in semitones, from the reading's own median pitch) is compared the same
+way. Only a run that moves LESS than the baseline's did on the same words is a finding (flat pitch); more movement is not a flaw here. The
+statistic is the natural-log ratio of the root-mean-square movement, the reading's overall movement is removed first (a reserved speaker is judged
+against their own range), a reading that is flat as a whole is reported as one finding if it is flatter than `global_pitch_change_pct` AND than
+readers of the passage differ among themselves (`PitchProfile.scale_sd`), and a run must also be `min_flat_pitch_change_pct` flatter in size.
+
 Spread floors (`sigma_floor_*`): a very even baseline would give a tiny spread and make every deviation look huge; the spread is never taken
 below the floors. The floors, thresholds and minimums are `DetectionConfig` fields (settings, environment-overridable) and part of the
 analysis fingerprint.
@@ -41,8 +47,10 @@ from typing import Any, Callable, List, Optional, Tuple
 import numpy as np
 
 from app.schemas.common import FlawType
-from app.schemas.contracts import WordProfile
-from app.services.grounding.profile import WordObservations, map_to_passage, noise_sigma, overall_tempo, window_mean
+from app.schemas.contracts import PitchProfile, WordProfile
+from app.services.grounding.profile import (
+    WordObservations, map_to_passage, movement_log_ratio, noise_sigma, overall_movement, overall_tempo, window_mean,
+)
 
 MAX_RUNS_PER_SIGNAL = 8          # findings per signal in one reading: more than this is a reading that is off as a whole
 _EPS = 1e-9
@@ -52,10 +60,12 @@ _EPS = 1e-9
 class RunFinding:
     """One run of words that deviates from the baseline's reading of the same words.
 
-    `kind`: "rate_run", "rate_overall" or "energy_run". `z` is signed: positive = faster (rate) or louder (energy) than expected.
-    `observed` and `expected` are words per minute (rate) or dBFS (energy) over the run, `effect` the size of the change in the units that
-    severity uses (natural-log ratio of durations for the rate, dB for the loudness). `sigma_equiv` = |observed - expected| / |z|, the spread
-    in the same units as `observed`, so the evidence can state z = (observed - expected) / spread.
+    `kind`: "rate_run", "rate_overall", "energy_run", "pitch_run" or "pitch_overall". `z` is signed: positive = faster (rate), louder (energy) or
+    more pitch movement (pitch) than expected. `observed` and `expected` are words per minute (rate), dBFS (energy) or the pitch movement in Hz
+    (pitch: the root-mean-square movement in semitones expressed as Hz above the reading's median pitch) over the run, `effect` the size of the
+    change in the units that severity uses (natural-log ratio of durations for the rate, dB for the loudness, natural-log ratio of the
+    root-mean-square movement for the pitch). `sigma_equiv` = |observed - expected| / |z|, the spread in the same units as `observed`, so the
+    evidence can state z = (observed - expected) / spread. `voiced_fraction` (pitch only) is the share of the run's frames that were voiced.
     """
 
     kind: str
@@ -70,11 +80,12 @@ class RunFinding:
     effect: float
     n_words: int
     word_indices: Tuple[int, ...]
+    voiced_fraction: Optional[float] = None
 
 
 @dataclass(frozen=True)
 class ProfileDetection:
-    """What the profile found. `rate` / `energy` are None when the profile could not be used for that signal (see `reason`)."""
+    """What the profile found. `rate` / `energy` / `pitch` are None when the profile could not be used for that signal (see `reason`, `pitch_reason`)."""
 
     rate: Optional[List[RunFinding]]
     energy: Optional[List[RunFinding]]
@@ -83,6 +94,9 @@ class ProfileDetection:
     n_usable_rate: int = 0
     n_usable_level: int = 0
     tempo: float = 0.0
+    pitch: Optional[List[RunFinding]] = None
+    pitch_reason: Optional[str] = None     # why pitch was not judged: transcript_mismatch, baseline_without_pitch_profile, pitch_not_measured, too_few_pitch_words
+    n_usable_pitch: int = 0
 
 
 def _find_runs(
@@ -209,6 +223,69 @@ def _energy_findings(
     return out
 
 
+def _movement_hz(movement_st2: float, reference_hz: float) -> float:
+    """A root-mean-square pitch movement given as mean squared semitones, as Hz above the reading's median pitch."""
+    return reference_hz * (2.0 ** (math.sqrt(movement_st2) / 12.0) - 1.0)
+
+
+def _pitch_findings(
+    obs: WordObservations, observed_movement: np.ndarray, usable: np.ndarray, expected_movement: np.ndarray, pitch: PitchProfile,
+    tempo_window_words: int, rules: Any, min_duration_flat: float,
+) -> List[RunFinding]:
+    pos = np.flatnonzero(usable)
+    o = observed_movement[pos]
+    e = expected_movement[pos]
+    size = len(pos)
+    starts, ends = obs.start_s[pos], obs.end_s[pos]
+    reference = obs.pitch_reference_hz
+    tau = overall_movement(o, e, tempo_window_words)
+    out: List[RunFinding] = []
+
+    def voiced_fraction(indices: np.ndarray) -> Optional[float]:
+        if obs.pitch_frames is None or obs.pitch_voiced_frames is None or int(np.sum(obs.pitch_frames[indices])) == 0:
+            return None
+        return float(np.sum(obs.pitch_voiced_frames[indices])) / float(np.sum(obs.pitch_frames[indices]))
+
+    # The reading as a whole: only if it moves much less than the baseline AND less than baseline readings differ among themselves.
+    spread_scale = max(float(pitch.scale_sd), float(rules.sigma_floor_pitch_scale))
+    if tau <= math.log1p(-rules.global_pitch_change_pct / 100.0) and abs(tau) / spread_scale > rules.z_run_pitch:
+        duration = float(ends[-1] - starts[0])
+        if duration + _EPS >= min_duration_flat:
+            observed = _movement_hz(float(np.mean(o)), reference)
+            expected = _movement_hz(float(np.mean(e)), reference)
+            z = tau / spread_scale
+            out.append(RunFinding(
+                kind="pitch_overall", first_word=int(pos[0]), last_word=int(pos[-1]), start_s=float(starts[0]), end_s=float(ends[-1]), z=z,
+                observed=observed, expected=expected, sigma_equiv=abs(observed - expected) / abs(z), effect=abs(tau), n_words=size,
+                word_indices=tuple(int(i) for i in pos), voiced_fraction=voiced_fraction(pos),
+            ))
+
+    adjusted = e * math.exp(2.0 * tau)
+    co = np.concatenate(([0.0], np.cumsum(o)))
+    ca = np.concatenate(([0.0], np.cumsum(adjusted)))
+    floor_drift, floor_word = rules.sigma_floor_pitch_drift, rules.sigma_floor_pitch_word
+    runs = _find_runs(
+        size=size, min_words=rules.run_min_words,
+        stat=lambda n: np.minimum(0.5 * np.log((co[n:] - co[:-n]) / (ca[n:] - ca[:-n])), 0.0),       # only a run that moves LESS is a candidate
+        sigma=lambda n: noise_sigma(pitch.noise, n, drift_floor=floor_drift, word_floor=floor_word),
+        min_abs=-math.log1p(-rules.min_flat_pitch_change_pct / 100.0), min_duration_s=min_duration_flat,
+        starts_s=starts, ends_s=ends, z_threshold=rules.z_run_pitch, max_runs=MAX_RUNS_PER_SIGNAL,
+    )
+    for first, n, log_ratio, _z in runs:
+        last = first + n - 1
+        if float(ends[last] - starts[first]) + _EPS < min_duration_flat:
+            continue
+        z = -abs(log_ratio) / noise_sigma(pitch.noise, n, drift_floor=floor_drift, word_floor=floor_word)
+        observed = _movement_hz(float(np.mean(o[first: last + 1])), reference)
+        expected = _movement_hz(float(np.mean(adjusted[first: last + 1])), reference)
+        out.append(RunFinding(
+            kind="pitch_run", first_word=int(pos[first]), last_word=int(pos[last]), start_s=float(starts[first]), end_s=float(ends[last]), z=z,
+            observed=observed, expected=expected, sigma_equiv=abs(observed - expected) / abs(z), effect=abs(log_ratio), n_words=n,
+            word_indices=tuple(int(i) for i in pos[first: last + 1]), voiced_fraction=voiced_fraction(pos[first: last + 1]),
+        ))
+    return out
+
+
 @dataclass(frozen=True)
 class _Expectations:
     """What the profile expects for each aligned word of one reading (NaN where it has no expectation) and which words can be compared."""
@@ -218,6 +295,8 @@ class _Expectations:
     level: np.ndarray
     usable_rate: np.ndarray
     usable_level: np.ndarray
+    movement: np.ndarray
+    usable_pitch: np.ndarray
 
 
 def _expectations(obs: WordObservations, profile: WordProfile) -> _Expectations:
@@ -232,9 +311,16 @@ def _expectations(obs: WordObservations, profile: WordProfile) -> _Expectations:
     levels = np.array([math.nan if v is None else v for v in profile.level_db])
     expected_slot[index >= 0] = slots[index[index >= 0]]
     expected_level[index >= 0] = levels[index[index >= 0]]
+    expected_movement = np.full(len(index), np.nan)
+    usable_pitch = np.zeros(len(index), dtype=bool)
+    if profile.pitch is not None and obs.pitch_movement_st2 is not None:
+        movement = np.array([math.nan if v is None else v for v in profile.pitch.movement_st2])
+        expected_movement[index >= 0] = movement[index[index >= 0]]
+        usable_pitch = np.isfinite(obs.pitch_movement_st2) & np.isfinite(expected_movement)
     return _Expectations(
         coverage, expected_slot, expected_level,
         np.isfinite(obs.slot_s) & np.isfinite(expected_slot), np.isfinite(obs.level_db) & np.isfinite(expected_level),
+        expected_movement, usable_pitch,
     )
 
 
@@ -246,8 +332,9 @@ def detect_runs(obs: WordObservations, profile: WordProfile, rules: Any) -> Prof
     """
     expected = _expectations(obs, profile)
     if expected.coverage < rules.profile_min_coverage:
-        return ProfileDetection(None, None, "transcript_mismatch", expected.coverage)
+        return ProfileDetection(None, None, "transcript_mismatch", expected.coverage, pitch_reason="transcript_mismatch")
     n_rate, n_level = int(np.count_nonzero(expected.usable_rate)), int(np.count_nonzero(expected.usable_level))
+    n_pitch = int(np.count_nonzero(expected.usable_pitch))
 
     minimum = rules.min_duration_s
     rate: Optional[List[RunFinding]] = None
@@ -258,7 +345,20 @@ def detect_runs(obs: WordObservations, profile: WordProfile, rules: Any) -> Prof
     if n_level >= rules.profile_min_usable_words and n_level >= rules.run_min_words:
         energy = _energy_findings(obs, expected.usable_level, expected.level, profile, rules, minimum[FlawType.HIGH_ENERGY], minimum[FlawType.LOW_ENERGY])
     reason = None if (rate is not None and energy is not None) else "too_few_words"
-    return ProfileDetection(rate, energy, reason, expected.coverage, n_rate, n_level, tau)
+    pitch: Optional[List[RunFinding]] = None
+    pitch_reason: Optional[str] = None
+    if profile.pitch is None:
+        pitch_reason = "baseline_without_pitch_profile"
+    elif obs.pitch_movement_st2 is None:
+        pitch_reason = "pitch_not_measured"
+    elif n_pitch < rules.profile_min_usable_words or n_pitch < rules.run_min_words:
+        pitch_reason = "too_few_pitch_words"
+    else:
+        pitch = _pitch_findings(
+            obs, obs.pitch_movement_st2, expected.usable_pitch, expected.movement, profile.pitch, profile.tempo_window_words, rules,
+            minimum[FlawType.FLAT_PITCH],
+        )
+    return ProfileDetection(rate, energy, reason, expected.coverage, n_rate, n_level, tau, pitch, pitch_reason, n_pitch)
 
 
 # ------------------------------------------------------------------------------------------------------------------------------
@@ -285,6 +385,7 @@ class StretchReading:
     rate: Optional[SignalReading]
     level: Optional[SignalReading]
     reason: Optional[str]
+    pitch: Optional[SignalReading] = None       # `change` is the percentage change of the root-mean-square pitch movement (negative = flatter), `z` has its sign
 
 
 def measure_stretch(obs: WordObservations, profile: WordProfile, rules: Any, start_s: float, end_s: float) -> StretchReading:
@@ -328,4 +429,18 @@ def measure_stretch(obs: WordObservations, profile: WordProfile, rules: Any, sta
             level = SignalReading(n, change, change / sigma)
         else:
             level = SignalReading(0, None, None)
-    return StretchReading(rate, level, None if (rate is not None and level is not None) else "too_few_words")
+
+    pitch: Optional[SignalReading] = None
+    pos = np.flatnonzero(expected.usable_pitch)
+    if profile.pitch is not None and obs.pitch_movement_st2 is not None and len(pos) >= rules.profile_min_usable_words and len(pos) >= rules.run_min_words:
+        o, e = obs.pitch_movement_st2[pos], expected.movement[pos]
+        scale = overall_movement(o, e, profile.tempo_window_words)
+        chosen = inside[pos]
+        n = int(np.count_nonzero(chosen))
+        if n:
+            log_ratio = 0.5 * math.log(float(np.sum(o[chosen])) / float(np.sum(e[chosen]) * math.exp(2.0 * scale)))
+            sigma = noise_sigma(profile.pitch.noise, n, drift_floor=rules.sigma_floor_pitch_drift, word_floor=rules.sigma_floor_pitch_word)
+            pitch = SignalReading(n, (math.exp(log_ratio) - 1.0) * 100.0, log_ratio / sigma)
+        else:
+            pitch = SignalReading(0, None, None)
+    return StretchReading(rate, level, None if (rate is not None and level is not None) else "too_few_words", pitch)

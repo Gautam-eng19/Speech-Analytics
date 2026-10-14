@@ -23,7 +23,7 @@ const LIMITS = [
   'It measures how delivery differs from a baseline recording of the same passage. It does not judge what was said, the writing, or the argument.',
   'Thresholds and score weights are starting values that have not been calibrated on recorded data. Treat findings as indicative.',
   'Pace and loudness findings are runs of words, so they start and end on word boundaries, as accurately as the forced alignment places them. Only a quarter of a second of silence after a word counts towards its pace, so a pause is reported as a pause and not also as slow speech. If the baseline has no word-by-word profile, or the recognised words do not match the passage, the overall averages below are used instead, and a note says so.',
-  'Pitch is shown for context. No pitch finding is detected yet because the baseline has no statistic of pitch variation within a window.',
+  'Flat pitch is judged word by word, like pace and loudness, and only when the baseline has a pitch profile. Pitch instability is not detected yet. Pitch trackers can make mistakes, and only voiced speech has a pitch.',
   'Loudness is relative: each recording is scaled so that its typical speech level is the same as the baseline’s, so it describes shape, not absolute volume.',
 ];
 
@@ -34,7 +34,7 @@ function statRows(baseline: LoadedAnalysis['result']['baseline_stats']) {
     { label: 'Loudness', value: `${fmtLevel(baseline.energy_db_mean, 1)} ± ${fmtNum(baseline.energy_db_std, 1)}`, unit: 'dBFS', used: 'Low energy, high energy' },
     { label: 'Pause inside a phrase', value: `${fmtNum(baseline.pause_within_phrase_mean_s, 2)} ± ${fmtNum(baseline.pause_within_phrase_std_s, 2)}`, unit: 's', used: 'Excessive pause' },
     { label: 'Pause between sentences', value: `${fmtNum(baseline.pause_cross_sentence_mean_s, 2)} ± ${sd(baseline.pause_cross_sentence_std_s, 2)}`, unit: 's', used: 'Excessive pause' },
-    { label: 'Pitch (voiced)', value: `${fmtNum(baseline.f0_voiced_hz_mean, 1)} ± ${fmtNum(baseline.f0_voiced_hz_std, 1)}`, unit: 'Hz', used: 'Context only', extra: baseline.f0_voiced_hz_p05 !== null && baseline.f0_voiced_hz_p05 !== undefined && baseline.f0_voiced_hz_p95 !== null && baseline.f0_voiced_hz_p95 !== undefined ? `5–95 %: ${fmtNum(baseline.f0_voiced_hz_p05, 0)}–${fmtNum(baseline.f0_voiced_hz_p95, 0)} Hz` : undefined },
+    { label: 'Pitch (voiced)', value: `${fmtNum(baseline.f0_voiced_hz_mean, 1)} ± ${fmtNum(baseline.f0_voiced_hz_std, 1)}`, unit: 'Hz', used: 'Context (flat pitch uses the word profile)', extra: baseline.f0_voiced_hz_p05 !== null && baseline.f0_voiced_hz_p05 !== undefined && baseline.f0_voiced_hz_p95 !== null && baseline.f0_voiced_hz_p95 !== undefined ? `5–95 %: ${fmtNum(baseline.f0_voiced_hz_p05, 0)}–${fmtNum(baseline.f0_voiced_hz_p95, 0)} Hz` : undefined },
     { label: 'High-frequency ratio', value: baseline.hf_ratio_mean === null || baseline.hf_ratio_mean === undefined ? 'not available' : `${fmtNum(baseline.hf_ratio_mean, 3)} ± ${sd(baseline.hf_ratio_std, 3)}`, unit: '', used: 'Reduced clarity (planned)' },
   ];
 }

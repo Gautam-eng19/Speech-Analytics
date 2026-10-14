@@ -170,7 +170,7 @@ describe('BaselinePage', () => {
     await renderAsync(<BaselinePage analysis={mixed} />);
     const vocabulary = screen.getByRole('heading', { name: 'Finding types' }).closest('.panel')!;
     expect(vocabulary.querySelectorAll('tbody tr')).toHaveLength(8);
-    expect(within(vocabulary as HTMLElement).getAllByText('Not yet')).toHaveLength(3);
+    expect(within(vocabulary as HTMLElement).getAllByText('Not yet')).toHaveLength(2);          // pitch instability and reduced clarity; flat pitch is detected
   });
   it('shows the passage for a sample and the baseline identity', async () => {
     await renderAsync(<BaselinePage analysis={mixed} />);

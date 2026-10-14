@@ -33,7 +33,7 @@ const FAQ: { q: string; a: string }[] = [
   { q: 'How should I record a take in the browser?', a: 'Choose Record now on the New analysis page, read the passage shown, and speak at a steady distance from the microphone in a quiet room. The browser is asked to leave its echo cancellation, noise suppression and automatic gain off, so the take stays as spoken; if it keeps any of them on, the page says so. The take is saved as a 16 kHz mono WAV and sent like any uploaded file. Microphone access needs a secure page: https:// or localhost.' },
   { q: 'Can I take the findings into a spreadsheet?', a: 'Yes. Export CSV on the Flaws page saves one row per finding with the exact values and evidence columns from the analysis. Export result as JSON (command palette, Ctrl or Cmd + K) saves the complete result.' },
   { q: 'Does the score judge what was said?', a: 'No. It compares how the delivery differs from the baseline. Content, wording and argument are not evaluated.' },
-  { q: 'Why is pitch not scored?', a: 'The baseline does not yet include a statistic of how much pitch moves inside a window, so flat or unstable pitch cannot be detected. Pitch is drawn for context.' },
+  { q: 'How is flat pitch judged?', a: 'The pitch of every word is measured as how far it moves around the recording’s own median pitch, so a low or high voice does not matter. A run of words is flat when it moves much less than the baseline readings did on the same words. If the baseline has no pitch profile (rebuild it), flat pitch is not checked and pitch is left out of the score; unstable pitch is not detected yet.' },
 ];
 
 export function HelpPage() {

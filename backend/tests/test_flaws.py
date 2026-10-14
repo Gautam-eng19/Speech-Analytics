@@ -344,9 +344,9 @@ def test_to_api_flaw_builds_a_valid_public_flaw():
 def test_unsupported_flaw_type_has_no_evidence_builder():
     baseline = _baseline()
     nb = normalize_features(baseline)
-    cand = FlawCandidate(FlawType.FLAT_PITCH, 0.0, 1.0, 3.0, -3.0, "f0_std_z", (0,), ((0.0, 1.0),))
+    cand = FlawCandidate(FlawType.PITCH_INSTABILITY, 0.0, 1.0, 3.0, 3.0, "f0_var_z", (0,), ((0.0, 1.0),))
     det = CandidateDetectionResult(candidates=[cand], skipped={}, config=DetectionConfig())
-    with pytest.raises(EvidenceError, match="flat_pitch"):
+    with pytest.raises(EvidenceError, match="pitch_instability"):
         ground_flaws(det, nb, baseline)
 
 
