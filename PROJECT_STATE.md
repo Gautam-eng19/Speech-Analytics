@@ -7,7 +7,7 @@ Updated by:
 Coding agent (registration tools, then two rounds of accuracy work after the first tests on real recordings, the second from the first replay report; control files synchronised, delegated by the team leader)
 
 All statements below were checked against the repository and full test runs on 2026-10-13
-(1266 backend tests passed, 2 smoke tests deselected; 293 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
+(1304 backend tests passed, 2 smoke tests deselected; 293 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -61,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch detection is missing
 
 Testing:
-🟢 1266 backend + 293 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 1304 backend + 293 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -188,6 +188,15 @@ The team leader decided speakers (2 dev + 2 test), equipment (USB headset) and l
   silence counted towards a word's pace; severity follows the size of the change (the z-score saturated); a pause needs 1.2 s; `evaluate_takes.py --sweep` compares settings in one table; wording, dashboard and notes updated; demo samples regenerated (clean probe 2 of 10 -> 0 of 10, the quiet sentence of the
   mixed sample is found, the voice keeps its loudness when stretched). In simulation: clean takes flagged 46 % -> 3 to 5 %, a 1.33 times faster sentence found 33 % -> 78 % with ranges 2 to 3 times too long -> 0.9 times, 5 dB louder or quieter
   sentences 0 % -> 89 to 91 %. Not verified on real recordings; baselines must be rebuilt (`prepare_recordings.py data/incoming --build-baseline`).
+
+2026-10-14: the second real replay (the baselines rebuilt with the word profile; `evaluate_takes.py` and `--sweep` on 48 real dev takes: 40 planned flaws, 8 clean takes).
+- **First real check of DEC-040 (TASK-131, DEC-041).** 34 of 40 planned flaws found (excessive_pause 8 of 8, too_slow 8 of 8, high_energy 7 of 8, too_fast 6 of 8, low_energy 5 of 8), start off by 0.0 to 0.4 s, overlap 83 to 100 %, detected range
+  0.8 to 1.0 times the plan (before: 1 of 6 fast, 0 of 12 loud and quiet, slow 2 s off); 1 of 8 clean takes flagged (before 6 of 8). All six misses are takes of one speaker; the other speaker's 20 planned flaws were all found. Of the 14 other flags on flawed
+  takes, 7 lie on a planned stretch and 3 right next to one (side effects of how the flaw was performed: quieter speech also slower, slow speech also louder, catching up after a pause) and 4 are away from every planned flaw. The sweep shows the DEC-040 settings at the point where
+  raising a limit loses real flaws and lowering it adds flags faster than it finds flaws, so they stay; `THRESHOLDS_CALIBRATED` stays false until the misses and the flags away from the plan have been listened to and the annotations confirmed.
+- The evaluation tool explains instead of only counting (DEC-041): each MISSED flaw says what the registration check said and how big the change really was over the planned words against what a finding needs (`measure_stretch`, the detection's own yardstick); each EXTRA says whether it
+  lies on, next to or away from a planned flaw; a "Listen to these first" list; `--labels` writes the detections as Audacity labels; the sweep table has an `away` column. No analysis result changes.
+- New task TASK-132: the scores are still the initial scale (a take with one clear flaw scores 86 to 98); calibrate with the leader's decision of what a score should mean.
 - Registration and labelling tools (TASK-126, DEC-038): `scripts/dataset/prepare_recordings.py` registers a folder of checked takes (copy to data/raw, SHA-256, preprocessing, WhisperX alignment with the passage text as the
   transcript, plausibility checks, alignment JSON, manifest/speaker/passage entries, proposed flaw annotations that a person confirms by ear, a "was the planned flaw really performed" check against the speaker's own
   baseline takes, Audacity label files, dataset validation, optional baseline build; idempotent; `--replace` for re-recorded takes). `scripts/dataset/take_checks.py` holds the pure checks,
@@ -298,8 +307,8 @@ Still PROPOSED and in use as starting values only: thresholds (DEC-P005), weight
 
 # 12. NEXT PRIORITIES
 
-1. Rebuild the baselines with the new code, run `scripts/dataset/evaluate_takes.py` and then `--sweep` on the real dev takes and calibrate from the numbers (TASK-131: false alarms on clean takes, start and end error, missed flaws); listen to the proposed flaws and confirm
-   them; run the real-model smoke tests; fix whatever the real models reveal. Then record the other speakers and passage p002 (TASK-122) and write the evaluation tools (TASK-127).
+1. Listen to the places `scripts/dataset/evaluate_takes.py` lists under "Listen to these first" (the misses, the flag on a clean take, the flags away from the plan; `--labels` shows them in Audacity), confirm or correct the annotations, re-record weak takes, run `--sweep` again
+   with `--confirmed-only` and calibrate from the numbers (TASK-131); run the real-model smoke tests; fix whatever the real models reveal. Then record the other speakers and passage p002 (TASK-122) and finish the evaluation tools (TASK-127).
 2. Calibrate thresholds, severity and weights on the controlled flaws (TASK-100 to TASK-107 on real data), then set
    `THRESHOLDS_CALIBRATED=true`, bump CONFIG_VERSION and freeze.
 3. Decide the within-window F0-variation baseline statistic and implement flat pitch.

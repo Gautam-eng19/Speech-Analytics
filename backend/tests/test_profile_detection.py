@@ -26,7 +26,7 @@ from app.services.grounding import (
 )
 from app.services.grounding.flaws import WARNING_ENERGY_RUN, WARNING_RATE_OVERALL, WARNING_RATE_RUN
 from app.services.grounding.normalizer import NormalizedFeatureBundle
-from app.services.grounding.profile_detection import _find_runs, detect_runs
+from app.services.grounding.profile_detection import StretchReading, _find_runs, detect_runs, measure_stretch
 from app.services.grounding.profile import window_mean
 from profile_helpers import base_levels, baseline_record, make_profile, make_tokens, observations, reading
 
@@ -219,6 +219,113 @@ def test_words_without_a_time_are_left_out_and_the_rest_is_still_judged():
 def test_the_result_is_the_same_every_time():
     obs = reading(604, stretches=[(10, 25, 0.6), (55, 72, 1.7)], loud=[(30, 40, 9.0)])
     assert detect_runs(obs, PROFILE, RULES) == detect_runs(obs, PROFILE, RULES)
+
+
+# ------------------------------------------------------------------------------------------------------------------------------
+# Measuring a given stretch (what a planned flaw really amounted to, whether or not the scan reported it)
+# ------------------------------------------------------------------------------------------------------------------------------
+def span(obs, first, last):
+    """The times of words `first` to `last` (0-based, inclusive): from the start of the first to the end of the last."""
+    return float(obs.start_s[first]), float(obs.end_s[last])
+
+
+def test_a_stretch_made_faster_is_measured_as_that_much_faster_and_an_ordinary_one_as_about_nothing():
+    obs = reading(600, stretches=[FAST])
+    made = measure_stretch(obs, PROFILE, RULES, *span(obs, 30, 47))
+    assert made.reason is None and made.rate.n_words == 18 and made.rate.change == pytest.approx(100 * (1 / 0.6 - 1), abs=15.0)
+    assert made.rate.z > RULES.z_run_rate and abs(made.level.change) < 3.0
+    ordinary = measure_stretch(obs, PROFILE, RULES, *span(obs, 60, 77))
+    assert abs(ordinary.rate.change) < 15.0 and abs(ordinary.rate.z) < RULES.z_run_rate and abs(ordinary.level.z) < RULES.z_run_energy
+    slower = measure_stretch(reading(601, stretches=[SLOW]), PROFILE, RULES, *span(reading(601, stretches=[SLOW]), 30, 47))
+    assert slower.rate.change == pytest.approx(100 * (1 / 1.7 - 1), abs=10.0) and slower.rate.z < -RULES.z_run_rate
+
+
+def test_a_louder_and_a_quieter_stretch_are_measured_in_decibels_without_the_pace_changing():
+    loud, quiet = reading(602, loud=[(30, 47, 8.0)]), reading(603, loud=[(30, 47, -8.0)])
+    up, down = measure_stretch(loud, PROFILE, RULES, *span(loud, 30, 47)), measure_stretch(quiet, PROFILE, RULES, *span(quiet, 30, 47))
+    assert up.level.change == pytest.approx(8.0, abs=1.5) and up.level.z > RULES.z_run_energy and abs(up.rate.z) < RULES.z_run_rate
+    assert down.level.change == pytest.approx(-8.0, abs=1.5) and down.level.z < -RULES.z_run_energy and abs(down.rate.z) < RULES.z_run_rate
+
+
+def test_the_measure_of_a_stretch_agrees_with_the_finding_the_scan_reports_for_exactly_those_words():
+    obs = reading(600, stretches=[FAST], loud=[(55, 72, -9.0)])
+    pace = detect_runs(obs, PROFILE, RULES).rate[0]
+    level = detect_runs(obs, PROFILE, RULES).energy[0]
+    on_pace = measure_stretch(obs, PROFILE, RULES, pace.start_s, pace.end_s)
+    on_level = measure_stretch(obs, PROFILE, RULES, level.start_s, level.end_s)
+    assert on_pace.rate.n_words == pace.n_words and on_pace.rate.z == pytest.approx(pace.z)
+    assert 1.0 + on_pace.rate.change / 100.0 == pytest.approx(pace.observed / pace.expected)       # the pace ratio is the same number
+    assert on_level.level.n_words == level.n_words and on_level.level.z == pytest.approx(level.z)
+    assert on_level.level.change == pytest.approx(level.observed - level.expected)
+
+
+def test_the_overall_pace_and_level_of_the_reading_are_removed_before_a_stretch_is_measured():
+    slow_reader = reading(607, tempo=1.2, stretches=[FAST])                       # 20 % slower overall, and one stretch much faster than that
+    measured = measure_stretch(slow_reader, PROFILE, RULES, *span(slow_reader, 30, 47))
+    assert measured.rate.change == pytest.approx(100 * (1 / 0.6 - 1), abs=15.0)    # against the reader's own pace, not the baseline's (that would be +39 %)
+    loud_reader = reading(614, level_offset=4.0, loud=[(30, 47, 8.0)])
+    assert measure_stretch(loud_reader, PROFILE, RULES, *span(loud_reader, 30, 47)).level.change == pytest.approx(8.0, abs=1.5)      # not 12
+
+
+def test_a_word_belongs_to_a_stretch_by_its_middle():
+    obs = reading(600)
+    middle = lambda i: float((obs.start_s[i] + obs.end_s[i]) / 2.0)             # noqa: E731
+    both = measure_stretch(obs, PROFILE, RULES, middle(30) - 0.001, middle(39) + 0.001)
+    assert both.rate.n_words == both.level.n_words == 10
+    without_first = measure_stretch(obs, PROFILE, RULES, middle(30) + 0.001, middle(39) + 0.001)
+    assert without_first.rate.n_words == without_first.level.n_words == 9
+    without_last = measure_stretch(obs, PROFILE, RULES, middle(30) - 0.001, middle(39) - 0.001)
+    assert without_last.rate.n_words == without_last.level.n_words == 9
+
+
+def test_a_stretch_with_no_comparable_word_has_no_change_and_a_short_one_is_still_measured():
+    obs = reading(600)
+    nothing = measure_stretch(obs, PROFILE, RULES, 1000.0, 1001.0)
+    assert nothing.reason is None and (nothing.rate.n_words, nothing.rate.change, nothing.rate.z) == (0, None, None)
+    assert (nothing.level.n_words, nothing.level.change, nothing.level.z) == (0, None, None)
+    short = measure_stretch(reading(600, stretches=[(30, 34, 0.5)]), PROFILE, RULES, *span(reading(600, stretches=[(30, 34, 0.5)]), 30, 34))
+    assert short.rate.n_words == 5 and short.rate.change > 50.0                   # fewer words than a finding needs: the number is still given
+
+
+def test_words_without_a_time_do_not_count_in_a_stretch():
+    obs = reading(600, stretches=[FAST])
+    start, slots = np.array(obs.start_s), np.array(obs.slot_s)
+    start[[32, 33]] = np.nan
+    slots[[32, 33]] = np.nan
+    cut = type(obs)(obs.tokens, start, obs.end_s, slots, obs.level_db, obs.max_gap_s, obs.active_threshold_dbfs)
+    assert measure_stretch(cut, PROFILE, RULES, *span(obs, 30, 47)).rate.n_words == 16
+
+
+def test_a_reading_the_profile_cannot_judge_gives_the_reason_instead_of_numbers():
+    other = reading(617, tokens=[f"{t}q" for t in make_tokens()])
+    assert measure_stretch(other, PROFILE, RULES, 0.0, 1000.0) == StretchReading(None, None, "transcript_mismatch")
+    short = reading(618, n=12)
+    cut = measure_stretch(short, PROFILE, RULES, 0.0, 1000.0)
+    assert (cut.rate, cut.level, cut.reason) == (None, None, "too_few_words")
+    assert measure_stretch(short, PROFILE, DetectionConfig(profile_min_usable_words=12, run_min_words=10), 0.0, 1000.0).rate.n_words == 12
+
+
+def test_each_spread_floor_alone_lowers_z_in_a_measured_stretch_and_none_changes_the_size():
+    obs = reading(600, stretches=[FAST], loud=[(30, 47, 8.0)])
+    normal = measure_stretch(obs, PROFILE, RULES, *span(obs, 30, 47))
+    for floor, signal, other in (("sigma_floor_rate_word", "rate", "level"), ("sigma_floor_rate_drift", "rate", "level"),
+                                 ("sigma_floor_level_word", "level", "rate"), ("sigma_floor_level_drift", "level", "rate")):
+        raised = measure_stretch(obs, PROFILE, DetectionConfig(**{floor: 5.0}), *span(obs, 30, 47))
+        assert (raised.rate.change, raised.level.change) == (normal.rate.change, normal.level.change), floor           # the size does not depend on the spread
+        assert 0 < getattr(raised, signal).z < getattr(normal, signal).z, floor                                          # this floor lowers z of its own signal ...
+        assert getattr(raised, other).z == getattr(normal, other).z, floor                                               # ... and of no other
+
+
+def test_the_spread_in_a_measured_stretch_depends_on_the_number_of_words():
+    obs = reading(600, stretches=[FAST], loud=[(30, 47, 8.0)])
+    many, few = measure_stretch(obs, PROFILE, RULES, *span(obs, 30, 47)), measure_stretch(obs, PROFILE, RULES, *span(obs, 30, 39))
+    assert (many.rate.n_words, few.rate.n_words) == (18, 10) and few.level.change > 0
+    assert few.level.z / few.level.change < many.level.z / many.level.change       # z per decibel: a shorter run has a wider spread, so a given change counts for less
+
+
+def test_a_measured_stretch_is_the_same_every_time():
+    obs = reading(604, stretches=[(10, 25, 0.6)], loud=[(30, 40, 9.0)])
+    assert measure_stretch(obs, PROFILE, RULES, *span(obs, 10, 25)) == measure_stretch(obs, PROFILE, RULES, *span(obs, 10, 25))
 
 
 # ------------------------------------------------------------------------------------------------------------------------------

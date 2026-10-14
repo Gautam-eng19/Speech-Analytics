@@ -196,3 +196,83 @@ def test_the_sweep_table_compares_settings_on_these_takes(registered: World):
     table = ev.render_sweep(rows, count)
     assert "normal settings" in table and "z_run_rate=40" in table and "false/min" in table
     table.encode("ascii")
+
+
+# ------------------------------------------------------------------------------------------------------------------------------
+# The evaluation tool helps a person judge a miss (DEC-041)
+# ------------------------------------------------------------------------------------------------------------------------------
+def test_a_missed_flaw_is_explained_by_how_big_the_change_was_and_what_the_registration_check_said(registered: World):
+    blind = ev.Evaluator(registered.data, detection=ev.detection_config(["z_run_rate=1000", "z_run_energy=1000"]))     # no finding can reach z 1000
+    results = {r.recording_id: r for r in blind.run(["dev"], only="flaw_")}
+    expected = {"flaw_fast": ("faster", "rate", lambda change: change > 50.0), "flaw_slow": ("slower", "rate", lambda change: change < -30.0),
+                "flaw_loud": ("louder", "level", lambda change: 5.0 < change < 11.0), "flaw_quiet": ("quieter", "level", lambda change: -11.0 < change < -5.0)}
+    for take, (word, signal, size_ok) in expected.items():
+        (match,) = results[name(take)].matches
+        assert match.found is None, take
+        said = " | ".join(match.why)
+        assert match.why[0].startswith("registration check: ") and f"{word} than the baseline readers spoke the same words" in said and "z above 1000" in said
+        assert size_ok(match.measured[signal]["change"]) and match.measured[signal]["n_words"] > 10, (take, match.measured)
+    assert "passes all three" not in " ".join(results[name("flaw_fast")].matches[0].why)               # it was held back by the limit that was raised, and the line says which one
+
+
+def test_a_flaw_that_was_found_has_no_reason_to_give(replay):
+    matches = [m for r in replay.values() for m in r.matches]
+    assert len(matches) == 5 and all(m.found is not None for m in matches)                    # all five planned flaws are found here ...
+    assert all(m.why == [] and m.measured is None for m in matches)                          # ... so nothing is explained
+
+
+def test_a_missed_pause_is_explained_by_the_registration_check_alone(registered: World):
+    (result,) = ev.Evaluator(registered.data, detection=ev.detection_config(["min_pause_s=10"])).run(["dev"], only="flaw_pause")
+    (match,) = result.matches
+    assert match.found is None and len(match.why) == 1 and match.why[0].startswith("registration check: the silence after the word lasts") and match.measured is None
+
+
+def test_a_baseline_without_a_profile_says_so_when_a_flaw_is_missed(registered: World, tmp_path: Path):
+    shutil.copytree(registered.data, tmp_path / "data")
+    path = tmp_path / "data" / "processed" / "baseline_stats" / "p001.json"
+    plain = BaselineStatsRecord.model_validate_json(path.read_text(encoding="utf-8")).model_copy(update={"word_profile": None}).with_computed_sha256()
+    path.write_text(plain.model_dump_json(indent=2), encoding="utf-8")
+    (result,) = ev.Evaluator(tmp_path / "data").run(["dev"], only="flaw_loud")
+    (match,) = result.matches
+    assert match.found is None and any("has no word profile (rebuild it with --build-baseline)" in line for line in match.why) and match.measured is None
+
+
+def test_the_comparison_switched_off_is_said_when_a_flaw_is_missed(registered: World):
+    (result,) = ev.Evaluator(registered.data, detection=ev.detection_config(["use_profile=false"])).run(["dev"], only="flaw_loud")
+    assert any("switched off in this run" in line for line in result.matches[0].why)
+
+
+def test_a_flaw_performed_in_another_place_than_planned_is_recognised(registered: World, tmp_path: Path):
+    shutil.copytree(registered.data, tmp_path / "data")
+    annotations = tmp_path / "data" / "annotations"
+    elsewhere = json.loads((annotations / f"{name('flaw_slow')}.flaws.json").read_text(encoding="utf-8"))["flaws"][0]       # the last sentence
+    path = annotations / f"{name('flaw_fast')}.flaws.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["flaws"][0].update(start_s=elsewhere["start_s"], end_s=elsewhere["end_s"])                                           # planned there, performed in sentence 3
+    path.write_text(json.dumps(data), encoding="utf-8")
+    (result,) = ev.Evaluator(tmp_path / "data").run(["dev"], only="flaw_fast")
+    (match,) = result.matches
+    assert match.found is None and any(line.startswith("a too_fast was found elsewhere in this take (") for line in match.why)
+    (extra,) = [e for e in result.extras if e.flaw_type == "too_fast"]
+    assert extra.where == "away" and extra.where_note == "away from every planned flaw"
+    rows = [(start, end, what) for take, start, end, what in ev.listen_first([result]) if take == name("flaw_fast")]
+    assert (match.planned.start_s, match.planned.end_s, "planned too_fast, not found") in rows
+    assert (extra.start_s, extra.end_s, "too_fast flagged away from the planned flaw") in rows
+
+
+def test_every_extra_of_a_replay_says_where_it_lies_against_the_planned_flaws(registered: World):
+    loose = ["z_run_rate=2", "z_run_energy=2", "run_min_words=8", "min_rate_change_pct=5", "min_energy_change_db=1"]      # plenty of flags to classify
+    results = ev.Evaluator(registered.data, detection=ev.detection_config(loose)).run(["dev"])
+    seen = {"on": 0, "next": 0, "away": 0}
+    for r in results:
+        planned = [m.planned for m in r.matches]
+        for extra in r.extras:
+            if not planned:
+                assert (extra.where, extra.where_note) == ("", "")                              # a clean take has nothing planned to relate to
+                continue
+            overlapping = any(ev.overlap(p.start_s, p.end_s, extra.start_s, extra.end_s) > 0 for p in planned)
+            gap = min(max(p.start_s - extra.end_s, extra.start_s - p.end_s, 0.0) for p in planned)
+            assert extra.where in seen and extra.where_note, (r.recording_id, extra)
+            assert (extra.where == "on") == overlapping and (extra.where == "next") == (not overlapping and gap <= ev.NEAR_S + 1e-9), (r.recording_id, extra, gap)
+            seen[extra.where] += 1
+    assert min(seen.values()) > 0 and sum(seen.values()) > 5, seen                             # every kind occurs, so the check above is not empty

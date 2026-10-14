@@ -901,12 +901,16 @@ Not run on real recordings: every threshold is from simulation. Baselines must b
 
 \## TASK-131 — Calibrate the Word-by-Word Settings on the Real Dev Takes
 
-Status: BACKLOG
+Status: IN PROGRESS (first real check done 2026-10-14, DEC-041: settings kept; listening to the disagreements and confirming the annotations remain)
 
 Priority: P0
 
-Notes:
-Run `python scripts/dataset/evaluate_takes.py --sweep "z_run_rate=3,3.5,4,4.5,5" "run_min_words=8,10,12" "min_rate_change_pct=10,15,20" "min_energy_change_db=2,3,4" "min_pause_s=1,1.2,1.5"` on the real dev takes after rebuilding the baselines, choose the values that find the confirmed flaws with the fewest false alarms on clean takes, record them (DEC), then freeze with `THRESHOLDS_CALIBRATED=true` and a CONFIG_VERSION bump. Confirm the proposed annotations by ear first (the table counts them as given).
+Done (2026-10-14, DEC-041): the baselines were rebuilt with the word profile and `evaluate_takes.py` and `--sweep` were run on the 48 real dev takes: 34 of 40 planned flaws found (pause 8 of 8, slow 8 of 8, loud 7 of 8, fast 6 of 8, quiet 5 of 8), ranges 0.8 to 1.0 times the plan, 1 of 8 clean takes flagged; all six misses are takes of one speaker; of the 14 extras on flawed takes 7 are on a planned stretch, 3 right next to one and 4 away. The sweep shows the DEC-040 settings at the point where raising a limit loses real flaws and lowering it adds flags faster than it finds flaws, so they stay.
+
+Remaining:
+1. Listen to the places the report lists under "Listen to these first" (`evaluate_takes.py --labels` writes `<take>.detected.txt` for Audacity) and confirm or correct the annotations (`annotation_status: confirmed`); re-record a take whose registration check says it is a weak example. Re-run `--sweep` with `--confirmed-only`.
+2. Choose the final values from that table, record them (DEC), then freeze with `THRESHOLDS_CALIBRATED=true` and a CONFIG_VERSION bump.
+3. Decide, with the confirmed labels, whether a shorter minimum run (`RUN_MIN_WORDS` 8) or a size guard of 4 dB for loudness is worth its cost (the planned stretches are all whole sentences, so the current takes cannot show it).
 
 \## TASK-126 — Registration and Labelling Tools
 
@@ -940,6 +944,8 @@ Priority: P0
 
 Delivered (2026-10-13, DEC-039): `scripts/dataset/evaluate_takes.py`: replays registered dev takes (real audio, stored alignment and baseline, passage text as transcript, no speech model) through the real analysis and compares the findings with the annotations (found or missed, start and end error, overlap, detected range against the plan, extra detections, false alarms on clean takes), `--detect NAME=VALUE` to try other settings, `--json`, the test split sealed (`--allow-test`), baseline takes left out (`--include-baseline`). 30 tests; all 23 injected bugs caught.
 
+Extended (2026-10-14, DEC-041): every MISSED planned flaw says why (the registration check's sentence, the change measured over the planned words against what a finding needs, whether the same kind of flaw was found elsewhere in the take); every EXTRA on a flawed take says whether it lies on a planned stretch, within 3 s of one or away from all of them; a "Listen to these first" list; `--labels` writes the detections as Audacity labels; the sweep table has an `away` column. `measure_stretch` (grounding/profile_detection.py) is the one implementation of the yardstick.
+
 \## TASK-127 — Evaluation and Tuning Tools
 
 Status: BACKLOG (the replay tool and the one-setting-at-a-time sweep, `--sweep`, are done; the rest remains)
@@ -948,6 +954,15 @@ Priority: P0
 
 Notes:
 Matching of predictions to annotations (50 % overlap), precision/recall/F1 per flaw type with the number of events, boundary error, false-alarm rate on clean takes, speaker variation, determinism, a guard against analysing the sealed test split before the freeze (the replay already refuses it), and the final frozen run on the test split (protocol sections 12.3 to 12.5). Delivered with the replay tool and TASK-130: replay, found/missed, boundary error, extras, false alarms per clean minute, `--sweep`.
+
+\## TASK-132 — Calibrate the Scores
+
+Status: BACKLOG
+
+Priority: P1
+
+Notes:
+Found 2026-10-14 on the real replay (DEC-041): a take with one clear planned flaw scores 86 to 98 (a 3 s pause 90 to 92, a slow sentence 86 to 95, a loud sentence 92 to 98), a take with nothing found 100. The score subtracts points only for the flawed seconds of the affected feature (DEC-030: penalty = 30 x severity x reliability, mapped to the feature; sub-scores combined with weights), which is a defensible rule, but the scale is still the initial one and has never been compared with what a listener would call a good, a fair and a poor delivery. Decide with the leader what a score should mean (for example which score a take with one clear flaw, three clear flaws or a flaw in every sentence should get), then set the constants from the real dev takes and record it (DEC). Until then every score is indicative, as the analysis notes already say (`thresholds_uncalibrated`). Not started; the constants must not change without that decision: the scoring methodology is protected (AGENTS.md section 18).
 
 \---
 
