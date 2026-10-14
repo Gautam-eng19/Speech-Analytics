@@ -141,6 +141,28 @@ def _energy(flaw: GroundedFlaw, f: Dict[str, str]) -> Tuple[str, str]:
     return text, rec
 
 
+def _pitch(flaw: GroundedFlaw, f: Dict[str, str]) -> Tuple[str, str]:
+    if flaw.rule.feature == "pitch_overall_z":
+        text = (
+            f"{_span(f)}: over the whole recording, the pitch moved by about {f['pitch_hz']} Hz around its usual level, {f['less_pct']}% less than the "
+            f"{f['baseline_pitch_hz']} Hz the baseline readings moved on the same words ({f['z']} standard deviations below it). Flagged because the pitch "
+            f"of the whole recording moved less than the baseline's by more than {f['threshold']} standard deviations of how much readings of this "
+            f"passage differ in pitch movement, which indicates flatter, more monotone delivery than the baseline."
+        )
+    else:
+        text = (
+            f"{_span(f)}: the pitch moved by about {f['pitch_hz']} Hz around its usual level, {f['less_pct']}% less than the {f['baseline_pitch_hz']} Hz "
+            f"the baseline readings moved on these same words ({f['z']} standard deviations below it){_words_clause(flaw)}. Flagged because the pitch "
+            f"movement of this run of words was more than {f['threshold']} standard deviations below the baseline's for the same words over at least "
+            f"{f['min_duration']} s, which indicates flatter, more monotone delivery than the baseline."
+        )
+    rec = (
+        f"Give these words more melody: let the pitch rise on the words that carry the meaning and fall at the end of the phrase, moving about "
+        f"{f['baseline_pitch_hz']} Hz around your usual level as the baseline readings did."
+    )
+    return text, rec
+
+
 def _pause(flaw: GroundedFlaw, f: Dict[str, str]) -> Tuple[str, str]:
     cross = getattr(flaw.evidence, "boundary_type", None) == PauseBoundaryType.CROSS_SENTENCE
     where = "between sentences" if cross else "inside a phrase"
@@ -164,6 +186,7 @@ _TEMPLATES: Dict[FlawType, Callable[[GroundedFlaw, Dict[str, str]], Tuple[str, s
     FlawType.TOO_SLOW: _rate,
     FlawType.LOW_ENERGY: _energy,
     FlawType.HIGH_ENERGY: _energy,
+    FlawType.FLAT_PITCH: _pitch,
     FlawType.EXCESSIVE_PAUSE: _pause,
 }
 

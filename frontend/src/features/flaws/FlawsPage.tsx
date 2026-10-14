@@ -27,6 +27,8 @@ const RULE_FEATURE: Record<string, string> = {
   rate_run_z: 'word-by-word pace z-score',
   rate_overall_z: 'whole-recording pace z-score',
   energy_run_z: 'word-by-word loudness z-score',
+  pitch_run_z: 'word-by-word pitch-movement z-score',
+  pitch_overall_z: 'whole-recording pitch-movement z-score',
 };
 
 /** The detection rule in words. Feature, direction, threshold and minimum duration are the backend's. */

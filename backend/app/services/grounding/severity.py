@@ -13,7 +13,8 @@ Amendment (DEC-040): a finding that carries a measured SIZE of the change (`Flaw
     magnitude = clip(|effect| / effect_scale[type], 0, 1)
 
 with the size in natural-log ratio of durations for pace (scale ln 2: twice or half as fast is the most serious), dB for loudness (scale
-15 dB) and seconds beyond the baseline's mean for a pause (scale 3.5 s). The z-score says how sure we are that the change is more than the
+15 dB), seconds beyond the baseline's mean for a pause (scale 3.5 s) and, for flat pitch (DEC-042), the natural-log ratio of the pitch movement
+(scale ln 3: a third of the baseline's movement is the most serious). The z-score says how sure we are that the change is more than the
 natural variation; it saturates quickly when a baseline is very even (a 1.2 s breath is already 4 standard deviations from a reader whose
 pauses are all 0.4 s) and then no longer separates a small change from a large one. The size does. Findings without a size (the fallback
 rules for a baseline without a word profile) keep the z-score formula above.
@@ -62,6 +63,7 @@ def _default_effect_scales() -> "dict[FlawType, float]":
         FlawType.HIGH_ENERGY: settings.SEVERITY_ENERGY_SEVERE_DB,
         FlawType.LOW_ENERGY: settings.SEVERITY_ENERGY_SEVERE_DB,
         FlawType.EXCESSIVE_PAUSE: settings.SEVERITY_PAUSE_EXCESS_SEVERE_S,
+        FlawType.FLAT_PITCH: math.log(settings.SEVERITY_PITCH_FLAT_SEVERE_RATIO),
     }
 
 

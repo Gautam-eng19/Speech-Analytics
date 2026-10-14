@@ -360,10 +360,14 @@ class AnalysisPipeline:
                 normalized = normalize_features(record, f0=f0, energy=energy, rate=rate, pauses=pauses.events)
                 # The words are measured the way the baseline's word profile was built (its own gap cap and activity threshold).
                 profile = record.word_profile
+                pitch_profile = profile.pitch if profile is not None else None
                 observations = measure_words(
                     aligned, energy,
                     max_gap_s=profile.max_gap_s if profile is not None else cfg.rate.max_gap_s,
                     active_threshold_dbfs=profile.active_threshold_dbfs if profile is not None else cfg.pause.vad_energy_threshold_dbfs,
+                    f0=f0,
+                    pitch_min_voiced_frames=pitch_profile.min_voiced_frames if pitch_profile is not None else settings.PITCH_MIN_VOICED_FRAMES,
+                    pitch_deviation_clip_st=pitch_profile.deviation_clip_st if pitch_profile is not None else settings.PITCH_DEVIATION_CLIP_ST,
                 )
                 detection = detect_candidates(normalized, cfg.detection, aligned=aligned, baseline=record, observations=observations)
                 grounded = clip_to_audio(
@@ -529,6 +533,8 @@ class AnalysisPipeline:
             add("alignment_warning", warning)
 
         judged_by_profile = {name for name, mode in detection.modes.items() if mode == "profile"}
+        if "pitch" in judged_by_profile:
+            judged_by_profile.add("f0")          # the word-by-word pitch comparison does not need the overall pitch statistics
         for name in sorted(normalized.unavailable):
             if name in judged_by_profile:
                 continue          # the word-by-word comparison judged it, whatever the overall statistics could not
@@ -547,6 +553,9 @@ class AnalysisPipeline:
             add("profile_not_applicable",
                 "Too few words could be compared with the baseline's reading of the same words, so pace and loudness were compared with the "
                 "baseline's overall averages, which is much less precise.")
+
+        if detection.modes.get("pitch") != "profile":
+            add("pitch_not_judged", f"Flat pitch was not checked: {detection.skipped.get('flat_pitch', 'it could not be compared with the baseline')}.")
 
         uncomparable = sum(1 for p in normalized.pauses if not math.isfinite(p.z_score))
         if uncomparable:

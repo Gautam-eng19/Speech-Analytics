@@ -1,4 +1,4 @@
-import type { Evidence, EnergyEvidence, Flaw, PauseEvidence, RateEvidence } from '@/api/types';
+import type { Evidence, EnergyEvidence, FlatPitchEvidence, Flaw, PauseEvidence, RateEvidence } from '@/api/types';
 import { fmtLevel, fmtNum, fmtSigned, titleCase } from './format';
 
 /**
@@ -26,6 +26,7 @@ export interface EvidenceGauge {
 const isRate = (e: Evidence): e is RateEvidence => 'rate_z_score' in e;
 const isEnergy = (e: Evidence): e is EnergyEvidence => 'energy_z_score' in e;
 const isPause = (e: Evidence): e is PauseEvidence => 'pause_z_score' in e;
+const isFlatPitch = (e: Evidence): e is FlatPitchEvidence => 'f0_std_z' in e;
 
 export function evidenceGauge(flaw: Flaw): EvidenceGauge | null {
   const e = flaw.evidence;
@@ -74,6 +75,16 @@ export function evidenceRows(flaw: Flaw): EvidenceRow[] {
       { label: 'Where', value: titleCase(e.boundary_type), hint: `detected by ${e.detection_source}` },
     ];
   }
+  if (isFlatPitch(e)) {
+    // The backend gives the movement of the pitch in Hz (the root-mean-square distance from the recording's median pitch) and no separate spread.
+    return [
+      { label: 'Participant pitch movement', value: fmtNum(e.f0_std_hz_in_window, 1), unit: 'Hz', hint: 'how far the pitch moved around its usual level' },
+      { label: same ? 'Baseline, same words' : 'Baseline movement', value: fmtNum(e.f0_std_baseline_hz, 1), unit: 'Hz', hint: 'what the baseline readings moved on these words' },
+      { label: 'z-score', value: fmtSigned(e.f0_std_z, 2), hint: 'negative: the voice moved less than the baseline' },
+      { label: 'Voiced speech', value: fmtNum(100 * e.f0_voiced_fraction, 0), unit: '%', hint: 'only voiced speech has a pitch' },
+      { label: 'Measured over', value: fmtNum(e.window_duration_s, 1), unit: 's' },
+    ];
+  }
   // Not produced by the current backend; show whatever numbers arrive instead of hiding them.
   return Object.entries(e as unknown as Record<string, unknown>).map(([key, value]) => ({
     label: titleCase(key),
@@ -87,5 +98,6 @@ export function evidenceHeadline(flaw: Flaw): string {
   if (isRate(e)) return `${fmtNum(e.rate_participant_wpm, 0)} vs ${fmtNum(e.rate_baseline_mean_wpm, 0)} words/min`;
   if (isEnergy(e)) return `${fmtSigned(e.energy_delta_db, 1)} dB vs baseline`;
   if (isPause(e)) return `${fmtNum(e.pause_duration_s, 2)} s vs ${fmtNum(e.pause_baseline_mean_s, 2)} s`;
+  if (isFlatPitch(e)) return `${fmtNum(e.f0_std_hz_in_window, 1)} vs ${fmtNum(e.f0_std_baseline_hz, 1)} Hz of movement`;
   return '';
 }

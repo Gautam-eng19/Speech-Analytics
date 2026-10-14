@@ -30,6 +30,7 @@ const KNOWN: Record<string, NoteMeta> = {
   baseline_thin_rate: { category: 'baseline', level: 'caution', title: 'Thin baseline: speech rate' },
   baseline_thin_pauses: { category: 'baseline', level: 'caution', title: 'Thin baseline: pauses' },
   pauses_not_comparable: { category: 'baseline', level: 'info', title: 'Some pauses cannot be compared' },
+  pitch_not_judged: { category: 'scoring', level: 'caution', title: 'Flat pitch was not checked' },
   audio_very_quiet: { category: 'audio', level: 'caution', title: 'Very quiet recording' },
   mfcc_unavailable: { category: 'audio', level: 'info', title: 'MFCC summary unavailable' },
   alignment_warning: { category: 'alignment', level: 'caution', title: 'Alignment warning' },

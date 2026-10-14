@@ -4,7 +4,7 @@ import type { IconName } from '@/components/Icon';
 /**
  * Static glossary of flaw types: labels, icons and plain-language definitions.
  * Mirrors ARCHITECTURE.md section 13/17 and DEC-026. `available` is false for flaw types the backend cannot detect yet
- * (flat pitch needs a baseline statistic that does not exist; the P1 types are not implemented).
+ * (the P1 types are not implemented; flat pitch has been detected word by word since DEC-042).
  */
 export type FlawFamily = 'rate' | 'pause' | 'energy' | 'pitch' | 'clarity';
 
@@ -51,9 +51,9 @@ export const FLAW_META: Record<FlawType, FlawMeta> = {
     measured: 'Loudness of a run of words in dB, compared with the level the baseline readings had for those same words, after removing the recording’s overall level. (A baseline without a word-by-word profile: frame loudness against the overall mean and spread.)',
   },
   flat_pitch: {
-    type: 'flat_pitch', label: 'Flat pitch', family: 'pitch', icon: 'g-flat', available: false,
-    definition: 'Pitch moved much less than in the baseline delivery. Not detected yet: it needs a baseline statistic of pitch variation that does not exist.',
-    measured: 'Pitch variation inside a window compared with the baseline.',
+    type: 'flat_pitch', label: 'Flat pitch', family: 'pitch', icon: 'g-flat', available: true,
+    definition: 'The voice moved much less than in the baseline delivery of the same words: a more monotone stretch.',
+    measured: 'How far the pitch of a run of words moves around the recording’s own median pitch (in Hz), compared with how far the baseline readings moved on those same words. Needs a baseline with a pitch profile.',
   },
   pitch_instability: {
     type: 'pitch_instability', label: 'Pitch instability', family: 'pitch', icon: 'g-unstable', available: false,
@@ -76,7 +76,7 @@ export function flawMeta(type: string): FlawMeta {
 
 export const flawColor = (type: string): string => `var(--f-${type})`;
 
-/** Score dimensions (FeatureName). `pitch` has no detector yet, so it is never part of the composite. */
+/** Score dimensions (FeatureName). `pitch` is part of the composite only when the baseline has a pitch profile (otherwise the analysis says it was not checked). */
 export const SCORE_DIMENSIONS = [
   { key: 'speech_rate', label: 'Speech rate', flaws: ['too_fast', 'too_slow'] },
   { key: 'pauses', label: 'Pauses', flaws: ['excessive_pause'] },

@@ -18,14 +18,14 @@
   "baseline": {
     "baseline_id": "demo_talk",
     "takes": 5,
-    "sha256": "77ead6cde958205d8bcdbdd3775fc8943d9d5c323ad7bbab5ef2c4732b9057b6"
+    "sha256": "3bf774f8223da3a0f2eaaa2dff279fbe0cd467858445f8358777f21170592797"
   },
   "samples": [
     {
       "id": "clean-delivery",
       "title": "Clean delivery",
       "description": "A control take: the same voice reading the passage at its normal pace, with no deliberate flaw. It shows what the dashboard looks like when nothing is flagged.",
-      "analysis_id": "d039947e-e120-5540-8b8d-afc90ce90900",
+      "analysis_id": "bcfdeb8c-0858-5def-880e-66ca65b54f81",
       "audio": "clean-delivery.wav",
       "result": "clean-delivery.json",
       "duration_s": 53.995,
@@ -38,7 +38,7 @@
       "id": "rushed-explanation",
       "title": "Rushed explanation",
       "description": "The third sentence is read about 1.8 times faster than the baseline pace; everything else is normal.",
-      "analysis_id": "c9bad31d-020c-557f-a2c4-0fddcd002fd7",
+      "analysis_id": "0c1e9435-a6f3-5bd4-b155-27ebf9314ff8",
       "audio": "rushed-explanation.wav",
       "result": "rushed-explanation.json",
       "duration_s": 50.075,
@@ -58,7 +58,7 @@
       "id": "hesitant-delivery",
       "title": "Hesitant delivery",
       "description": "A 1.9 s silence inside a phrase in the fourth sentence, and the sixth sentence read at about 0.6 times the normal speed.",
-      "analysis_id": "c70163bc-2389-59d4-af65-df0be2c9b3eb",
+      "analysis_id": "d6af9799-0947-5fae-aee1-74e8c602a0d5",
       "audio": "hesitant-delivery.wav",
       "result": "hesitant-delivery.json",
       "duration_s": 60.749,
@@ -84,7 +84,7 @@
       "id": "mixed-flaws",
       "title": "Mixed flaws",
       "description": "Three deliberate flaws in one take: a fast second sentence, a 3.2 s silence between two sentences, and a seventh sentence 20 dB quieter.",
-      "analysis_id": "cfd0c2e7-52d8-5890-873f-64a637560498",
+      "analysis_id": "b02ea06e-2a36-5a31-a560-bc017c39b99e",
       "audio": "mixed-flaws.wav",
       "result": "mixed-flaws.json",
       "duration_s": 53.53,

@@ -19,6 +19,9 @@ serialized results do not depend on last-bit floating-point differences):
     low / high_energy   -> EnergyEvidence  mean dBFS of the flagged frames, baseline mean/std, delta, mean z, span
     excessive_pause     -> PauseEvidence   pause duration, the type-specific baseline mean/std, delta, z,
                                            boundary type and detection source
+    flat_pitch          -> FlatPitchEvidence  the pitch movement of the run in Hz (root-mean-square distance from the reading's median pitch,
+                                           DEC-042) against what the baseline readings had for the same words, the z-score (negative: the voice
+                                           moved less), the share of the run's frames that were voiced, span
 
 Because z is linear in the measurement, the reported mean z equals (reported mean - baseline mean) /
 baseline std: the evidence is internally consistent and re-derivable by a reader.
@@ -51,6 +54,7 @@ from app.schemas.response import (
     DetectionRule,
     EnergyEvidence,
     Evidence,
+    FlatPitchEvidence,
     Flaw,
     PauseEvidence,
     RateEvidence,
@@ -85,6 +89,16 @@ WARNING_ENERGY_RUN = (
     "Loudness is compared word by word with the baseline's level for the same words, after removing the recording's overall level (recordings "
     "are scaled to a common speech level), so it shows louder or quieter stretches within the recording, not how loud the speaker was overall, "
     "and it depends on microphone distance."
+)
+WARNING_PITCH_RUN = (
+    "Pitch is compared word by word: how far the pitch of the words moves around the recording's own median pitch, against how far the baseline's "
+    "readings moved on the same words, after allowing for the speaker's overall range. Only voiced speech has a pitch, so words with little of it "
+    "are left out, and a pitch tracker can make mistakes. The Hz figures are that movement expressed above the median pitch of the recording."
+)
+WARNING_PITCH_OVERALL = (
+    "The pitch of the whole recording moves less than the baseline's by more than readers of the same passage differ among themselves; this one "
+    "finding covers all the words that could be compared. Speakers differ in how expressive they naturally are, so a moderate difference alone is "
+    "not a flaw."
 )
 WARNING_ENERGY = (
     "Energy is relative loudness: the recording is scaled so that its typical speech level is the same as the baseline's, "
@@ -233,6 +247,21 @@ def _energy_evidence(
     )
 
 
+def _pitch_evidence(c: FlawCandidate) -> FlatPitchEvidence:
+    run = c.run
+    if run is None:
+        raise EvidenceError("flat pitch evidence needs the run of words that was found")
+    if not (math.isfinite(run.observed) and math.isfinite(run.expected) and run.voiced_fraction is not None and math.isfinite(run.voiced_fraction)):
+        raise EvidenceError("flat pitch evidence needs finite pitch movements and the voiced fraction of the run")
+    return FlatPitchEvidence(
+        f0_std_hz_in_window=_r(run.observed),
+        f0_std_baseline_hz=_r(run.expected),
+        f0_std_z=_r(c.mean_z),
+        f0_voiced_fraction=_r(min(1.0, max(0.0, run.voiced_fraction))),
+        window_duration_s=_r(c.end_s - c.start_s),
+    )
+
+
 def _pause_evidence(c: FlawCandidate, nb: NormalizedFeatureBundle) -> PauseEvidence:
     idx = _indices(c, len(nb.pauses), "pause")
     if len(idx) != 1:
@@ -255,7 +284,7 @@ def _rule(c: FlawCandidate, evidence: Evidence, cfg: DetectionConfig) -> Detecti
     minimum = float(cfg.min_duration_s[c.type])
     if c.run is not None:
         above = c.type in (FlawType.TOO_FAST, FlawType.HIGH_ENERGY)
-        threshold = cfg.z_run_rate if c.run.kind.startswith("rate") else cfg.z_run_energy
+        threshold = cfg.z_run_rate if c.run.kind.startswith("rate") else cfg.z_run_pitch if c.run.kind.startswith("pitch") else cfg.z_run_energy
         return DetectionRule(
             feature=c.detection_feature, direction="above" if above else "below", threshold_z=threshold if above else -threshold,
             min_duration_s=minimum,
@@ -319,7 +348,7 @@ def ground_flaws(
 
     Raises:
         EvidenceError: a needed raw input is missing, arrays do not line up, or a candidate has a
-            flaw type with no evidence builder (e.g. flat_pitch).
+            flaw type with no evidence builder (e.g. pitch_instability).
     """
     if not isinstance(detection, CandidateDetectionResult) or detection.config is None:
         raise TypeError("detection must be a CandidateDetectionResult produced by detect_candidates")
@@ -342,6 +371,10 @@ def ground_flaws(
         elif c.type in (FlawType.LOW_ENERGY, FlawType.HIGH_ENERGY):
             evidence = _energy_evidence(c, normalized, baseline, energy)
             warnings = (WARNING_ENERGY if c.run is None else WARNING_ENERGY_RUN,)
+            words = _words_in_interval(timed, c.start_s, c.end_s)
+        elif c.type == FlawType.FLAT_PITCH:
+            evidence = _pitch_evidence(c)
+            warnings = (WARNING_PITCH_OVERALL if c.run is not None and c.run.kind == "pitch_overall" else WARNING_PITCH_RUN,)
             words = _words_in_interval(timed, c.start_s, c.end_s)
         elif c.type == FlawType.EXCESSIVE_PAUSE:
             evidence = _pause_evidence(c, normalized)

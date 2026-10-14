@@ -277,6 +277,7 @@ def extract_recording_features(
     pauses = detect_pauses(aligned=aligned, energy=energy).events
     words = measure_words(
         aligned, energy, max_gap_s=settings.PROFILE_GAP_CAP_S, active_threshold_dbfs=settings.VAD_ENERGY_THRESHOLD_DBFS,
+        f0=f0, pitch_min_voiced_frames=settings.PITCH_MIN_VOICED_FRAMES, pitch_deviation_clip_st=settings.PITCH_DEVIATION_CLIP_ST,
     )
     return RecordingFeatures(
         recording_id=recording_id,
@@ -431,6 +432,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             status = 1
             continue
         profile = "word profile built" if record.word_profile is not None else "NO word profile (needs the passage text and 3 matching recordings)"
+        if record.word_profile is not None:
+            profile += ", pitch part built" if record.word_profile.pitch is not None else ", NO pitch part (too little voiced speech in the recordings)"
         print(f"[OK] {passage_id}: wrote {path} (sha256 {record.sha256[:12]}…, "
               f"{len(record.baseline_recording_ids)} recording(s), {profile})")
     return status

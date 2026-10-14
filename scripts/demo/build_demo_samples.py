@@ -320,7 +320,10 @@ def baseline_record(workdir: Path):
             alignment_method=AlignmentMethod.WHISPERX, total_coverage_pct=0.97)
         f0, energy, rate = extract_f0(audio), extract_energy(audio), extract_rate(aligned)
         pauses = detect_pauses(aligned=aligned, energy=energy).events
-        words = bbs.measure_words(aligned, energy, max_gap_s=bbs.settings.PROFILE_GAP_CAP_S, active_threshold_dbfs=bbs.settings.VAD_ENERGY_THRESHOLD_DBFS)
+        words = bbs.measure_words(
+            aligned, energy, max_gap_s=bbs.settings.PROFILE_GAP_CAP_S, active_threshold_dbfs=bbs.settings.VAD_ENERGY_THRESHOLD_DBFS,
+            f0=f0, pitch_min_voiced_frames=bbs.settings.PITCH_MIN_VOICED_FRAMES, pitch_deviation_clip_st=bbs.settings.PITCH_DEVIATION_CLIP_ST,
+        )
         recordings.append(bbs.RecordingFeatures(f"demo_base_{k:02d}", f0.voiced_values_hz, energy.values_db, rate.words_per_min, pauses, words))
     record = bbs.aggregate_baseline_stats(PASSAGE_ID, "demo", recordings, passage_text=PASSAGE_TEXT)
     bbs.write_stats(record, workdir / "baselines")

@@ -29,9 +29,14 @@ describe('flaw glossary', () => {
       expect(meta.definition.length).toBeGreaterThan(10);
     }
   });
-  it('marks pitch and clarity types as not detected yet', () => {
-    expect(FLAW_META.flat_pitch.available).toBe(false);
+  it('marks the types the backend cannot detect yet: flat pitch is detected word by word, instability and clarity are not', () => {
+    expect(FLAW_META.flat_pitch.available).toBe(true);
+    expect(FLAW_META.pitch_instability.available).toBe(false);
+    expect(FLAW_META.reduced_clarity.available).toBe(false);
     expect(FLAW_META.too_fast.available).toBe(true);
+  });
+  it('titles the note that says flat pitch was not checked', () => {
+    expect(noteMeta('pitch_not_judged')).toEqual({ category: 'scoring', level: 'caution', title: 'Flat pitch was not checked' });
   });
   it('degrades gracefully for an unknown type', () => {
     expect(flawMeta('mystery_flaw')).toMatchObject({ label: 'mystery flaw', available: false });

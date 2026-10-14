@@ -226,6 +226,10 @@ At the end it says `Baseline for p001: built from 3 take(s)` and `Dataset check:
 Under the baseline it also says `word-by-word profile: built (...)`: the site then compares every word with how the baseline readers read **the same word**, which is what makes the
 findings accurate. If it says `NOT built`, the baseline has fewer than 3 takes of that text; record more baseline takes. A baseline built before this feature existed has no profile either, so
 **rebuild the baseline after every update** (the same command, see 6g).
+The report has one more line, `pitch profile: built (...)`: it means the baseline also knows how much the voice moved on every word, which is what lets the site judge **flat pitch** (a monotone stretch).
+If it says `pitch profile: NOT built` and gives a reason (too few takes in which the pitch could be tracked), flat pitch is reported on the Overview page as "not checked" instead of being silently skipped.
+A quick check that it works on your own voice, three minutes: record the passage once the way you normally read it, once in a deliberate **monotone** (as if reading a train timetable, same pace, same loudness),
+and analyse both on the website. The monotone one should show a flat pitch finding over most of it; the normal one should not. Tell me what you see either way.
 
 **6e. Listen to the planned mistakes (the important human step)**
 

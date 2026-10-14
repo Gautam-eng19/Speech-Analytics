@@ -406,7 +406,7 @@ def test_findings_of_the_profile_become_candidates_that_carry_their_run_and_size
     record = baseline_record(word_profile=PROFILE)
     obs = reading(612, stretches=[(10, 25, 0.6)], loud=[(55, 72, -9.0)])
     result = detect_candidates(bundle(record), RULES, baseline=record, observations=obs)
-    assert result.modes == {"rate": "profile", "energy": "profile"} and result.profile_note is None
+    assert result.modes == {"rate": "profile", "energy": "profile", "pitch": "not judged"} and result.profile_note is None
     fast, quiet = result.candidates
     assert (fast.type, fast.detection_feature) == (FlawType.TOO_FAST, "rate_run_z") and (quiet.type, quiet.detection_feature) == (FlawType.LOW_ENERGY, "energy_run_z")
     for c in (fast, quiet):
@@ -421,14 +421,14 @@ def test_when_the_profile_judges_pace_and_loudness_the_overall_rules_do_not_run(
     result = detect_candidates(window_bundle(record), RULES, baseline=record, observations=clean)
     assert result.candidates == [] and result.modes["rate"] == "profile"
     fallback = detect_candidates(window_bundle(record), DetectionConfig(use_profile=False), baseline=record, observations=clean)
-    assert [c.type for c in fallback.candidates] == [FlawType.TOO_FAST] and fallback.modes == {"rate": "windows", "energy": "frames"}
+    assert [c.type for c in fallback.candidates] == [FlawType.TOO_FAST] and fallback.modes == {"rate": "windows", "energy": "frames", "pitch": "not judged"}
     assert fallback.candidates[0].run is None and fallback.candidates[0].effect is None
 
 
 def test_a_baseline_without_a_profile_falls_back_and_says_so():
     record = baseline_record()
     result = detect_candidates(window_bundle(record), RULES, baseline=record, observations=reading(500))
-    assert result.modes == {"rate": "windows", "energy": "frames"} and result.profile_note == "baseline_without_profile"
+    assert result.modes == {"rate": "windows", "energy": "frames", "pitch": "not judged"} and result.profile_note == "baseline_without_profile"
     assert [c.type for c in result.candidates] == [FlawType.TOO_FAST]
 
 
@@ -436,7 +436,7 @@ def test_a_transcript_that_does_not_match_falls_back_and_says_so():
     record = baseline_record(word_profile=PROFILE)
     other = reading(617, tokens=[f"{t}q" for t in make_tokens()])
     result = detect_candidates(window_bundle(record), RULES, baseline=record, observations=other)
-    assert result.modes == {"rate": "windows", "energy": "frames"} and result.profile_note == "transcript_mismatch"
+    assert result.modes == {"rate": "windows", "energy": "frames", "pitch": "not judged"} and result.profile_note == "transcript_mismatch"
     assert [c.type for c in result.candidates] == [FlawType.TOO_FAST]
 
 
@@ -472,7 +472,7 @@ def test_the_rule_of_a_loudness_finding_states_the_loudness_threshold_not_the_pa
 def test_without_observations_nothing_changes():
     record = baseline_record(word_profile=PROFILE)
     result = detect_candidates(window_bundle(record), RULES, baseline=record)
-    assert result.modes == {"rate": "windows", "energy": "frames"} and result.profile_note is None and len(result.candidates) == 1
+    assert result.modes == {"rate": "windows", "energy": "frames", "pitch": "not judged"} and result.profile_note is None and len(result.candidates) == 1
 
 
 def test_the_profile_must_belong_to_the_baseline_the_features_were_normalized_with():
@@ -527,7 +527,7 @@ def test_a_short_stretch_is_less_serious_by_the_same_rule_as_before():
 def test_a_finding_without_a_size_keeps_the_z_score_rule():
     cfg = SeverityConfig()
     assert compute_severity(candidate(FlawType.TOO_FAST, None, 2.5, duration=10.0), cfg) == pytest.approx(0.5)         # (2.5 - 1) / (4 - 1), full duration
-    assert compute_severity(candidate(FlawType.FLAT_PITCH, 99.0, 2.5, duration=10.0), cfg) == pytest.approx(0.5)       # no size scale for this type: z rule
+    assert compute_severity(candidate(FlawType.PITCH_INSTABILITY, 99.0, 2.5, duration=10.0), cfg) == pytest.approx(0.5)  # no size scale for this type: z rule
 
 
 def test_the_scales_can_be_changed_and_are_checked():
@@ -607,7 +607,7 @@ def notes_for(unavailable, modes, profile_note):
     return pipeline._notes(
         request=AnalyzeRequest(baseline_id="p001", passage_id="p001"), record=baseline_record(), aligned=None, transcript=SimpleNamespace(text="x"),
         alignment_warnings=[], normalized=SimpleNamespace(unavailable=unavailable, pauses=[]), scoring=SimpleNamespace(unevaluated=(), excluded={}),
-        mfcc_available=True, fallback_used=False, energy=SimpleNamespace(mean_db=-30.0), detection=SimpleNamespace(modes=modes, profile_note=profile_note),
+        mfcc_available=True, fallback_used=False, energy=SimpleNamespace(mean_db=-30.0), detection=SimpleNamespace(modes=modes, profile_note=profile_note, skipped={}),
     )
 
 
@@ -619,6 +619,14 @@ def test_a_feature_the_word_comparison_judged_is_not_reported_unavailable_but_th
     assert {"rate_unavailable", "energy_unavailable", "f0_unavailable"} <= codes
     codes = {n.code for n in notes_for(reasons, {"rate": "profile", "energy": "frames"}, None)}
     assert "rate_unavailable" not in codes and "energy_unavailable" in codes
+
+
+def test_flat_pitch_judged_by_the_profile_needs_no_overall_pitch_statistics_and_one_that_was_not_judged_says_so():
+    reasons = {"f0": "baseline_std_not_positive"}
+    judged = {n.code for n in notes_for(reasons, {"rate": "profile", "energy": "profile", "pitch": "profile"}, None)}
+    assert "f0_unavailable" not in judged and "pitch_not_judged" not in judged
+    not_judged = {n.code: n.message for n in notes_for(reasons, {"rate": "profile", "energy": "profile", "pitch": "not judged"}, None)}
+    assert "f0_unavailable" in not_judged and "Flat pitch was not checked" in not_judged["pitch_not_judged"]
 
 
 def test_each_reason_the_comparison_fell_back_has_its_own_note():

@@ -1063,6 +1063,12 @@ leave-one-out, and the spread of the overall pace between baseline recordings. I
 `scripts/dataset/build_baseline_stats.py`. A baseline without it is valid (its hash is unchanged); the analysis then uses the overall statistics and adds the note `baseline_without_profile`.
 Comparison with the profile is done after the participant's words are matched to the passage words, so a dropped, added or misrecognised word leaves only itself unmatched.
 
+**Pitch part (DEC-042, `WordProfile.pitch`, optional).** The pitch of each voiced frame is expressed in semitones from the reading's OWN median pitch (the speaker's register drops out); a word's **movement** is the
+mean squared deviation (semitones squared) of its voiced frames, each deviation clipped at `PITCH_DEVIATION_CLIP_ST` (6) so a tracking error cannot dominate, never below 0.01; a word needs
+`PITCH_MIN_VOICED_FRAMES` (5) voiced frames. The profile keeps the expected movement of every passage word (mean over the baseline recordings), the spread of a run of n words in the natural-log ratio of the
+root-mean-square movement (leave-one-out, same `drift`/`word` form), and the spread of a reading's OVERALL movement between baseline recordings (speakers differ in how expressive they are). A profile without the
+pitch part keeps its hash.
+
 ## 15. Normalization Architecture
 
 Normalization is owned by `services/grounding/` (first stage).
@@ -1149,11 +1155,17 @@ Detection rules per flaw type:
 | Too Fast | rate_z | `rate_z > Z_RATE_FAST` for `>= MIN_DURATION_S` | P0 |
 | Too Slow | rate_z | `rate_z < -Z_RATE_SLOW` for `>= MIN_DURATION_S` | P0 |
 | Excessive Pause | pause_z by type | `pause_z > Z_PAUSE_EXCESS` | P0 |
-| Flat Pitch | f0_std_z (per segment) | `f0_std_z < -Z_FLAT` in voiced segment `>= MIN_DURATION_S` | P0 |
+| Flat Pitch | f0_std_z (per segment); since DEC-042 the pitch movement of a run of words against the baseline's movement on the same words (§14.6) | `f0_std_z < -Z_FLAT` in voiced segment `>= MIN_DURATION_S`; since DEC-042 a run of `>= RUN_MIN_WORDS` words more than `Z_RUN_PITCH` spreads below AND `MIN_FLAT_PITCH_CHANGE_PCT` less movement | P0 |
 | Low Energy | energy_z | `energy_z < -Z_ENERGY` for `>= MIN_DURATION_S` | P0 |
 | High Energy | energy_z | `energy_z > Z_ENERGY` for `>= MIN_DURATION_S` | P0 |
 | Pitch Instability | f0_var_z (per segment) | `f0_var_z > Z_INSTAB` in segment `>= MIN_DURATION_S` | P1 |
 | Reduced Clarity | clarity_z | `clarity_z < -Z_CLARITY` for `>= MIN_DURATION_S` | P1 |
+
+**Flat pitch (DEC-042)** is judged only word by word, like pace and loudness (§14.6; `grounding/profile_detection.py`): the statistic of a run is `0.5 * ln(sum observed movement / sum expected movement)` (negative = the voice
+moved less), the reading's own overall movement (median over runs of 10 words) is removed first, only a run that moves LESS is a candidate, a reading that moves `GLOBAL_PITCH_CHANGE_PCT` (45 %) less than the baseline
+AND by more than the spread of the overall movement between baseline readings is also reported as one `pitch_overall` finding. Evidence keeps the `FlatPitchEvidence` fields: the movement in Hz (the root-mean-square
+movement expressed above the reading's median pitch), the baseline's movement for the same words, the z-score (negative), the voiced share of the run's frames. Without the pitch part of the profile, or when too few
+words have enough voiced speech, flat pitch is not judged: it is reported in `skipped`, the analysis adds the note `pitch_not_judged`, and pitch is left out of the score as before. Pitch instability is not implemented.
 
 All Z thresholds and MIN_DURATION_S values are configurable constants in `config.py`.
 Initial values are PROPOSED (see §31). They must be calibrated on the dev split.

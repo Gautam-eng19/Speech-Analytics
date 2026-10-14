@@ -26,6 +26,7 @@ from app.schemas.response import (
     FlatPitchEvidence,
     Flaw,
     PauseEvidence,
+    PitchInstabilityEvidence,
     RateEvidence,
     ScoreSummary,
     FeatureScore,
@@ -330,14 +331,13 @@ def test_guard_ignores_non_numeric_fact_values_and_signs_in_facts():
 
 # ----------------------------------------------------------- fallback behaviour
 def test_unsupported_flaw_types_use_the_safe_fallback():
-    ev = FlatPitchEvidence(f0_std_hz_in_window=1.0, f0_std_baseline_hz=20.0, f0_std_z=-3.0,
-                           f0_voiced_fraction=0.8, window_duration_s=2.0)
-    flaw = _flaw(FlawType.FLAT_PITCH, 4.0, 6.0, ev,
-                 DetectionRule(feature="f0_std_z", direction="below", threshold_z=-2.0, min_duration_s=0.5))
+    ev = PitchInstabilityEvidence(f0_var_hz_in_window=40.0, f0_var_baseline_hz=10.0, f0_var_z=3.0, window_duration_s=2.0)
+    flaw = _flaw(FlawType.PITCH_INSTABILITY, 4.0, 6.0, ev,
+                 DetectionRule(feature="f0_var_z", direction="above", threshold_z=2.0, min_duration_s=0.5))
     out = explain_flaw(flaw)
     assert out.used_fallback is True and out.method == ExplanationMethod.TEMPLATE
     assert out.explanation == (
-        "Delivery was flagged as “flat pitch” relative to the baseline from 4.0 s to 6.0 s."
+        "Delivery was flagged as “pitch instability” relative to the baseline from 4.0 s to 6.0 s."
     )
     assert out.recommendation == "Compare this section with the baseline recording."
 

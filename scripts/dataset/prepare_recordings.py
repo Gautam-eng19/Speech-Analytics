@@ -609,6 +609,10 @@ def render(report: Report, data_dir: Path) -> str:
         if record.word_profile is not None:
             lines.append(f"  word-by-word profile: built ({record.word_profile.n_takes} take(s) matched the passage text); pace and loudness are compared "
                          "with how the baseline read the same words.")
+            if record.word_profile.pitch is not None:
+                lines.append("  pitch profile: built; flat pitch is compared with how far the baseline's pitch moved on the same words.")
+            else:
+                lines.append("  pitch profile: NOT built (the baseline takes had too little voiced speech to measure how the pitch moves); flat pitch will not be checked.")
         else:
             lines.append("  word-by-word profile: NOT built (it needs the passage text in data/metadata/passages.json and at least 3 baseline takes that "
                          "match it); pace and loudness will be compared with the overall averages, which is much less precise.")

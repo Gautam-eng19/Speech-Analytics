@@ -183,7 +183,7 @@ def take_check_note(notes: str) -> str:
     return found.group(1).strip() if found else ""
 
 
-MEASURED_TYPES = ("too_fast", "too_slow", "high_energy", "low_energy")
+MEASURED_TYPES = ("too_fast", "too_slow", "high_energy", "low_energy", "flat_pitch")
 
 
 def describe_stretch(flaw_type: str, reading: StretchReading, rules: DetectionConfig) -> str:
@@ -194,7 +194,8 @@ def describe_stretch(flaw_type: str, reading: StretchReading, rules: DetectionCo
     if reading.reason == "transcript_mismatch":
         return "the words of this take do not match the passage well enough to be compared word by word"
     pace = flaw_type in ("too_fast", "too_slow")
-    signal = reading.rate if pace else reading.level
+    pitch = flaw_type == "flat_pitch"
+    signal = reading.rate if pace else reading.pitch if pitch else reading.level
     if signal is None:
         return "too few words could be compared word by word in this take"
     if signal.n_words == 0 or signal.change is None or signal.z is None:
@@ -204,6 +205,11 @@ def describe_stretch(flaw_type: str, reading: StretchReading, rules: DetectionCo
         min_size, z_needed = f"{rules.min_rate_change_pct:g}%", rules.z_run_rate
         enough = abs(signal.change) >= rules.min_rate_change_pct
         subject = "the baseline readers spoke the same words"
+    elif pitch:
+        size, direction = f"{abs(signal.change):.0f}%", "more" if signal.change > 0 else "less"
+        min_size, z_needed = f"{rules.min_flat_pitch_change_pct:g}%", rules.z_run_pitch
+        enough = -signal.change >= rules.min_flat_pitch_change_pct
+        subject = "the baseline readers moved it on the same words"
     else:
         size, direction = f"{abs(signal.change):.1f} dB", "louder" if signal.change > 0 else "quieter"
         min_size, z_needed = f"{rules.min_energy_change_db:g} dB", rules.z_run_energy
@@ -211,7 +217,8 @@ def describe_stretch(flaw_type: str, reading: StretchReading, rules: DetectionCo
         subject = "the baseline readers spoke the same words"
     planned_up = flaw_type in ("too_fast", "high_energy")
     right_way = (signal.change > 0) == planned_up
-    text = (f"those {signal.n_words} words were {size} {direction} than {subject} (z {abs(signal.z):.1f}); a finding needs a change of at least "
+    verb = "moved the pitch" if pitch else "were"
+    text = (f"those {signal.n_words} words {verb} {size} {direction} than {subject} (z {abs(signal.z):.1f}); a finding needs a change of at least "
             f"{min_size} with z above {z_needed:g} over at least {rules.run_min_words} words")
     if signal.n_words < rules.run_min_words:
         text += f" (this stretch has only {signal.n_words})"
@@ -227,7 +234,9 @@ DETECT_SETTINGS = {"z_rate_fast": float, "z_rate_slow": float, "z_energy": float
                    "merge_gap_s": float, "refine_rate": "bool", "refine_min_words": int, "min_pause_s": float, "min_flaw_s": float,
                    # word-by-word comparison with the baseline (DEC-040)
                    "use_profile": "bool", "z_run_rate": float, "z_run_energy": float, "run_min_words": int, "min_rate_change_pct": float,
-                   "min_energy_change_db": float, "global_tempo_change_pct": float}
+                   "min_energy_change_db": float, "global_tempo_change_pct": float,
+                   # flat pitch (DEC-042)
+                   "z_run_pitch": float, "min_flat_pitch_change_pct": float, "global_pitch_change_pct": float}
 
 
 def detection_config(pairs: Sequence[str]) -> Optional[DetectionConfig]:
@@ -295,6 +304,8 @@ def evidence_note(flaw: Any) -> str:
     ev = flaw.evidence
     if hasattr(ev, "rate_participant_wpm"):
         return f"rate {ev.rate_participant_wpm:.0f} words/min against {ev.rate_baseline_mean_wpm:.0f} expected, z {ev.rate_z_score:.1f}"
+    if hasattr(ev, "f0_std_hz_in_window"):
+        return f"pitch movement {ev.f0_std_hz_in_window:.1f} Hz against {ev.f0_std_baseline_hz:.1f} expected, z {ev.f0_std_z:.1f}"
     if hasattr(ev, "energy_mean_db"):
         return f"level {ev.energy_mean_db:.1f} dBFS against {ev.energy_baseline_mean_db:.1f} expected, z {ev.energy_z_score:.1f}"
     if hasattr(ev, "pause_duration_s"):
@@ -471,7 +482,7 @@ def sweep(data_dir: Path, pairs: Sequence[str], splits: Sequence[str], include_b
     return rows, count
 
 
-SHORT_TYPES = {"too_fast": "fast", "too_slow": "slow", "excessive_pause": "pause", "low_energy": "quiet", "high_energy": "loud"}
+SHORT_TYPES = {"too_fast": "fast", "too_slow": "slow", "excessive_pause": "pause", "low_energy": "quiet", "high_energy": "loud", "flat_pitch": "flat"}
 
 
 def render_sweep(rows: Sequence[Tuple[str, Dict[str, Any]]], take_count: int) -> str:

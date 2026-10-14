@@ -228,6 +228,34 @@ class NoiseModel(ContractModel):
     word: float = Field(ge=0.0, allow_inf_nan=False)
 
 
+class PitchProfile(ContractModel):
+    """How much the pitch of the SAME words moved in the baseline recordings (DEC-042); part of the `WordProfile`.
+
+    Pitch is measured in semitones from the reading's OWN median pitch, so the speaker's register does not matter, only how far the voice moves
+    around its usual level. For one word, the movement is the mean squared deviation (semitones squared) of its voiced frames, each deviation
+    clipped at `deviation_clip_st` so a tracking error cannot dominate; a word needs `min_voiced_frames` voiced frames to be measured.
+
+    * `movement_st2[i]`: expected movement of word i of the passage, the mean over the baseline recordings (``None`` where fewer than two
+      recordings measured the word).
+    * `noise`: spread of a run of `n` words in natural-log ratio of the root-mean-square movement, leave-one-out like the other spreads.
+    * `scale_sd`: spread of a reading's OVERALL movement between baseline recordings (natural log of the root-mean-square ratio, leave-one-out):
+      speakers differ in how expressive they are, and a reading is only called flat as a whole if it is further off than that.
+    """
+
+    movement_st2: list[Optional[float]]
+    noise: NoiseModel
+    scale_sd: float = Field(ge=0.0, allow_inf_nan=False)
+    min_voiced_frames: int = Field(ge=1)
+    deviation_clip_st: float = Field(gt=0.0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def _check_pitch_profile(self) -> "PitchProfile":
+        for value in self.movement_st2:
+            if value is not None and not (math.isfinite(value) and value >= 0.0):
+                raise ValueError("movement_st2 values must be finite numbers >= 0 or null")
+        return self
+
+
 class WordProfile(ContractModel):
     """How the SAME words were read in the baseline recordings, word by word (DEC-040).
 
@@ -255,12 +283,17 @@ class WordProfile(ContractModel):
     tempo_window_words: int = Field(ge=2)
     max_gap_s: float = Field(gt=0.0, allow_inf_nan=False)
     active_threshold_dbfs: float = Field(allow_inf_nan=False)
+    # How much the pitch of the same words moved (DEC-042). Absent in a profile built before it, or when the baseline recordings had too little
+    # voiced speech; flat pitch is then not judged and the analysis says so.
+    pitch: Optional[PitchProfile] = None
 
     @model_validator(mode="after")
     def _check_profile(self) -> "WordProfile":
         n = len(self.words)
         if len(self.slot_s) != n or len(self.level_db) != n:
             raise ValueError("words, slot_s and level_db must have the same length")
+        if self.pitch is not None and len(self.pitch.movement_st2) != n:
+            raise ValueError("pitch.movement_st2 must have one entry per word")
         if any(not w for w in self.words):
             raise ValueError("profile words must not be empty")
         for value in self.slot_s:
@@ -330,11 +363,14 @@ class BaselineStatsRecord(BaselineStats):
     def canonical_json(self) -> str:
         """Canonical JSON of every field except `sha256` (the hashed content).
 
-        A missing `word_profile` is left out of the content, so a baseline file written before the profile existed still verifies.
+        A missing `word_profile` is left out of the content, so a baseline file written before the profile existed still verifies; so is a missing
+        `word_profile.pitch`, for a profile written before the pitch part existed.
         """
         content = self.model_dump(mode="json", exclude={"sha256"})
         if content.get("word_profile") is None:
             content.pop("word_profile", None)
+        elif content["word_profile"].get("pitch") is None:
+            content["word_profile"].pop("pitch", None)
         return json.dumps(
             content,
             sort_keys=True,
