@@ -22,15 +22,6 @@
 
 </div>
 
-> [!IMPORTANT]
-> **Read this first: what VAANI is, and what it is not**
->
-> - VAANI judges **delivery** (pace, pauses, loudness, pitch movement) against a baseline reading of the *same text*. It does not judge what was said, how well it is written, or whether it is true.
-> - It is an **evidence tool, not a verdict.** Detection thresholds and score weights are *initial values that have not been calibrated* (`THRESHOLDS_CALIBRATED=false`). Every result says so in its `notes`, and a score such as 84.5 is not yet a calibrated measure of quality.
-> - **What has been measured so far** is small: the team's own 85+ recordings (three speakers, two passages).
-> - The four **demo analyses are synthetic**: a speech-synthesiser voice reads one passage with deliberate flaws, and the app labels them as such. Their numbers come from the real analysis code, but Whisper and WhisperX were replaced by exact-timing stand-ins when they were made.
-> - **No LLM (large language model) runs anywhere.** Explanations are templates filled from measured evidence, and a separate guard rejects any sentence that contains a number that is not in that evidence.
-
 ## Contents
 
 [Overview](#overview) · [Features](#features) · [Screenshots](#screenshots) · [How it works](#how-it-works) · [Flaw types](#flaw-types) · [Tech stack](#tech-stack) · [Project structure](#project-structure) · [Quick start](#quick-start) · [Using the dashboard](#using-the-dashboard) · [Configuration](#configuration) · [API reference](#api-reference) · [Running the tests](#running-the-tests) · [Evaluation](#evaluation) · [Recording your own dataset](#recording-your-own-dataset) · [Documentation](#documentation) · [Engineering rules](#engineering-rules) · [Limitations and roadmap](#limitations-and-roadmap) · [AI-assisted development](#ai-assisted-development) · [Privacy and consent](#privacy-and-consent) · [Acknowledgements and licence](#acknowledgements-and-licence)
