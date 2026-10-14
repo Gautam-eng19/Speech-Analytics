@@ -16,7 +16,7 @@
 ![API contract](https://img.shields.io/badge/API%20contract-1.3.0-6E7681)
 ![Track C](https://img.shields.io/badge/IIT%20Mandi%20Multimodal%20AI%20Hackathon%202026-Track%20C-F28C5B)
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [Tech stack](#tech-stack) · [API](#api-reference) · [Documentation](#documentation)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Tech stack](#tech-stack) · [API](#api-reference) · [Technical report](docs/TECHNICAL_REPORT.md) · [Documentation](#documentation)
 
 <img src="docs/demo/screenshots/landing.jpg" alt="The VAANI home page. A live instrument draws the speech-rate trace and the loudness of a demo recording, with labelled copper intervals where the delivery deviated from the baseline." width="100%">
 
@@ -572,6 +572,7 @@ Recordings go in `data/incoming/` (or any folder) and are never committed. `scri
 
 | Document | What is in it |
 |---|---|
+| [`docs/TECHNICAL_REPORT.md`](docs/TECHNICAL_REPORT.md) | The technical report: architecture, pipeline, API, dashboard, engineering practices (also as [PDF](docs/TECHNICAL_REPORT.pdf)) |
 | [`docs/setup.md`](docs/setup.md) | Environment setup, dependencies, baselines, notes for the first real run |
 | [`docs/architecture/api-contract.md`](docs/architecture/api-contract.md) | The API contract (1.3.0) |
 | [`docs/architecture/frontend.md`](docs/architecture/frontend.md) | The dashboard's architecture and design system |
