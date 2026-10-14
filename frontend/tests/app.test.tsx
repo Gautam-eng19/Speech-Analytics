@@ -32,7 +32,7 @@ describe('App (routing, loading, keyboard)', () => {
 
   it('starts on the new-analysis page with the analysis views disabled', async () => {
     await openApp('');
-    expect(await screen.findByRole('heading', { level: 2, name: /Where did the delivery drift/ })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: /Hear the difference/ })).toBeInTheDocument();
     expect(screen.getByText('Open an analysis to enable these views.')).toBeInTheDocument();
   });
 
@@ -65,18 +65,18 @@ describe('App (routing, loading, keyboard)', () => {
 
   it('keeps the browser tab title in step with the page and the open analysis', async () => {
     await openApp('');
-    await screen.findByRole('heading', { level: 2, name: /Where did the delivery drift/ });
-    expect(document.title).toBe('New analysis · Speech Analytics');
+    await screen.findByRole('heading', { level: 1, name: /Hear the difference/ });
+    expect(document.title).toBe('VAANI · Contrastive speech analytics');
     await act(async () => { window.location.hash = `#/a/${hesitantResult.analysis_id}/timeline`; });
     await screen.findByRole('toolbar', { name: 'Timeline controls' });
-    await waitFor(() => expect(document.title).toBe('Timeline · Hesitant delivery · Speech Analytics'));
+    await waitFor(() => expect(document.title).toBe('Timeline · Hesitant delivery · VAANI'));
     await act(async () => { window.location.hash = '#/settings'; });
-    await waitFor(() => expect(document.title).toBe('Settings · Speech Analytics'));
+    await waitFor(() => expect(document.title).toBe('Settings · VAANI'));
   });
 
   it('closes the phone navigation drawer when the page changes by any route, and on Escape', async () => {
     await openApp('');
-    await screen.findByRole('heading', { level: 2, name: /Where did the delivery drift/ });
+    await screen.findByRole('heading', { level: 1, name: /Hear the difference/ });
     fireEvent.click(screen.getByRole('button', { name: 'Open navigation' }));
     expect(overlayStore.get().mobileNav).toBe(true);
     await act(async () => { window.location.hash = '#/library'; });
@@ -112,13 +112,13 @@ describe('App (routing, loading, keyboard)', () => {
     fireEvent.keyDown(field, { key: '3' });
     fireEvent.keyDown(field, { key: 't' });
     expect(window.location.hash).toMatch(/\/overview$/);
-    expect(settingsStore.get().theme).toBe('system');
+    expect(settingsStore.get().theme).toBe('dark');
     field.remove();
   });
 
   it('toggles the theme with t and applies it to the document', async () => {
     await openApp('');
-    await screen.findByRole('heading', { level: 2, name: /Where did the delivery drift/ });
+    await screen.findByRole('heading', { level: 1, name: /Hear the difference/ });
     const before = document.documentElement.dataset.theme;
     fireEvent.keyDown(window, { key: 't' });
     await waitFor(() => expect(document.documentElement.dataset.theme).not.toBe(before));
@@ -128,7 +128,7 @@ describe('App (routing, loading, keyboard)', () => {
 
   it('collapses the sidebar with b and remembers it', async () => {
     await openApp('');
-    await screen.findByRole('heading', { level: 2, name: /Where did the delivery drift/ });
+    await screen.findByRole('heading', { level: 1, name: /Hear the difference/ });
     fireEvent.keyDown(window, { key: 'b' });
     await waitFor(() => expect(document.querySelector('.app')!.getAttribute('data-collapsed')).toBe('true'));
     expect(settingsStore.get().sidebarCollapsed).toBe(true);
@@ -136,7 +136,7 @@ describe('App (routing, loading, keyboard)', () => {
 
   it('goes to a page with the g chord', async () => {
     await openApp('');
-    await screen.findByRole('heading', { level: 2, name: /Where did the delivery drift/ });
+    await screen.findByRole('heading', { level: 1, name: /Hear the difference/ });
     fireEvent.keyDown(window, { key: 'g' });
     fireEvent.keyDown(window, { key: 'l' });
     await waitFor(() => expect(window.location.hash).toBe('#/library'));
@@ -144,7 +144,7 @@ describe('App (routing, loading, keyboard)', () => {
 
   it('opens the shortcut list with ? and closes it with Escape', async () => {
     await openApp('');
-    await screen.findByRole('heading', { level: 2, name: /Where did the delivery drift/ });
+    await screen.findByRole('heading', { level: 1, name: /Hear the difference/ });
     fireEvent.keyDown(window, { key: '?' });
     expect(await screen.findByRole('dialog', { name: 'Keyboard shortcuts' })).toBeInTheDocument();
     fireEvent.keyDown(document, { key: 'Escape' });

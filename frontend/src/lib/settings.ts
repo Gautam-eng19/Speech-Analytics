@@ -26,7 +26,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: 'system',
+  theme: 'dark',
   density: 'comfortable',
   motion: 'system',
   timecode: 'clock',

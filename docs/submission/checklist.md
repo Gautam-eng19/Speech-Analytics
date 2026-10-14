@@ -2,7 +2,7 @@
 
 | # | Component | Status | Do this |
 |---|---|---|---|
-| 1 | **Project description** on Devpost | draft ready: [`devpost-description.md`](devpost-description.md) | Paste each block, fill the **[brackets]**, add 3 to 4 screenshots (Timeline, a finding with its evidence, Custom passage) |
+| 1 | **Project description** on Devpost | draft ready: [`devpost-description.md`](devpost-description.md) | Paste each block, fill the **[brackets]**, add 3 to 4 screenshots (the home page with its instrument, the Timeline, a finding with its evidence, the score profile) |
 | 2 | **Public GitHub repository** with README (setup, prerequisites, how to run) | README updated | Make the repository **public**; open it in a private window to check; clone it fresh on a clean folder and follow the README once |
 | 3 | **Demo video**, 3 to 10 minutes, YouTube (**Unlisted**, not Private), English audio or subtitles | script ready: [`video-script.md`](video-script.md) | Record, upload as Unlisted, turn on English subtitles and correct them |
 | 4 | **Team information**: real full names; every member has a Devpost account **and is added to the submission** | yours | Each teammate creates a Devpost account; add them all on the submission page before the deadline (otherwise they won't appear and may not get a certificate) |

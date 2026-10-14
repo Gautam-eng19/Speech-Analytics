@@ -274,7 +274,7 @@ describe('SettingsPage', () => {
     await renderAsync(<SettingsPage />);
     fireEvent.click(screen.getByRole('button', { name: 'Reset settings' }));
     await act(async () => { fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Reset' })); });
-    expect(settingsStore.get().theme).toBe('system');
+    expect(settingsStore.get().theme).toBe('dark');
     expect(settingsStore.get().density).toBe('comfortable');
   });
 });

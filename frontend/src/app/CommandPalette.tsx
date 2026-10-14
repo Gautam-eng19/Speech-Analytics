@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { SampleIndex } from '@/api/types';
 import { Icon, type IconName } from '@/components/Icon';
 import { Kbd } from '@/components/ui';
+import { openNewAnalysis } from '@/features/landing/LandingNav';
 import { flawMeta } from '@/lib/flawMeta';
 import { fmtNum } from '@/lib/format';
 import { flawsByTime } from '@/lib/result';
@@ -71,7 +72,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   const commands = useMemo<Command[]>(() => {
     const go = (path: string) => () => navigate(path);
     const list: Command[] = [
-      { id: 'go-new', group: 'Go to', label: 'New analysis', icon: 'plus', hint: 'g n', run: go('/') },
+      { id: 'go-new', group: 'Go to', label: 'New analysis', icon: 'plus', hint: 'g n', run: openNewAnalysis },
       { id: 'go-custom', group: 'Go to', label: 'Custom passage', icon: 'book', hint: 'g c', keywords: 'own text baseline record read your own passage', run: go('/custom') },
       { id: 'go-library', group: 'Go to', label: 'Library', icon: 'layers', hint: 'g l', run: go('/library') },
       { id: 'go-settings', group: 'Go to', label: 'Settings', icon: 'sliders', hint: 'g s', run: go('/settings') },

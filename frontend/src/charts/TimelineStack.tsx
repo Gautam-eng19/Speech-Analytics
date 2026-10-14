@@ -6,7 +6,7 @@ import type { LoadedAnalysis } from '@/state/analysis';
 import { hoverStore } from '@/state/ui';
 import { laneHeights, laneLabel, makeCtx, type LaneKey } from './geometry';
 import { FlawLane, LoudnessLane, PauseLane, PitchLane, RateLane, TruthLane, WordLane } from './lanes';
-import { ActiveWord, Crosshair, FlawColumns, Playhead, SelectionShade, TrimShade } from './overlays';
+import { ActiveWord, Crosshair, FlawColumns, LiveFlaw, PlayedShade, Playhead, SelectionShade, TrimShade } from './overlays';
 import { useWidth } from './useWidth';
 
 export interface TimelineStackProps {
@@ -140,6 +140,8 @@ export function TimelineStack({ analysis, lanes, view, onView, compact = false, 
         <TrimShade ctx={ctx} />
         <FlawColumns ctx={ctx} flaws={flaws} />
         <SelectionShade ctx={ctx} flaw={selected} />
+        <PlayedShade ctx={ctx} />
+        <LiveFlaw ctx={ctx} flaws={flaws} />
 
         {ordered.map((key) => {
           const h = heightOf(key);

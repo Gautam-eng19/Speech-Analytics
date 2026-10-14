@@ -116,6 +116,51 @@ await session(async (page) => {
   check('t switches the theme', (await page.evaluate(() => document.documentElement.dataset.theme)) !== theme);
 });
 
+// ---- 1b. the landing page: headline, instrument, calls to action, navigation ---------------------------------------------------
+console.log('\n# landing page');
+await session(async (page) => {
+  await page.goto(`${base}/#/`, { waitUntil: 'networkidle' });
+  await page.waitForSelector('button.hx-flag');
+  await page.waitForTimeout(1800);
+  check('one headline', (await page.locator('h1').count()) === 1 && /Hear the difference/.test(await page.locator('h1').innerText()));
+  check('there is no sign-in on the page', (await page.getByText(/sign[ -]?in|log[ -]?in/i).count()) === 0);
+  const nav = page.locator('.lnav');
+  const names = await nav.getByRole('link').allInnerTexts();
+  check('the navigation links to the sections and the existing pages', ['Method', 'Evidence', 'Journey', 'Library', 'Custom passage', 'Help'].every((n) => names.includes(n)), names.join(', '));
+  const flags = await page.locator('button.hx-flag').count();
+  check('every finding of the demo sample is on the instrument', flags === 3, `${flags} findings`);
+
+  const box = await page.locator('.hx').boundingBox();
+  await page.mouse.move(box.x + box.width * 0.14, box.y + 200, { steps: 5 });
+  await page.waitForTimeout(250);
+  const reading = await page.locator('.hx__read').innerText();
+  check('hovering reads the measurement at that moment from the result', /words\/min/.test(reading) && /dBFS/.test(reading) && /Too fast/.test(reading), reading.replace(/\s+/g, ' '));
+  check('the pointer lights the instrument and shifts only the background', (await page.locator('.hx').getAttribute('data-active')) === 'true');
+  const flagBefore = await page.locator('button.hx-flag').first().boundingBox();
+  await page.mouse.move(box.x + box.width * 0.6, box.y + 120, { steps: 5 });
+  await page.waitForTimeout(900);
+  const flagAfter = await page.locator('button.hx-flag').first().boundingBox();
+  check('text and buttons do not move with the pointer', Math.abs(flagBefore.x - flagAfter.x) < 0.5 && Math.abs(flagBefore.y - flagAfter.y) < 0.5);
+  await page.mouse.move(box.x - 30, box.y - 30, { steps: 3 });
+  await page.waitForTimeout(300);
+  check('moving away returns the readout to rest', /–/.test(await page.locator('.hx__read-row dd').first().innerText()));
+
+  await page.locator('button.hx-flag').first().click();
+  await page.waitForTimeout(1500);
+  const playing = await page.evaluate(() => ({ t: document.querySelector('audio').currentTime, paused: document.querySelector('audio').paused, live: document.querySelectorAll('.is-live').length }));
+  check('a finding plays its own moment and is marked while it plays', !playing.paused && playing.t > 5.3 && playing.live >= 1, JSON.stringify(playing));
+  await page.locator('.hx-play').click();
+  check('the play button pauses it', await page.evaluate(() => document.querySelector('audio').paused));
+
+  await page.locator('.lhero__cta').getByRole('button', { name: /Analyse a recording/ }).click();
+  await page.waitForTimeout(900);
+  check('the first call to action goes to the analysis flow and focuses it', await page.evaluate(() => document.activeElement?.id === 'start-title' && location.hash === '#/'));
+  await page.locator('#main').evaluate((el) => el.scrollTo({ top: 0 }));
+  await page.getByRole('button', { name: 'Explore a demo analysis' }).click();
+  await page.waitForURL(/#\/a\/.*\/timeline/, { timeout: 5000 }).catch(() => undefined);
+  check('the second call to action opens the demo analysis', /#\/a\/.*\/timeline/.test(page.url()), page.url());
+});
+
 // ---- 2. upload with a mocked API ---------------------------------------------------------------------------------------------
 console.log('\n# upload (mocked API)');
 await session(async (page) => {

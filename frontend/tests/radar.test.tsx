@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ScoreRadar, axisAngle, radarPoint, type RadarDim } from '@/charts/ScoreRadar';
+import { DEFAULT_SETTINGS, settingsStore } from '@/lib/settings';
 
 const DIMS: RadarDim[] = [
   { key: 'speech_rate', label: 'Speech rate', score: 84, weight: 0.3, flawCount: 1, penalty: 16 },
@@ -33,6 +34,9 @@ describe('radar geometry', () => {
 });
 
 describe('ScoreRadar', () => {
+  // With reduced motion the shape is at its values from the first frame; the animation has its own tests below.
+  beforeEach(() => { settingsStore.set({ ...DEFAULT_SETTINGS, motion: 'reduce' }); });
+
   it('draws one labelled spoke per dimension with the backend\'s value, and no corner for a dimension that was not scored', () => {
     const { container } = render(<Harness />);
     const group = screen.getByRole('group', { name: 'Score profile' });
@@ -124,5 +128,100 @@ describe('ScoreRadar', () => {
       const got = Math.hypot(dots[i]!.x - spokes[i]!.x1, dots[i]!.y - spokes[i]!.y1);
       expect(got / full).toBeCloseTo(score / 100, 2);
     });
+  });
+});
+
+describe('ScoreRadar reference, legend and tooltip', () => {
+  beforeEach(() => { settingsStore.set({ ...DEFAULT_SETTINGS, motion: 'reduce' }); });
+
+  it('draws the reference as the outer ring and says so in a legend that also names the recording and what was lost', () => {
+    const { container } = render(<Harness />);
+    expect(container.querySelectorAll('.radar__ring')).toHaveLength(4);
+    expect(container.querySelectorAll('.radar__ring.is-outer')).toHaveLength(1);
+    const legend = screen.getByRole('list', { name: 'Legend' });
+    expect(legend).toHaveTextContent('Reference: the baseline reading, 100');
+    expect(legend).toHaveTextContent('This recording');
+    expect(legend).toHaveTextContent('Lost to findings');
+  });
+
+  it('marks what a dimension lost in the deviation colour only where it has findings', () => {
+    const { container } = render(<Harness />);
+    expect(container.querySelectorAll('.radar__gap')).toHaveLength(3);
+    expect(container.querySelectorAll('.radar__gap.has-findings')).toHaveLength(2);
+  });
+
+  it('shows a floating tooltip on the pointed corner that is hidden from assistive technology (the readout and the accessible names carry the same words)', () => {
+    const { container } = render(<Harness />);
+    expect(container.querySelector('.radar__tip')).toBeNull();
+    fireEvent.pointerEnter(screen.getByRole('button', { name: /^Speech rate/ }));
+    const tip = container.querySelector('.radar__tip')!;
+    expect(tip).toHaveAttribute('aria-hidden', 'true');
+    expect(tip).toHaveTextContent('Speech rate84.0 / 100lost 16.0');
+    expect(container.querySelector('.radar__halo')).not.toBeNull();
+    fireEvent.pointerLeave(container.querySelector('svg')!);
+    expect(container.querySelector('.radar__tip')).toBeNull();
+    expect(container.querySelector('.radar__halo')).toBeNull();
+  });
+
+  it('keeps the tooltip inside the picture and says "not scored" on a spoke without a corner', () => {
+    const { container } = render(<Harness />);
+    fireEvent.pointerEnter(screen.getByRole('button', { name: /^Pitch/ }));
+    const tip = container.querySelector<HTMLElement>('.radar__tip')!;
+    expect(tip).toHaveTextContent('Pitchnot scored');
+    expect(container.querySelector('.radar__halo')).toBeNull();
+    expect(Number.parseFloat(tip.style.left)).toBeGreaterThanOrEqual(84);
+  });
+
+  it('gives every label room: the picture is always wider than its longest label on each side', () => {
+    const long = DIMS.map((d, i) => (i === 1 ? { ...d, label: 'Pauses and pacing' } : d));
+    const { container } = render(<Harness dims={long} />);
+    const svg = container.querySelector('svg')!;
+    const width = Number(svg.getAttribute('width'));
+    const outer = container.querySelector('.radar__spoke')!;
+    const radius = Math.abs(Number(outer.getAttribute('y2')) - Number(outer.getAttribute('y1')));
+    expect(width / 2 - radius).toBeGreaterThanOrEqual('Pauses and pacing'.length * 7);
+  });
+});
+
+describe('ScoreRadar animation', () => {
+  const corners = (container: HTMLElement) => Array.from(container.querySelectorAll('.radar__dot')).map((c) => ({ x: Number(c.getAttribute('cx')), y: Number(c.getAttribute('cy')) }));
+  const spoke = (container: HTMLElement) => container.querySelector('.radar__spoke')!;
+  const reach = (container: HTMLElement) => { const s = spoke(container); return Math.hypot(Number(s.getAttribute('x2')) - Number(s.getAttribute('x1')), Number(s.getAttribute('y2')) - Number(s.getAttribute('y1'))); };
+  const fromCentre = (container: HTMLElement, i: number) => { const s = spoke(container); const c = corners(container)[i]!; return Math.hypot(c.x - Number(s.getAttribute('x1')), c.y - Number(s.getAttribute('y1'))); };
+
+  beforeEach(() => { vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame', 'performance'] }); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it('grows from the centre into the real values when it appears', () => {
+    settingsStore.set({ ...DEFAULT_SETTINGS, motion: 'system' });
+    const { container } = render(<Harness />);
+    expect(fromCentre(container, 0)).toBeLessThan(2);
+    act(() => { vi.advanceTimersByTime(300); });
+    const part = fromCentre(container, 0) / reach(container);
+    expect(part).toBeGreaterThan(0.2);
+    expect(part).toBeLessThan(0.84);
+    act(() => { vi.advanceTimersByTime(1000); });
+    expect(fromCentre(container, 0) / reach(container)).toBeCloseTo(0.84, 3);
+    expect(fromCentre(container, 1) / reach(container)).toBeCloseTo(0.774, 3);
+  });
+
+  it('glides from the old values to the new ones when the scores change, and the labels already show the new numbers', () => {
+    settingsStore.set({ ...DEFAULT_SETTINGS, motion: 'system' });
+    const { container, rerender } = render(<Harness />);
+    act(() => { vi.advanceTimersByTime(1200); });
+    rerender(<Harness dims={DIMS.map((d, i) => (i === 0 ? { ...d, score: 40 } : d))} />);
+    expect(screen.getByRole('button', { name: /^Speech rate/ })).toHaveAccessibleName(/40\.0 out of 100/);
+    act(() => { vi.advanceTimersByTime(200); });
+    const mid = fromCentre(container, 0) / reach(container);
+    expect(mid).toBeLessThan(0.84);
+    expect(mid).toBeGreaterThan(0.4);
+    act(() => { vi.advanceTimersByTime(1200); });
+    expect(fromCentre(container, 0) / reach(container)).toBeCloseTo(0.4, 3);
+  });
+
+  it('does not animate at all when motion is reduced', () => {
+    settingsStore.set({ ...DEFAULT_SETTINGS, motion: 'reduce' });
+    const { container } = render(<Harness />);
+    expect(fromCentre(container, 0) / reach(container)).toBeCloseTo(0.84, 3);
   });
 });

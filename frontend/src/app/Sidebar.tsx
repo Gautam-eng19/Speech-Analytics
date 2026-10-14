@@ -6,6 +6,7 @@ import { closeAnalysis, useCurrent } from '@/state/analysis';
 import { useConnection } from '@/state/connection';
 import { toggleSidebar } from '@/state/actions';
 import { setOverlay, useOverlays } from '@/state/ui';
+import { openNewAnalysis } from '@/features/landing/LandingNav';
 import { analysisPath, navigate, useRoute, type AnalysisView } from './router';
 
 interface NavDef {
@@ -24,8 +25,10 @@ const ANALYSIS_NAV: NavDef[] = [
   { view: 'baseline', label: 'Baseline & method', icon: 'ruler', key: '6' },
 ];
 
-function NavItem({ href, icon, label, active, collapsed, badge, hint, disabled }: {
+function NavItem({ href, icon, label, active, collapsed, badge, hint, disabled, onGo }: {
   href?: string; icon: IconName; label: string; active?: boolean; collapsed: boolean; badge?: string | number; hint?: string; disabled?: boolean;
+  /** Replaces the plain navigation to `href` (the link still points there for a new tab). */
+  onGo?: () => void;
 }) {
   const body = (
     <>
@@ -39,7 +42,7 @@ function NavItem({ href, icon, label, active, collapsed, badge, hint, disabled }
   const node = disabled || !href ? (
     <span className={cls} aria-disabled="true" aria-label={collapsed ? label : undefined}>{body}</span>
   ) : (
-    <a className={cls} href={`#${href}`} aria-label={collapsed ? label : undefined} aria-current={active ? 'page' : undefined} onClick={(e) => { e.preventDefault(); navigate(href); setOverlay({ mobileNav: false }); }}>
+    <a className={cls} href={`#${href}`} aria-label={collapsed ? label : undefined} aria-current={active ? 'page' : undefined} onClick={(e) => { e.preventDefault(); if (onGo) onGo(); else navigate(href); setOverlay({ mobileNav: false }); }}>
       {body}
     </a>
   );
@@ -90,12 +93,12 @@ export function Sidebar() {
   return (
     <aside className="sidebar" data-collapsed={collapsed} data-open={overlays.mobileNav} aria-label="Primary">
       <div className="sidebar__top">
-        <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); setOverlay({ mobileNav: false }); }} aria-label="Speech Analytics, home">
+        <a className="brand" href="#/" onClick={(e) => { e.preventDefault(); navigate('/'); setOverlay({ mobileNav: false }); }} aria-label="VAANI, home">
           <LogoMark size={30} />
           {collapsed ? null : (
             <span className="brand__text">
-              <span className="brand__name">Speech Analytics</span>
-              <span className="brand__sub">Contrastive delivery analysis</span>
+              <span className="brand__name">VAANI</span>
+              <span className="brand__sub">Speech analytics</span>
             </span>
           )}
         </a>
@@ -151,7 +154,7 @@ export function Sidebar() {
 
         <nav aria-label="Workspace" className="nav-group">
           {collapsed ? <div className="nav-group__rule" /> : <div className="nav-group__label eyebrow">Workspace</div>}
-          <NavItem href="/" icon="plus" label="New analysis" active={route.name === 'analyze'} collapsed={collapsed} hint="g n" />
+          <NavItem href="/" icon="plus" label="New analysis" active={route.name === 'analyze'} collapsed={collapsed} hint="g n" onGo={openNewAnalysis} />
           <NavItem href="/custom" icon="book" label="Custom passage" active={route.name === 'custom'} collapsed={collapsed} hint="g c" />
           <NavItem href="/library" icon="layers" label="Library" active={route.name === 'library'} collapsed={collapsed} hint="g l" />
         </nav>

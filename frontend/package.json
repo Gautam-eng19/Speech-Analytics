@@ -1,5 +1,5 @@
 {
-  "name": "speech-analytics-dashboard",
+  "name": "vaani-dashboard",
   "version": "0.1.0",
   "private": true,
   "description": "Dashboard for Track C - Contrastive Speech Analytics & Temporal Flaw Grounding. Presents backend results only; it computes no analytics.",

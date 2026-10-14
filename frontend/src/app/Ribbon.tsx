@@ -109,6 +109,7 @@ export function Ribbon() {
             onClick={() => selectFlaw(selected === f.flaw_id ? null : f.flaw_id)}
           />
         ))}
+        <div className="ribbon__played" style={{ width: pct(playhead) }} aria-hidden="true" />
         <div className="ribbon__view" data-viewport style={{ left: pct(view.t0), width: pct(span(view)) }}>
           <span className="ribbon__handle ribbon__handle--l" data-handle="left" />
           <span className="ribbon__handle ribbon__handle--r" data-handle="right" />

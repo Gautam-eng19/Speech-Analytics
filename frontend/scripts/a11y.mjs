@@ -64,6 +64,16 @@ const STATES = [
   ['recorder, live', '#/', {}, async (page) => { await page.getByRole('radio', { name: 'Record now' }).click(); await page.getByRole('button', { name: 'Start recording' }).click(); await page.waitForSelector('.rec__live'); await page.waitForTimeout(900); }],
   ['recorder, take ready', '#/', {}, async (page) => { await page.getByRole('radio', { name: 'Record now' }).click(); await page.getByRole('button', { name: 'Start recording' }).click(); await page.waitForSelector('.rec__live'); await page.waitForTimeout(900); await page.getByRole('button', { name: 'Stop' }).click(); await page.waitForSelector('.rec__take'); }],
   ['phone, navigation drawer', '#/', { width: 390, height: 844 }, async (page) => { await page.getByRole('button', { name: 'Open navigation' }).click(); }],
+  ['landing, settled', '#/', {}, async (page) => { await page.waitForSelector('button.hx-flag'); await page.waitForTimeout(2300); }],
+  ['landing, pointer on the instrument', '#/', {}, async (page) => {
+    await page.waitForSelector('button.hx-flag'); await page.waitForTimeout(2300);
+    const box = await page.locator('.hx').boundingBox();
+    await page.mouse.move(box.x + box.width * 0.14, box.y + 200, { steps: 4 });
+  }],
+  ['landing, finding playing', '#/', {}, async (page) => { await page.waitForSelector('button.hx-flag'); await page.waitForTimeout(2300); await page.locator('button.hx-flag').first().click(); await page.waitForTimeout(700); }],
+  ['landing, navigation drawer', '#/', {}, async (page) => { await page.locator('.lnav').getByRole('button', { name: 'Open navigation' }).click(); }],
+  ['phone, landing', '#/', { width: 390, height: 844 }, async (page) => { await page.waitForSelector('button.hx-flag'); await page.waitForTimeout(2300); }],
+  ['phone, landing, instrument', '#/', { width: 390, height: 844 }, async (page) => { await page.waitForSelector('button.hx-flag'); await page.locator('.hx').scrollIntoViewIfNeeded(); await page.waitForTimeout(2300); }],
   ['phone, overview', sample('hesitant-delivery', 'overview'), { width: 390, height: 844 }, async () => {}],
   ['phone, timeline', sample('mixed-flaws', 'timeline'), { width: 390, height: 844 }, async () => {}],
   ['phone, finding', sample('mixed-flaws', 'flaws') + '/flaw_001', { width: 390, height: 844 }, async () => {}],

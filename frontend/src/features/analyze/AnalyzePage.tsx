@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import type { SampleIndex } from '@/api/types';
 import { isSupportedAudioName, type ApiErrorCode } from '@/api/client';
 import { Icon } from '@/components/Icon';
-import { PageHead } from '@/components/page';
 import { Button, Chip, Panel, Segmented } from '@/components/ui';
 import { fmtBytes, fmtDuration, fmtNum, fmtRelative, plural } from '@/lib/format';
 import { safeStorage } from '@/lib/store';
@@ -10,6 +9,7 @@ import { analysisPath, navigate } from '@/app/router';
 import { analysisStore, analyzeFile, cancelLoading, dismissError, loadSamples, useAnalysis } from '@/state/analysis';
 import { refreshCatalog, useCatalog, useConnection } from '@/state/connection';
 import { useHistory } from '@/state/history';
+import { Landing } from '@/features/landing/Landing';
 import { FileDrop } from './FileDrop';
 import { RecorderPanel } from './RecorderPanel';
 import { SampleCard } from './SampleCard';
@@ -115,13 +115,7 @@ export function AnalyzePage() {
   };
 
   return (
-    <div className="page">
-      <PageHead
-        eyebrow="New analysis"
-        title="Where did the delivery drift from the baseline?"
-        meta={<span>Upload a recording of a passage. It is compared with a baseline recording of the same passage, and every deviation is tied to a time, a measurement, a reason and a suggestion.</span>}
-      />
-
+    <Landing>
       <div className="grid-split">
         <div className="steps">
           <Panel
@@ -245,6 +239,6 @@ export function AnalyzePage() {
           ) : null}
         </div>
       </div>
-    </div>
+    </Landing>
   );
 }

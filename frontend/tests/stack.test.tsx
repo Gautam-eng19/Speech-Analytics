@@ -1,8 +1,9 @@
-import { fireEvent, render } from '@testing-library/react';
+import { act, fireEvent, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TimelineStack } from '@/charts/TimelineStack';
 import { fmtLevel, fmtNum } from '@/lib/format';
 import { FULL } from '@/lib/time';
+import { playerStore, playheadStore } from '@/state/player';
 import { hoverStore, selectionStore } from '@/state/ui';
 import { loaded, mixedResult } from './fixtures';
 import { stubLayout } from './helpers';
@@ -132,5 +133,48 @@ describe('TimelineStack', () => {
     fireEvent.pointerDown(plots, { clientX: 450, button: 0, pointerId: 1 });
     fireEvent.pointerUp(plots, { clientX: 450, pointerId: 1 });
     expect(onPlotClick).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe('TimelineStack follows the audio', () => {
+  const live = mixedResult.flaws[0]!;
+  const inside = (live.start_s + live.end_s) / 2;
+  beforeEach(() => {
+    stubLayout(900);
+    hoverStore.set(null);
+    selectionStore.set({ flawId: null });
+    playerStore.set((s) => ({ ...s, src: 'blob:test', ready: true, playing: false }));
+    playheadStore.set(0);
+  });
+  afterEach(() => { playerStore.set((s) => ({ ...s, src: null, ready: false, playing: false })); playheadStore.set(0); vi.restoreAllMocks(); });
+
+  it('washes the part already played, in proportion to where the playhead is, and not before it has moved', () => {
+    const { container } = setup({ view: { t0: 0, t1: duration } });
+    expect(container.querySelector('.ov--played')).toBeNull();
+    act(() => playheadStore.set(duration / 4));
+    const wash = container.querySelector<HTMLElement>('.ov--played')!;
+    expect(Number(/scaleX\(([\d.]+)\)/.exec(wash.style.transform)![1])).toBeCloseTo(0.25, 2);
+    act(() => playheadStore.set(duration));
+    expect(Number(/scaleX\(([\d.]+)\)/.exec(container.querySelector<HTMLElement>('.ov--played')!.style.transform)![1])).toBeCloseTo(1, 2);
+  });
+
+  it('has nothing to wash without audio', () => {
+    playerStore.set((s) => ({ ...s, src: null }));
+    const { container } = setup({ view: { t0: 0, t1: duration } });
+    act(() => playheadStore.set(duration / 2));
+    expect(container.querySelector('.ov--played')).toBeNull();
+  });
+
+  it('marks the finding that is being played, only while playing, in that finding’s colour', () => {
+    const { container } = setup({ view: { t0: 0, t1: duration } });
+    act(() => playheadStore.set(inside));
+    expect(container.querySelector('.ov--live')).toBeNull();                       // paused inside a finding: no pulse
+    act(() => playerStore.set((s) => ({ ...s, playing: true })));
+    const mark = container.querySelector<HTMLElement>('.ov--live')!;
+    expect(mark).not.toBeNull();
+    expect(mark.style.getPropertyValue('--c')).toBe(`var(--f-${live.type})`);
+    act(() => playheadStore.set(live.end_s + 1));                                   // the playhead has left it
+    expect(container.querySelector('.ov--live')).toBeNull();
   });
 });

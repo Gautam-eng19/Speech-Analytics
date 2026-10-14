@@ -1,4 +1,4 @@
-"""Check that this computer can run the Speech Analytics project (TASK-126).
+"""Check that this computer can run the VAANI project (TASK-126).
 
     python scripts/check_environment.py                    # what is installed, in plain words
     python scripts/check_environment.py --download-models  # also fetch the speech models once (large downloads)
@@ -191,12 +191,12 @@ def download_models(skip_whisper: bool) -> None:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Check that this computer can run the Speech Analytics project.")
+    parser = argparse.ArgumentParser(description="Check that this computer can run the VAANI project.")
     parser.add_argument("--download-models", action="store_true", help="also download the speech models once (large, needs internet)")
     parser.add_argument("--skip-whisper", action="store_true", help="with --download-models: skip the speech-recognition model")
     args = parser.parse_args(argv)
 
-    print("Checking this computer for the Speech Analytics project\n")
+    print("Checking this computer for the VAANI project\n")
     print("Python")
     check_python()
     print("\nPackages")

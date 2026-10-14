@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { openNewAnalysis } from '@/features/landing/LandingNav';
 import { analysisPath, navigate, routeStore, type AnalysisView } from './router';
 import { analysisStore } from '@/state/analysis';
 import { exportResultJson, stepFlaw, toggleSidebar, toggleTheme, togglePlayback } from '@/state/actions';
@@ -50,7 +51,8 @@ export function GlobalKeys() {
         const target = { n: '/', c: '/custom', l: '/library', s: '/settings', h: '/help' }[e.key.toLowerCase()];
         if (target) {
           e.preventDefault();
-          navigate(target);
+          if (target === '/') openNewAnalysis();
+          else navigate(target);
           return;
         }
       }

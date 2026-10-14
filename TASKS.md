@@ -1009,6 +1009,22 @@ The real WhisperX and Whisper models have not been run on a user's own recording
 
 \---
 
+\## TASK-137 — VAANI Visual Identity and Landing Page
+
+Status: REVIEW
+
+Priority: P1
+
+Delivered (2026-10-14, DEC-045), at the team leader's request: one visual system across the whole dashboard under the product name VAANI (obsidian, graphite, ivory, cyan for signal, copper for deviation, steel; dark by default), a landing page on the existing home route (headline, a live instrument that draws a real demo analysis with a pointer-reactive layer and local playback, method, evidence and journey sections, the analysis flow unchanged, footer),
+a landing navigation without any sign-in (the product has no accounts), page titles 21 to 26 % larger on one scale, a redesigned score radar (reference ring, legend, copper for what findings cost, grows into its values, tooltip, no clipped labels), playback-linked signal visuals (played wash, the finding being played, trace reveal, ribbon wash), a printable report that is paper in either theme, a closed navigation drawer that is hidden from the keyboard and returns focus.
+No route, page, feature, API field or backend file changed; no dependency was added; nothing on the page is computed by the frontend or invented (the instrument reads one real result, and falls back to a drawing labelled "Illustration").
+53 new dashboard tests (386 in all), axe without violations on every page and on six new landing states in both themes (70 of 70), a layout audit of every page at eight widths in both themes, browser smoke test 42 of 42.
+
+Known limitation:
+Checked in Chromium only; the hero is always the synthetic demo sample (never a user's analysis); the API's own title is still "Speech Analytics API" (changing it would change the OpenAPI snapshot and generated types for no visual reason).
+
+\---
+
 
 
 \# TEAM RULE
