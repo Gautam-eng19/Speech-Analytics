@@ -1,4 +1,4 @@
-"""Unit tests for deterministic scoring (TASK-060/061/062, DEC-014 as amended by DEC-030).
+"""Unit tests for deterministic scoring.
 
 Covers:
 - Exact penalties / sub-scores / composite for hand-computed cases and the penalty formula
@@ -137,7 +137,7 @@ def test_reliability_scales_the_penalty():
 
 
 def test_duration_is_not_applied_a_second_time():
-    # Same severity, very different durations: identical penalty (duration lives in severity; DEC-028/030).
+    # Same severity, very different durations: identical penalty (duration lives in severity).
     short = _score([_flaw(FlawType.LOW_ENERGY, 0.6, start=0.0, end=0.5)])
     long = _score([_flaw(FlawType.LOW_ENERGY, 0.6, start=0.0, end=9.0)])
     assert short.scores == long.scores

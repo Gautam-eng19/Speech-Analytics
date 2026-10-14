@@ -1,4 +1,4 @@
-"""Audio preprocessing service (ARCHITECTURE.md §7.1, §9.1, §10; DEC-P003).
+"""Audio preprocessing service.
 
 Converts raw audio bytes or files into the canonical PreprocessedAudio contract:
 - Validates audio format (WAV PCM / IEEE float; MP3 requires ffmpeg/av backend)
@@ -6,7 +6,8 @@ Converts raw audio bytes or files into the canonical PreprocessedAudio contract:
 - Resamples to TARGET_SAMPLE_RATE (default 16 000 Hz) deterministically via polyphase filtering
 - Trims leading and trailing silence using energy VAD with configurable threshold;
   the start offset and pre-trim duration are recorded (trim_start_s, source_duration_s)
-- Peak-normalizes to TARGET_PEAK_DBFS (default -3.0 dBFS)
+- Scales the recording so that the median loudness of its speaking frames is TARGET_SPEECH_LEVEL_DBFS (default -26 dBFS), with the
+  gain capped so the loudest sample stays at or below MAX_PEAK_DBFS (replaces peak normalization to -3 dBFS)
 - Computes SHA-256 over normalized float32 PCM bytes for reproducible provenance
 """
 from __future__ import annotations
@@ -23,6 +24,7 @@ import scipy.signal as signal
 
 from app.core.config import settings
 from app.schemas.contracts import PreprocessedAudio
+from app.services.features.energy import EnergyConfig, frame_energy_db
 
 
 class AudioPreprocessingError(ValueError):
@@ -236,27 +238,48 @@ def trim_silence(
     return audio[span[0]:span[1]]
 
 
-def peak_normalize(audio: np.ndarray, target_peak_dbfs: float = -3.0) -> Tuple[np.ndarray, float]:
-    """Peak-normalize audio to target_peak_dbfs (default -3.0 dBFS).
-    
-    target_amplitude = 10 ^ (target_peak_dbfs / 20).
-    Returns normalized audio and the measured peak dBFS.
+def speech_level_dbfs(audio: np.ndarray, sample_rate: int, window_db: float) -> Optional[float]:
+    """Typical loudness (dBFS RMS) of the speaking frames of `audio`, or None when it is empty or digitally silent.
+
+    Frame loudness is the energy feature's own (`frame_energy_db`: 32 ms frames, 10 ms hop). The speaking frames are those within
+    `window_db` of the 95th-percentile frame loudness; the result is their MEDIAN, which stays put when a stretch of the recording is
+    unusually loud or quiet (up to roughly half of it), unlike the loudest sample.
+    """
+    if len(audio) == 0:
+        return None
+    levels = frame_energy_db(audio, EnergyConfig(sample_rate=sample_rate))
+    top = float(np.percentile(levels, 95))
+    if top <= -170.0:  # at the rms floor: digital silence
+        return None
+    return float(np.median(levels[levels >= top - window_db]))
+
+
+def speech_level_normalize(
+    audio: np.ndarray,
+    sample_rate: int,
+    target_speech_level_dbfs: float = -26.0,
+    window_db: float = 30.0,
+    max_peak_dbfs: float = -1.0,
+) -> Tuple[np.ndarray, float]:
+    """Scale `audio` so that its typical speech level is `target_speech_level_dbfs`.
+
+    One gain for the whole signal, so differences inside the recording (a quiet or a loud stretch) are kept exactly. The gain is
+    capped so that the loudest sample does not exceed `max_peak_dbfs` (a safety limit; it is rarely reached by speech).
+    Returns the scaled float32 audio and its measured peak in dBFS (-100.0 for empty or silent audio, which is returned unchanged).
     """
     if len(audio) == 0:
         return audio, -100.0
-
-    current_peak = np.max(np.abs(audio))
-    if current_peak < 1e-9:
+    current_peak = float(np.max(np.abs(audio)))
+    reference = speech_level_dbfs(audio, sample_rate, window_db)
+    if current_peak < 1e-9 or reference is None:
         return audio, -100.0
 
-    target_peak = 10.0 ** (target_peak_dbfs / 20.0)
-    gain = target_peak / current_peak
-    normalized = (audio * gain).astype(np.float32)
+    gain_db = target_speech_level_dbfs - reference
+    gain_db = min(gain_db, max_peak_dbfs - 20.0 * np.log10(current_peak))  # never push the loudest sample past max_peak_dbfs
+    scaled = (audio * (10.0 ** (gain_db / 20.0))).astype(np.float32)
 
-    measured_peak = np.max(np.abs(normalized))
-    measured_peak_dbfs = float(20.0 * np.log10(measured_peak + 1e-12))
-
-    return normalized, measured_peak_dbfs
+    measured_peak_dbfs = float(20.0 * np.log10(np.max(np.abs(scaled)) + 1e-12))
+    return scaled, measured_peak_dbfs
 
 
 def compute_audio_sha256(audio: np.ndarray) -> str:
@@ -265,17 +288,21 @@ def compute_audio_sha256(audio: np.ndarray) -> str:
 
 
 class AudioPreprocessor:
-    """Service class encapsulating canonical audio preprocessing (ARCHITECTURE.md §7.1, §10)."""
+    """Service class encapsulating canonical audio preprocessing."""
 
     def __init__(
         self,
         target_sample_rate: int = settings.TARGET_SAMPLE_RATE,
-        target_peak_dbfs: float = settings.TARGET_PEAK_DBFS,
+        target_speech_level_dbfs: float = settings.TARGET_SPEECH_LEVEL_DBFS,
+        speech_level_window_db: float = settings.SPEECH_LEVEL_WINDOW_DB,
+        max_peak_dbfs: float = settings.MAX_PEAK_DBFS,
         vad_energy_threshold_dbfs: float = settings.VAD_ENERGY_THRESHOLD_DBFS,
         max_duration_s: float = settings.MAX_DURATION_S,
     ) -> None:
         self.target_sample_rate = target_sample_rate
-        self.target_peak_dbfs = target_peak_dbfs
+        self.target_speech_level_dbfs = target_speech_level_dbfs
+        self.speech_level_window_db = speech_level_window_db
+        self.max_peak_dbfs = max_peak_dbfs
         self.vad_energy_threshold_dbfs = vad_energy_threshold_dbfs
         self.max_duration_s = max_duration_s
 
@@ -287,7 +314,7 @@ class AudioPreprocessor:
         2. Convert multi-channel to mono
         3. Resample to target_sample_rate (16000 Hz)
         4. Trim leading/trailing silence using VAD (offset recorded as trim_start_s)
-        5. Peak-normalize to target_peak_dbfs (-3 dBFS)
+        5. Scale so the median speech level is target_speech_level_dbfs (-26 dBFS), peak capped
         6. Validate duration against max_duration_s
         7. Compute SHA-256 over float32 PCM bytes
         8. Return PreprocessedAudio contract
@@ -332,8 +359,14 @@ class AudioPreprocessor:
             final_audio = np.empty(0, dtype=np.float32)
             peak_dbfs = -100.0
         else:
-            # 5. Peak normalize
-            final_audio, peak_dbfs = peak_normalize(trimmed_audio, self.target_peak_dbfs)
+            # 5. Scale by the typical speech level (not by the loudest sample:)
+            final_audio, peak_dbfs = speech_level_normalize(
+                trimmed_audio,
+                self.target_sample_rate,
+                self.target_speech_level_dbfs,
+                self.speech_level_window_db,
+                self.max_peak_dbfs,
+            )
 
         # 6. Duration
         duration_s = float(len(final_audio)) / float(self.target_sample_rate)

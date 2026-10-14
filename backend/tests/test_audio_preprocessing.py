@@ -1,4 +1,4 @@
-"""Unit tests for audio preprocessing service (TASK-013)."""
+"""Unit tests for audio preprocessing service."""
 from __future__ import annotations
 
 import io
@@ -15,8 +15,9 @@ from app.services.audio import (
     convert_to_mono,
     find_active_span,
     load_audio_from_bytes,
-    peak_normalize,
     resample_audio,
+    speech_level_dbfs,
+    speech_level_normalize,
     trim_silence,
 )
 
@@ -110,8 +111,9 @@ def test_mp3_input_decoding():
     assert len(res.audio_array) > 0
     # Expected duration close to 1.0s (resampled to 16 kHz)
     assert 0.9 <= res.duration_s <= 1.1
-    # Verify peak normalization: within tolerance of target -3.0 dBFS
-    assert math.isclose(res.peak_dbfs, -3.0, abs_tol=0.05)
+    # Verify loudness scaling: a steady sine has its peak 3 dB above its RMS, so the median speech level -26 dBFS puts the peak at -23
+    assert math.isclose(res.peak_dbfs, -23.0, abs_tol=0.3)
+    assert math.isclose(speech_level_dbfs(res.audio_array, res.sample_rate_hz, 30.0), -26.0, abs_tol=0.3)
     # Check deterministic hash exists and non-empty
     assert len(res.sha256) == 64
 
@@ -176,16 +178,82 @@ def test_silence_trimming():
     assert 0.45 <= trimmed_duration <= 0.55
 
 
-def test_peak_normalization():
-    """Verify peak normalization brings maximum amplitude to -3 dBFS."""
-    wav_bytes = make_sine_wav_bytes(duration_s=0.5, amplitude=0.1)  # Quiet audio
-    audio, _ = load_audio_from_bytes(wav_bytes)
+def _speechlike(sr: int = 16000, quiet_db: float = 0.0, loud_db: float = 0.0, seconds: float = 6.0) -> np.ndarray:
+    """A syllable-modulated tone with a stretch in the middle third changed by `loud_db`, the whole signal changed by `quiet_db`."""
+    t = np.arange(int(seconds * sr)) / sr
+    x = 0.2 * np.sin(2 * np.pi * 150.0 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 3.0 * t))
+    third = len(x) // 3
+    x[third:2 * third] *= 10 ** (loud_db / 20)
+    return (x * 10 ** (quiet_db / 20)).astype(np.float32)
 
-    norm_audio, measured_peak_dbfs = peak_normalize(audio, target_peak_dbfs=-3.0)
-    expected_peak = 10.0 ** (-3.0 / 20.0)  # ~0.7079
 
-    assert np.isclose(np.max(np.abs(norm_audio)), expected_peak, atol=1e-3)
-    assert np.isclose(measured_peak_dbfs, -3.0, atol=0.1)
+def test_speech_level_of_a_known_sine():
+    sr = 16000
+    sine = (1.0 * np.sin(2 * np.pi * 1000 * np.arange(sr) / sr)).astype(np.float32)  # RMS 0.707 = -3.01 dBFS
+    assert speech_level_dbfs(sine, sr, 30.0) == pytest.approx(-3.01, abs=0.05)
+
+
+def test_speech_level_ignores_silence_and_is_none_for_empty_or_silent_audio():
+    sr = 16000
+    tone = (0.1 * np.sin(2 * np.pi * 300 * np.arange(sr) / sr)).astype(np.float32)
+    padded = np.concatenate([np.zeros(sr, np.float32), tone, np.zeros(sr, np.float32)])  # two thirds digital silence
+    assert speech_level_dbfs(padded, sr, 30.0) == pytest.approx(speech_level_dbfs(tone, sr, 30.0), abs=0.1)
+    assert speech_level_dbfs(np.empty(0, np.float32), sr, 30.0) is None
+    assert speech_level_dbfs(np.zeros(sr, np.float32), sr, 30.0) is None
+    assert speech_level_dbfs(tone[:100], sr, 30.0) is not None  # shorter than one frame still works
+
+
+def test_speech_level_normalization_sets_the_target_level():
+    audio, _ = load_audio_from_bytes(make_sine_wav_bytes(duration_s=0.5, amplitude=0.1, sample_rate=16000))  # quiet audio
+    scaled, measured_peak = speech_level_normalize(audio, 16000, target_speech_level_dbfs=-26.0)
+    assert speech_level_dbfs(scaled, 16000, 30.0) == pytest.approx(-26.0, abs=0.2)
+    assert measured_peak == pytest.approx(20 * np.log10(np.max(np.abs(scaled))), abs=1e-6)
+    assert scaled.dtype == np.float32
+
+
+def test_speech_level_normalization_keeps_differences_inside_the_recording():
+    """The point of a loud stretch stays exactly as loud as it was relative to the rest, and the rest is barely pushed down by it."""
+    sr = 16000
+    third = len(_speechlike()) // 3
+    rms = lambda x: float(np.sqrt(np.mean(x ** 2)))
+    s_base, _ = speech_level_normalize(_speechlike(), sr)
+    s_loud, _ = speech_level_normalize(_speechlike(loud_db=12.0), sr)
+    # one gain for the whole signal: the stretch is still exactly 12 dB above the rest of the recording
+    assert 20 * np.log10(rms(s_loud[third:2 * third]) / rms(s_loud[:third])) == pytest.approx(12.0, abs=0.3)
+    # the rest of the recording moves only a little (the median shifts when a third of the frames are louder: about 3 dB here),
+    # where scaling by the loudest sample would have pushed it down by the full 12 dB
+    drop_db = 20 * np.log10(rms(s_base[:third]) / rms(s_loud[:third]))
+    assert 0.0 <= drop_db < 4.5
+
+
+def test_the_overall_recording_gain_does_not_matter():
+    sr = 16000
+    normal, _ = speech_level_normalize(_speechlike(), sr)
+    quiet, _ = speech_level_normalize(_speechlike(quiet_db=-20.0), sr)
+    assert np.allclose(normal, quiet, atol=1e-4)
+
+
+def test_gain_is_capped_so_the_loudest_sample_stays_below_the_limit():
+    sr = 16000
+    x = _speechlike(quiet_db=-30.0)           # quiet speech ...
+    x[1000] = 0.9                              # ... with one loud click that a plain gain to -26 dBFS would push far past full scale
+    scaled, measured_peak = speech_level_normalize(x, sr, target_speech_level_dbfs=-26.0, max_peak_dbfs=-1.0)
+    assert measured_peak == pytest.approx(-1.0, abs=0.01) and np.max(np.abs(scaled)) <= 10 ** (-1.0 / 20) + 1e-6
+    assert scaled.dtype == np.float32  # also on the capped path, where the gain is a numpy float64
+    assert speech_level_dbfs(scaled, sr, 30.0) < -26.0 - 1.0     # the cap won: the speech could not reach the target
+
+
+def test_speech_level_normalization_edge_cases_and_determinism():
+    sr = 16000
+    empty, peak = speech_level_normalize(np.empty(0, np.float32), sr)
+    assert len(empty) == 0 and peak == -100.0
+    silent = np.zeros(sr, np.float32)
+    out, peak = speech_level_normalize(silent, sr)
+    assert np.array_equal(out, silent) and peak == -100.0
+    x = _speechlike(loud_db=6.0)
+    a, pa = speech_level_normalize(x, sr)
+    b, pb = speech_level_normalize(x, sr)
+    assert np.array_equal(a, b) and pa == pb
 
 
 def test_deterministic_repeated_preprocessing():
@@ -257,7 +325,7 @@ def test_all_silence_audio_edge_case():
 
 
 # ---------------------------------------------------------------------------
-# TASK-013A: source-time provenance of silence trimming
+# source-time provenance of silence trimming
 # ---------------------------------------------------------------------------
 
 TARGET_SR = 16000
@@ -265,7 +333,7 @@ VAD_FRAME_S = 0.02  # trim_silence frame size; offsets are frame-quantized
 
 
 def _legacy_trim_silence(audio, sample_rate, threshold_dbfs=-50.0, frame_duration_ms=20.0):
-    """Verbatim copy of trim_silence() as it was before TASK-013A (regression oracle)."""
+    """Verbatim copy of trim_silence() as it was before the trim provenance change (regression oracle)."""
     if len(audio) == 0:
         return audio
     frame_length = max(1, int(sample_rate * (frame_duration_ms / 1000.0)))
@@ -379,7 +447,9 @@ def test_trim_provenance_offset_matches_retained_samples_exactly():
     assert round(res.trim_start_s * TARGET_SR) == start
     assert len(res.audio_array) == end - start
     assert res.source_duration_s == len(pre_trim) / TARGET_SR
-    expected_audio, _ = peak_normalize(pre_trim[start:end], preprocessor.target_peak_dbfs)
+    expected_audio, _ = speech_level_normalize(
+        pre_trim[start:end], TARGET_SR, preprocessor.target_speech_level_dbfs, preprocessor.speech_level_window_db, preprocessor.max_peak_dbfs
+    )
     assert np.array_equal(res.audio_array, expected_audio)
     assert res.sha256 == compute_audio_sha256(expected_audio)
 
@@ -449,7 +519,7 @@ def test_find_active_span_results():
 
 
 def test_trim_silence_unchanged_from_legacy_behavior():
-    """trim_silence() must be value- and dtype-identical to its pre-TASK-013A implementation."""
+    """trim_silence() must be value- and dtype-identical to its earlier implementation."""
     rng = np.random.default_rng(1234)
     sr = TARGET_SR
     frame = int(sr * VAD_FRAME_S)

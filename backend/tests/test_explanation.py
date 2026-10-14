@@ -1,4 +1,4 @@
-"""Tests for evidence-backed explanations, the fact sheet and the number-grounding guard (TASK-070/071/072).
+"""Tests for evidence-backed explanations, the fact sheet and the number-grounding guard.
 
 Covers:
 - Golden texts for every supported flaw type (wording is part of the specification)
@@ -26,6 +26,7 @@ from app.schemas.response import (
     FlatPitchEvidence,
     Flaw,
     PauseEvidence,
+    PitchInstabilityEvidence,
     RateEvidence,
     ScoreSummary,
     FeatureScore,
@@ -88,7 +89,57 @@ def _pause(kind=W, words=("w19", "w20"), start=10.7, end=12.2, threshold=2.0):
                  DetectionRule(feature="pause_z", direction="above", threshold_z=threshold, min_duration_s=0.0), words)
 
 
+def _run(base, feature, direction, threshold):
+    """The same evidence with the rule of a word-by-word finding: the 'baseline' is what the baseline readings did with these words."""
+    return base.__class__(**{**base.__dict__, "rule": DetectionRule(feature=feature, direction=direction, threshold_z=threshold, min_duration_s=0.5)})
+
+
 # ----------------------------------------------------------------- golden texts
+def test_word_by_word_too_fast_golden_text():
+    out = explain_flaw(_run(_fast(), "rate_run_z", "above", 4.0))
+    assert out.explanation == (
+        "12.4–15.8 s: speech rate averaged 187.3 words/min, 31.4% above the 142.6 words/min the baseline readings had for these same words "
+        "(2.41 standard deviations above it), covering “alpha” to “gamma”. Flagged because the pace of this run of words was more than "
+        "4.0 standard deviations above the baseline's pace for the same words over at least 0.5 s, which indicates accelerated delivery "
+        "compared with the baseline."
+    )
+    assert out.recommendation == (
+        "Slow down in this stretch: aim for about 142.6 words/min, the pace the baseline readings had for these words, and keep the pauses "
+        "between phrases."
+    )
+    assert out.used_fallback is False
+
+
+def test_word_by_word_too_slow_and_whole_recording_golden_texts():
+    slow = explain_flaw(_run(_slow(), "rate_run_z", "below", -4.0))
+    assert slow.explanation.startswith("3.0–9.0 s: speech rate averaged 90.0 words/min, 35.7% below the 140.0 words/min the baseline readings had")
+    assert "more than 4.0 standard deviations below the baseline's pace for the same words" in slow.explanation and "slower delivery" in slow.explanation
+    assert slow.recommendation == (
+        "Bring the pace up in this stretch towards about 140.0 words/min, the pace the baseline readings had for these words, and link phrases "
+        "together without long gaps."
+    )
+    whole = explain_flaw(_run(_slow(), "rate_overall_z", "below", -4.0))
+    assert whole.explanation == (
+        "3.0–9.0 s: over the whole recording, speech rate averaged 90.0 words/min, 35.7% below the 140.0 words/min the baseline readings had "
+        "for the same words (3.33 standard deviations below it). Flagged because the pace of the whole recording differed from the baseline's "
+        "by more than 4.0 standard deviations of how much readings of this passage differ in pace, which indicates slower delivery compared "
+        "with the baseline."
+    )
+    assert "covering" not in whole.explanation                      # a finding about the whole recording does not point at some of its words
+
+
+def test_word_by_word_loudness_golden_text():
+    out = explain_flaw(_run(_energy(FlawType.LOW_ENERGY, -28.2, -19.5, -8.77), "energy_run_z", "below", -4.0))
+    assert out.explanation == (
+        "6.8–10.7 s: relative loudness averaged −28.2 dBFS, 19.5 dB below the −8.7 dBFS the baseline readings had for these same words, after "
+        "allowing for the recording's overall level (8.77 standard deviations below it), covering “alpha” to “gamma”. Flagged because the "
+        "level of this run of words was more than 4.0 standard deviations below the baseline's level for the same words over at least 0.5 s, "
+        "which indicates quieter delivery than the baseline."
+    )
+    loud = explain_flaw(_run(_energy(FlawType.HIGH_ENERGY, -3.2, 5.5, 2.5), "energy_run_z", "above", 4.0))
+    assert "5.5 dB above the −8.7 dBFS" in loud.explanation and "louder delivery" in loud.explanation and not loud.used_fallback
+
+
 def test_too_fast_golden_text():
     out = explain_flaw(_fast())
     assert out.explanation == (
@@ -280,14 +331,13 @@ def test_guard_ignores_non_numeric_fact_values_and_signs_in_facts():
 
 # ----------------------------------------------------------- fallback behaviour
 def test_unsupported_flaw_types_use_the_safe_fallback():
-    ev = FlatPitchEvidence(f0_std_hz_in_window=1.0, f0_std_baseline_hz=20.0, f0_std_z=-3.0,
-                           f0_voiced_fraction=0.8, window_duration_s=2.0)
-    flaw = _flaw(FlawType.FLAT_PITCH, 4.0, 6.0, ev,
-                 DetectionRule(feature="f0_std_z", direction="below", threshold_z=-2.0, min_duration_s=0.5))
+    ev = PitchInstabilityEvidence(f0_var_hz_in_window=40.0, f0_var_baseline_hz=10.0, f0_var_z=3.0, window_duration_s=2.0)
+    flaw = _flaw(FlawType.PITCH_INSTABILITY, 4.0, 6.0, ev,
+                 DetectionRule(feature="f0_var_z", direction="above", threshold_z=2.0, min_duration_s=0.5))
     out = explain_flaw(flaw)
     assert out.used_fallback is True and out.method == ExplanationMethod.TEMPLATE
     assert out.explanation == (
-        "Delivery was flagged as “flat pitch” relative to the baseline from 4.0 s to 6.0 s."
+        "Delivery was flagged as “pitch instability” relative to the baseline from 4.0 s to 6.0 s."
     )
     assert out.recommendation == "Compare this section with the baseline recording."
 
@@ -330,7 +380,7 @@ def _random_flaw(rng: random.Random, number: int) -> GroundedFlaw:
                           rate_delta_wpm=round(wpm - base, 4), rate_delta_pct=round(100 * (wpm - base) / base, 4),
                           rate_z_score=sign * z, peak_z_score=sign * round(z + rng.random(), 4),
                           window_duration_s=round(end - start, 4), word_count_in_window=rng.randint(0, 80))
-        rule = DetectionRule(feature="rate_z", direction="above" if sign > 0 else "below",
+        rule = DetectionRule(feature=rng.choice(["rate_z", "rate_run_z", "rate_overall_z"]), direction="above" if sign > 0 else "below",
                              threshold_z=2.0 * sign, min_duration_s=0.5)
         ftype = FlawType.TOO_FAST if sign > 0 else FlawType.TOO_SLOW
     elif kind in ("low", "high"):
@@ -339,7 +389,7 @@ def _random_flaw(rng: random.Random, number: int) -> GroundedFlaw:
         mean = round(base + sign * rng.uniform(3, 30), 4)
         ev = EnergyEvidence(energy_mean_db=mean, energy_baseline_mean_db=base, energy_baseline_std_db=round(rng.uniform(0.5, 8), 4),
                             energy_delta_db=round(mean - base, 4), energy_z_score=sign * z, window_duration_s=round(end - start, 4))
-        rule = DetectionRule(feature="energy_z", direction="above" if sign > 0 else "below",
+        rule = DetectionRule(feature=rng.choice(["energy_z", "energy_run_z"]), direction="above" if sign > 0 else "below",
                              threshold_z=2.0 * sign, min_duration_s=0.5)
         ftype = FlawType.HIGH_ENERGY if sign > 0 else FlawType.LOW_ENERGY
     else:

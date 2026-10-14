@@ -1,5 +1,4 @@
-"""Evidence attachment and the final grounded flaw (TASK-053, TASK-054;
-ARCHITECTURE.md §9.9, §17 step 7, §21; DEC-028).
+"""Evidence attachment and the final grounded flaw (§17 step 7).
 
 Turns detector candidates into `GroundedFlaw`s: a stable id, a time interval, a severity, and a FULLY
 populated evidence object built from the measured features and the baseline statistics. Nothing here
@@ -9,22 +8,32 @@ populated before the flaw is returned").
 Evidence (the typed models of `schemas/response.py`; all values rounded to `EVIDENCE_DECIMALS` places so
 serialized results do not depend on last-bit floating-point differences):
 
-    too_fast / too_slow -> RateEvidence    mean WPM of the flagged windows, baseline mean/std, delta,
+    too_fast / too_slow -> RateEvidence    rate (words per minute) of the interval, baseline mean/std, delta,
                                            delta in percent of the baseline mean, mean and peak z, span,
-                                           words that start inside the interval
+                                           words that start inside the interval. For an interval narrowed to the
+                                           words that deviate the rate is that of the narrowed stretch
+                                           (words / span) and z compares it with the baseline's window spread scaled
+                                           for the shorter stretch (candidates.refine_rate_candidates);
+                                           otherwise it is the mean of the flagged windows
     low / high_energy   -> EnergyEvidence  mean dBFS of the flagged frames, baseline mean/std, delta, mean z, span
     excessive_pause     -> PauseEvidence   pause duration, the type-specific baseline mean/std, delta, z,
                                            boundary type and detection source
+    flat_pitch          -> FlatPitchEvidence  the pitch movement of the run in Hz (root-mean-square distance from the reading's median pitch) against what the baseline readings had for the same words, the z-score (negative: the voice
+                                           moved less), the share of the run's frames that were voiced, span
 
 Because z is linear in the measurement, the reported mean z equals (reported mean - baseline mean) /
 baseline std: the evidence is internally consistent and re-derivable by a reader.
+
+For a run of words judged against the baseline's reading of the same words the "baseline mean" is what the baseline readings did with
+those words (for the pace, allowing for the speaker's overall pace; for the loudness, plus the recording's overall level offset), and the
+"baseline std" is the spread that makes the reported z-score true: |participant - baseline| / |z|, so the same identity holds.
 
 Each flaw also records the rule that flagged it (`DetectionRule`: signal, direction, threshold, minimum
 duration, taken from the `DetectionConfig` that PRODUCED the candidates), the aligned words it covers, and
 plain-language limitations (`warnings`). For rate and energy findings the covered words are those whose
 midpoint lies inside the interval; for a pause they are the word(s) the pause follows and precedes.
 
-Reliability is the constant 1.0 at P0 (§19) and `low_confidence` is False; neither is a measured confidence.
+Reliability is the constant 1.0 at P0 and `low_confidence` is False; neither is a measured confidence.
 
 Times are processed-audio time. Conversion to source time happens once, at response assembly, with
 `GroundedFlaw.shifted(trim_start_s)`.
@@ -43,6 +52,7 @@ from app.schemas.response import (
     DetectionRule,
     EnergyEvidence,
     Evidence,
+    FlatPitchEvidence,
     Flaw,
     PauseEvidence,
     RateEvidence,
@@ -60,9 +70,38 @@ WARNING_RATE = (
     "Speech rate is measured over rolling windows, so the start and end of this finding are approximate "
     "(window-level)."
 )
+WARNING_RATE_NARROWED = (
+    "Speech rate is detected over rolling windows and the finding is then narrowed to the words that were faster or slower, so its start and "
+    "end can still be off by a word or two. Its standard-deviation figure compares this short stretch with the spread of the baseline's "
+    "windows, scaled for the stretch having fewer words to average over."
+)
+WARNING_RATE_RUN = (
+    "Speech rate is compared word by word with the baseline's reading of the same words, after allowing for the speaker's overall pace. The "
+    "finding is the run of words that differs most, so its start and end are word boundaries, as accurate as the forced alignment is."
+)
+WARNING_RATE_OVERALL = (
+    "The pace of the whole reading differs from the baseline's by more than readers of the same passage differ among themselves; this one "
+    "finding covers all the words that could be compared. Speakers differ in natural pace, so a moderate difference alone is not a flaw."
+)
+WARNING_ENERGY_RUN = (
+    "Loudness is compared word by word with the baseline's level for the same words, after removing the recording's overall level (recordings "
+    "are scaled to a common speech level), so it shows louder or quieter stretches within the recording, not how loud the speaker was overall, "
+    "and it depends on microphone distance."
+)
+WARNING_PITCH_RUN = (
+    "Pitch is compared word by word: how far the pitch of the words moves around the recording's own median pitch, against how far the baseline's "
+    "readings moved on the same words, after allowing for the speaker's overall range. Only voiced speech has a pitch, so words with little of it "
+    "are left out, and a pitch tracker can make mistakes. The Hz figures are that movement expressed above the median pitch of the recording."
+)
+WARNING_PITCH_OVERALL = (
+    "The pitch of the whole recording moves less than the baseline's by more than readers of the same passage differ among themselves; this one "
+    "finding covers all the words that could be compared. Speakers differ in how expressive they naturally are, so a moderate difference alone is "
+    "not a flaw."
+)
 WARNING_ENERGY = (
-    "Energy is relative loudness after peak normalization: it depends on the loudest moment of the recording "
-    "and on microphone distance, and is compared with the baseline speaker's speaking level."
+    "Energy is relative loudness: the recording is scaled so that its typical speech level is the same as the baseline's, "
+    "so it shows louder or quieter stretches within the recording, not how loud the speaker was overall, and it depends on "
+    "microphone distance."
 )
 WARNING_PAUSE = "The pause type (within a phrase or between sentences) is inferred from the transcript's punctuation."
 
@@ -73,7 +112,7 @@ class EvidenceError(ValueError):
 
 @dataclass(frozen=True)
 class GroundedFlaw:
-    """A detected flaw with its interval, severity and complete evidence (ARCHITECTURE.md §9.9).
+    """A detected flaw with its interval, severity and complete evidence.
 
     `evidence` is one of the typed evidence models; `rule` states why it was flagged; `affected_words`
     and `warnings` are described in the module docstring. Times are in the timeline of whoever built it
@@ -126,6 +165,24 @@ def _indices(c: FlawCandidate, length: int, what: str) -> List[int]:
 def _rate_evidence(
     c: FlawCandidate, nb: NormalizedFeatureBundle, baseline: BaselineStatsRecord, rate: Any, aligned: Any
 ) -> RateEvidence:
+    if c.run is not None:      # a run of words against the baseline's reading of the same words
+        run = c.run
+        if not (run.expected > 0.0 and math.isfinite(run.expected) and math.isfinite(run.observed)):
+            raise EvidenceError("rate evidence needs finite observed and expected rates")
+        delta = run.observed - run.expected
+        timed = _timed_words(aligned)[0] if aligned is not None else []
+        words_in_span = sum(1 for _, s, _e in timed if c.start_s - _EPS_S <= s <= c.end_s + _EPS_S) if aligned is not None else run.n_words
+        return RateEvidence(
+            rate_participant_wpm=_r(run.observed),
+            rate_baseline_mean_wpm=_r(run.expected),
+            rate_baseline_std_wpm=_r(run.sigma_equiv),
+            rate_delta_wpm=_r(delta),
+            rate_delta_pct=_r(100.0 * delta / run.expected),
+            rate_z_score=_r(c.mean_z),
+            peak_z_score=_r(c.mean_z),
+            window_duration_s=_r(c.end_s - c.start_s),
+            word_count_in_window=int(words_in_span),
+        )
     if rate is None or aligned is None:
         raise EvidenceError("rate evidence needs the rate extraction result and the aligned transcript")
     wpm = np.asarray(rate.words_per_min, dtype=np.float64)
@@ -134,10 +191,14 @@ def _rate_evidence(
     if not baseline.rate_wpm_mean > 0.0:
         raise EvidenceError("baseline rate_wpm_mean must be > 0 to express the difference in percent")
 
-    mean_wpm = float(np.mean(wpm[idx]))
+    if c.stretch_rate_wpm is not None:        # narrowed to the words that deviate: the evidence describes that stretch
+        mean_wpm = float(c.stretch_rate_wpm)
+        peak_signed = math.copysign(c.peak_z, c.mean_z)
+    else:
+        mean_wpm = float(np.mean(wpm[idx]))
+        z = nb.rate_z[idx]
+        peak_signed = float(z[int(np.argmax(np.abs(z)))])
     delta = mean_wpm - baseline.rate_wpm_mean
-    z = nb.rate_z[idx]
-    peak_signed = float(z[int(np.argmax(np.abs(z)))])
     timed, _ = _timed_words(aligned)
     words_in_span = sum(1 for _, s, _e in timed if c.start_s - _EPS_S <= s <= c.end_s + _EPS_S)
     return RateEvidence(
@@ -156,6 +217,18 @@ def _rate_evidence(
 def _energy_evidence(
     c: FlawCandidate, nb: NormalizedFeatureBundle, baseline: BaselineStatsRecord, energy: Any
 ) -> EnergyEvidence:
+    if c.run is not None:      # a run of words against the baseline's level for the same words
+        run = c.run
+        if not (math.isfinite(run.expected) and math.isfinite(run.observed)):
+            raise EvidenceError("energy evidence needs finite observed and expected levels")
+        return EnergyEvidence(
+            energy_mean_db=_r(run.observed),
+            energy_baseline_mean_db=_r(run.expected),
+            energy_baseline_std_db=_r(run.sigma_equiv),
+            energy_delta_db=_r(run.observed - run.expected),
+            energy_z_score=_r(c.mean_z),
+            window_duration_s=_r(c.end_s - c.start_s),
+        )
     if energy is None:
         raise EvidenceError("energy evidence needs the energy extraction result")
     values = np.asarray(energy.values_db, dtype=np.float64)
@@ -168,6 +241,21 @@ def _energy_evidence(
         energy_baseline_std_db=_r(baseline.energy_db_std),
         energy_delta_db=_r(mean_db - baseline.energy_db_mean),
         energy_z_score=_r(c.mean_z),
+        window_duration_s=_r(c.end_s - c.start_s),
+    )
+
+
+def _pitch_evidence(c: FlawCandidate) -> FlatPitchEvidence:
+    run = c.run
+    if run is None:
+        raise EvidenceError("flat pitch evidence needs the run of words that was found")
+    if not (math.isfinite(run.observed) and math.isfinite(run.expected) and run.voiced_fraction is not None and math.isfinite(run.voiced_fraction)):
+        raise EvidenceError("flat pitch evidence needs finite pitch movements and the voiced fraction of the run")
+    return FlatPitchEvidence(
+        f0_std_hz_in_window=_r(run.observed),
+        f0_std_baseline_hz=_r(run.expected),
+        f0_std_z=_r(c.mean_z),
+        f0_voiced_fraction=_r(min(1.0, max(0.0, run.voiced_fraction))),
         window_duration_s=_r(c.end_s - c.start_s),
     )
 
@@ -192,6 +280,13 @@ def _pause_evidence(c: FlawCandidate, nb: NormalizedFeatureBundle) -> PauseEvide
 
 def _rule(c: FlawCandidate, evidence: Evidence, cfg: DetectionConfig) -> DetectionRule:
     minimum = float(cfg.min_duration_s[c.type])
+    if c.run is not None:
+        above = c.type in (FlawType.TOO_FAST, FlawType.HIGH_ENERGY)
+        threshold = cfg.z_run_rate if c.run.kind.startswith("rate") else cfg.z_run_pitch if c.run.kind.startswith("pitch") else cfg.z_run_energy
+        return DetectionRule(
+            feature=c.detection_feature, direction="above" if above else "below", threshold_z=threshold if above else -threshold,
+            min_duration_s=minimum,
+        )
     if c.type == FlawType.TOO_FAST:
         return DetectionRule(feature="rate_z", direction="above", threshold_z=cfg.z_rate_fast, min_duration_s=minimum)
     if c.type == FlawType.TOO_SLOW:
@@ -251,7 +346,7 @@ def ground_flaws(
 
     Raises:
         EvidenceError: a needed raw input is missing, arrays do not line up, or a candidate has a
-            flaw type with no evidence builder (e.g. flat_pitch).
+            flaw type with no evidence builder (e.g. pitch_instability).
     """
     if not isinstance(detection, CandidateDetectionResult) or detection.config is None:
         raise TypeError("detection must be a CandidateDetectionResult produced by detect_candidates")
@@ -266,11 +361,18 @@ def ground_flaws(
     for number, c in enumerate(ordered, start=1):
         if c.type in (FlawType.TOO_FAST, FlawType.TOO_SLOW):
             evidence: Evidence = _rate_evidence(c, normalized, baseline, rate, aligned)
-            warnings = (WARNING_RATE,)
+            if c.run is not None:
+                warnings = (WARNING_RATE_OVERALL if c.run.kind == "rate_overall" else WARNING_RATE_RUN,)
+            else:
+                warnings = (WARNING_RATE if c.stretch_rate_wpm is None else WARNING_RATE_NARROWED,)
             words = _words_in_interval(timed, c.start_s, c.end_s)
         elif c.type in (FlawType.LOW_ENERGY, FlawType.HIGH_ENERGY):
             evidence = _energy_evidence(c, normalized, baseline, energy)
-            warnings = (WARNING_ENERGY,)
+            warnings = (WARNING_ENERGY if c.run is None else WARNING_ENERGY_RUN,)
+            words = _words_in_interval(timed, c.start_s, c.end_s)
+        elif c.type == FlawType.FLAT_PITCH:
+            evidence = _pitch_evidence(c)
+            warnings = (WARNING_PITCH_OVERALL if c.run is not None and c.run.kind == "pitch_overall" else WARNING_PITCH_RUN,)
             words = _words_in_interval(timed, c.start_s, c.end_s)
         elif c.type == FlawType.EXCESSIVE_PAUSE:
             evidence = _pause_evidence(c, normalized)
@@ -295,6 +397,20 @@ def ground_flaws(
             )
         )
     return flaws
+
+
+def clip_to_audio(flaws: Sequence[GroundedFlaw], duration_s: float) -> List[GroundedFlaw]:
+    """Keep every flaw inside the analysed audio [0, duration_s] (processed time); a flaw that would be left empty is dropped.
+
+    An aligner may place a word end a few milliseconds beyond the audio; the result contract requires every flaw to lie within the audio, so the
+    interval is clipped here instead of failing the whole analysis.
+    """
+    out: List[GroundedFlaw] = []
+    for f in flaws:
+        start, end = max(0.0, f.start_s), min(float(duration_s), f.end_s)
+        if end > start:
+            out.append(f if (start, end) == (f.start_s, f.end_s) else replace(f, start_s=_r(start), end_s=_r(end)))
+    return out
 
 
 def to_api_flaw(

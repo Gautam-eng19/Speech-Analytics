@@ -1,10 +1,9 @@
 # Dataset Methodology and Schema Specification
 
 ## Track C — Contrastive Speech Analytics & Temporal Flaw Grounding
-**Document Type:** Methodology & Specification  
-**Status:** Canonical Dataset Schema  
-**Associated Task:** TASK-003 — Dataset Schema  
-**Related Documents:** `ARCHITECTURE.md` (§24), `DECISIONS.md` (DEC-010, DEC-013, DEC-015, DEC-017, DEC-022)  
+**Document Type:** Methodology & Specification
+**Status:** Canonical Dataset Schema
+**Associated Task:** Dataset Schema
 
 ---
 
@@ -40,11 +39,12 @@ data/
     <recording_id>.flaws.json       # Granular temporal flaw annotations for flawed recordings
 ```
 
-> **NOTE ON SCHEMA FIXTURES:**
-> The initial files under `data/metadata/` and `data/annotations/` are **schema validation fixtures only**.
-> They contain placeholder file paths, dummy zeroed hashes (`"0000..."`), and fixture speaker IDs to validate
-> JSON schema parsing, relational consistency, and integrity tooling. They do **not** represent collected audio data.
-> Actual audio recording and alignment occur in subsequent project milestones (e.g., TASK-122).
+> **NOTE ON THE FILES IN THE REPOSITORY (updated with, 2026-10-13):**
+> The schema fixtures (placeholder paths, zeroed hashes, invented speakers) were retired. `data/metadata/passages.json` now holds the two real
+> passages, `speakers.json` the four anonymous speakers (`spk_dev_01`, `spk_dev_02`, `spk_test_01`, `spk_test_02`; gender and language still
+> "unspecified") and `manifest.json` is empty until recordings are registered with `scripts/dataset/prepare_recordings.py`.
+> Audio files are never committed (`data/raw/*` and `data/incoming/` are ignored); the manifest, alignments, annotations and baseline statistics are.
+> The JSON examples in section 3 use made-up values for illustration only.
 
 ---
 
@@ -145,8 +145,13 @@ Attached to recordings of category `flawed_human_controlled` and `flawed_synthet
 }
 ```
 
+Optional top-level field written by `prepare_recordings.py`: `"annotation_status": "proposed"` (made from the recording plan and the word alignment, not yet heard
+by a person) or `"confirmed"` (a person listened and corrected the numbers; set by editing the file). The tool never overwrites a `confirmed` annotation, nor
+one that has no such field. Evaluation of the held-out test split must use `confirmed` annotations only (recording-protocol.md section 9.4). Times are in the time
+of the original WAV file (recording-protocol.md section 9.2).
+
 #### Flaw Types (Vocabulary):
-Strictly constrained to the canonical vocabulary in `ARCHITECTURE.md` (§13, §29) and `AGENTS.md` (§5):
+Strictly constrained to the canonical flaw vocabulary:
 
 **P0 Flaws (Core Demo):**
 - `too_fast`: Accelerated speaking rate over a sustained window.
@@ -166,7 +171,7 @@ Strictly constrained to the canonical vocabulary in `ARCHITECTURE.md` (§13, §2
 
 To prevent data leakage and ensure reproducible evaluation:
 
-1. **Rule of Mutually Exclusive Speakers (DEC-017):**
+1. **Rule of Mutually Exclusive Speakers:**
    $$\text{Speakers}(\text{dev}) \cap \text{Speakers}(\text{test}) = \emptyset$$
    No speaker in `dev` may ever appear in `test`.
 
@@ -188,4 +193,4 @@ To prevent data leakage and ensure reproducible evaluation:
 1. **SHA-256 Checksums:**
    Both `sha256_audio` and `sha256_alignment` are mandatory in the manifest. Changing an audio file or re-running alignment changes the hash and invalidates any cached analysis results.
 2. **Dataset Versioning:**
-   Every manifest entry, passage, and annotation records `dataset_version: "1.0.0"`. Increments in dataset versioning invalidate cached results via the cache key mechanism defined in DEC-019.
+   Every manifest entry, passage, and annotation records `dataset_version: "1.0.0"`. Increments in dataset versioning invalidate cached results via the cache key mechanism defined in.

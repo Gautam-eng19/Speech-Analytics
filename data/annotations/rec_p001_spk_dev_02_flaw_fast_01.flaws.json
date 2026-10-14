@@ -2,28 +2,39 @@
   "recording_id": "rec_p001_spk_dev_02_flaw_fast_01",
   "passage_id": "p001",
   "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
   "flaws": [
     {
-      "flaw_id": "ann_flaw_p001_001",
+      "flaw_id": "ann_rec_p001_spk_dev_02_flaw_fast_01_01",
       "flaw_type": "too_fast",
-      "start_s": 4.50,
-      "end_s": 8.20,
-      "severity_label": "high",
+      "start_s": 10.604,
+      "end_s": 16.487,
+      "severity_label": "medium",
       "target_words": [
-        "Today",
-        "we",
-        "present",
-        "Track",
-        "C",
-        "an",
-        "integrated",
-        "system",
-        "for",
-        "speech",
+        "It",
+        "listens",
+        "to",
+        "a",
+        "recording",
+        "compares",
+        "it",
+        "with",
+        "a",
+        "clear",
+        "example",
+        "of",
+        "the",
+        "same",
+        "message",
+        "and",
+        "shows",
+        "exactly",
+        "where",
+        "the",
         "delivery",
-        "analytics"
+        "changed"
       ],
-      "annotator_notes": "Accelerated speech segment exceeding 220 WPM (compared to 140 WPM baseline pace)."
+      "annotator_notes": "Proposed from the recording plan (S3; words 29 to 50), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch took 0.88 times as long as in the speaker's baseline takes (the plan asked for about 0.75); this take is a weak example of the flaw."
     }
   ]
 }

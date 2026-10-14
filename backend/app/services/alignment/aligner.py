@@ -1,15 +1,15 @@
-"""Forced Alignment Service using WhisperX (TASK-022, ARCHITECTURE.md §7.3, §9.3, §12).
+"""Forced Alignment Service using WhisperX.
 
 Responsibility:
     (PreprocessedAudio, Transcript)  →  AlignedTranscript
 
-This service aligns the already-transcribed text (from TASK-021) to the preprocessed
+This service aligns the already-transcribed text (from) to the preprocessed
 audio array using WhisperX forced alignment on CPU/GPU.
 
 Design notes:
 - Accepts only the canonical ``PreprocessedAudio`` (mono, 16 kHz, float32 PCM)
-  and ``Transcript`` (produced by TASK-021).
-- Does NOT transcribe audio (transcription belongs to TASK-021).
+  and ``Transcript`` (produced by).
+- Does NOT transcribe audio (transcription belongs to).
 - Does NOT extract features (F0, MFCC, energy, rate, pause belong to services/features/).
 - Uses WhisperX (`load_align_model` and `align`).
 - Caches loaded alignment models by (language_code, device, model_name) to avoid
@@ -41,7 +41,7 @@ _EXPECTED_SAMPLE_RATE = 16_000
 
 
 # ---------------------------------------------------------------------------
-# Exceptions (ARCHITECTURE.md §23, TASK-022 specification)
+# Exceptions (specification)
 # ---------------------------------------------------------------------------
 
 class AlignmentError(Exception):
@@ -199,7 +199,7 @@ class WhisperXAligner:
         audio:
             Canonical PreprocessedAudio from services/audio/.
         transcript:
-            Canonical Transcript produced by TASK-021 (services/transcription/).
+            Canonical Transcript produced by services/transcription/.
 
         Returns
         -------

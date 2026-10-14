@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0b0f12" />
+    <title>VAANI</title>
+    <meta name="description" content="VAANI: contrastive speech analytics. Where a spoken delivery departs from an effective baseline, when it happens, and the measured evidence behind it." />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0f12'/%3E%3Cpath d='M16 25.500L7.600 7' fill='none' stroke='%23f4f0e8' stroke-width='2.500' stroke-linecap='round'/%3E%3Cpath d='M16 25.500C17.400 19 21.400 12.600 25.400 8' fill='none' stroke='%2370d6ff' stroke-width='2.500' stroke-linecap='round'/%3E%3Ccircle cx='25.600' cy='7.600' r='2.300' fill='%23f28c5b'/%3E%3C/svg%3E" />
+    <script>
+      // Apply the saved theme before the first paint so there is no flash of the wrong theme.
+      (function () {
+        try {
+          var s = JSON.parse(localStorage.getItem('sa.settings.v1') || '{}');
+          var pref = s.theme || 'dark';
+          var dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var root = document.documentElement;
+          root.dataset.theme = pref === 'system' ? (dark ? 'dark' : 'light') : pref;
+          root.dataset.density = s.density || 'comfortable';
+          if (s.motion === 'reduce') root.dataset.motion = 'reduce';
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

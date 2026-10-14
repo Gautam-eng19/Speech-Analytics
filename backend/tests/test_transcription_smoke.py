@@ -1,4 +1,4 @@
-"""Smoke test for the real Whisper model (TASK-021).
+"""Smoke test for the real Whisper model.
 
 This test actually loads and runs Whisper base. It requires:
   - openai-whisper installed

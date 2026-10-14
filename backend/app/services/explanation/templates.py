@@ -1,10 +1,10 @@
-"""Evidence-backed template explanations and recommendations (TASK-070, TASK-071; DEC-018, DEC-021).
+"""Evidence-backed template explanations and recommendations.
 
 `explain_flaw(flaw)` turns ONE grounded flaw into readable text using only its fact sheet (`facts.py`): what
 happened, where, which measurement supports it, how far it was from the baseline, and why the rule flagged it,
 followed by a practical recommendation. The text is deterministic: the same flaw always yields the same words.
 
-Boundaries (AGENTS.md §6.2, §6.3):
+Boundaries:
     * no number is ever typed into a template: every figure is inserted from the fact sheet;
     * after rendering, both texts are re-checked by the independent guard (`guard.assert_grounded`);
     * if a template is missing, a fact is missing, or the guard rejects the text, a minimal fallback that states
@@ -12,7 +12,7 @@ Boundaries (AGENTS.md §6.2, §6.3):
     * the wording describes a difference from the BASELINE recording of the same passage. It does not judge
       content, and does not infer confidence, emotion or any other state of the speaker.
 
-Times are those of the flaw passed in; the pipeline passes flaws already converted to source time (DEC-023).
+Times are those of the flaw passed in; the pipeline passes flaws already converted to source time.
 """
 from __future__ import annotations
 
@@ -65,9 +65,38 @@ def _words_clause(flaw: GroundedFlaw) -> str:
     return f", covering \u201c{words[0]}\u201d to \u201c{words[-1]}\u201d"
 
 
+def _by_words(flaw: GroundedFlaw) -> bool:
+    """True for a finding of the word-by-word comparison with the baseline, whose 'baseline' is the baseline's reading of the same words."""
+    return flaw.rule.feature.endswith("_run_z") or flaw.rule.feature.endswith("_overall_z")
+
+
 def _rate(flaw: GroundedFlaw, f: Dict[str, str]) -> Tuple[str, str]:
     fast = flaw.type == FlawType.TOO_FAST
     side, adverb = ("above", "faster") if fast else ("below", "slower")
+    if _by_words(flaw):
+        verdict = f"which indicates {'accelerated' if fast else 'slower'} delivery compared with the baseline."
+        if flaw.rule.feature == "rate_overall_z":
+            text = (
+                f"{_span(f)}: over the whole recording, speech rate averaged {f['wpm']} words/min, {f['delta_pct']}% {side} the "
+                f"{f['baseline_wpm']} words/min the baseline readings had for the same words ({f['z']} standard deviations {side} it). "
+                f"Flagged because the pace of the whole recording differed from the baseline's by more than {f['threshold']} standard "
+                f"deviations of how much readings of this passage differ in pace, {verdict}"
+            )
+        else:
+            text = (
+                f"{_span(f)}: speech rate averaged {f['wpm']} words/min, {f['delta_pct']}% {side} the {f['baseline_wpm']} words/min the "
+                f"baseline readings had for these same words ({f['z']} standard deviations {side} it){_words_clause(flaw)}. "
+                f"Flagged because the pace of this run of words was more than {f['threshold']} standard deviations {side} the baseline's "
+                f"pace for the same words over at least {f['min_duration']} s, {verdict}"
+            )
+        rec = (
+            f"Slow down in this stretch: aim for about {f['baseline_wpm']} words/min, the pace the baseline readings had for these words, "
+            f"and keep the pauses between phrases."
+            if fast
+            else f"Bring the pace up in this stretch towards about {f['baseline_wpm']} words/min, the pace the baseline readings had for "
+            f"these words, and link phrases together without long gaps."
+        )
+        return text, rec
     text = (
         f"{_span(f)}: speech rate averaged {f['wpm']} words/min, {f['delta_pct']}% {side} the baseline mean of "
         f"{f['baseline_wpm']} words/min ({f['z']} standard deviations {side} it){_words_clause(flaw)}. "
@@ -88,18 +117,48 @@ def _rate(flaw: GroundedFlaw, f: Dict[str, str]) -> Tuple[str, str]:
 def _energy(flaw: GroundedFlaw, f: Dict[str, str]) -> Tuple[str, str]:
     low = flaw.type == FlawType.LOW_ENERGY
     side, word = ("below", "quieter") if low else ("above", "louder")
-    text = (
-        f"{_span(f)}: relative loudness averaged {f['db']} dBFS, {f['delta_db']} dB {side} the baseline mean of "
-        f"{f['baseline_db']} dBFS ({f['z']} standard deviations {side} it){_words_clause(flaw)}. "
-        f"Flagged because the energy was more than {f['threshold']} standard deviations {side} the baseline mean "
-        f"over at least {f['min_duration']} s, which indicates {word} delivery than the baseline."
-    )
+    if _by_words(flaw):
+        text = (
+            f"{_span(f)}: relative loudness averaged {f['db']} dBFS, {f['delta_db']} dB {side} the {f['baseline_db']} dBFS the baseline readings "
+            f"had for these same words, after allowing for the recording's overall level ({f['z']} standard deviations {side} it){_words_clause(flaw)}. "
+            f"Flagged because the level of this run of words was more than {f['threshold']} standard deviations {side} the baseline's level for "
+            f"the same words over at least {f['min_duration']} s, which indicates {word} delivery than the baseline."
+        )
+    else:
+        text = (
+            f"{_span(f)}: relative loudness averaged {f['db']} dBFS, {f['delta_db']} dB {side} the baseline mean of "
+            f"{f['baseline_db']} dBFS ({f['z']} standard deviations {side} it){_words_clause(flaw)}. "
+            f"Flagged because the energy was more than {f['threshold']} standard deviations {side} the baseline mean "
+            f"over at least {f['min_duration']} s, which indicates {word} delivery than the baseline."
+        )
     rec = (
         "Project your voice more in this stretch: support it with steady breath and keep a consistent distance "
         "from the microphone."
         if low
         else "Ease the volume back in this stretch and let emphasis come from pace and pitch variation rather "
         "than loudness."
+    )
+    return text, rec
+
+
+def _pitch(flaw: GroundedFlaw, f: Dict[str, str]) -> Tuple[str, str]:
+    if flaw.rule.feature == "pitch_overall_z":
+        text = (
+            f"{_span(f)}: over the whole recording, the pitch moved by about {f['pitch_hz']} Hz around its usual level, {f['less_pct']}% less than the "
+            f"{f['baseline_pitch_hz']} Hz the baseline readings moved on the same words ({f['z']} standard deviations below it). Flagged because the pitch "
+            f"of the whole recording moved less than the baseline's by more than {f['threshold']} standard deviations of how much readings of this "
+            f"passage differ in pitch movement, which indicates flatter, more monotone delivery than the baseline."
+        )
+    else:
+        text = (
+            f"{_span(f)}: the pitch moved by about {f['pitch_hz']} Hz around its usual level, {f['less_pct']}% less than the {f['baseline_pitch_hz']} Hz "
+            f"the baseline readings moved on these same words ({f['z']} standard deviations below it){_words_clause(flaw)}. Flagged because the pitch "
+            f"movement of this run of words was more than {f['threshold']} standard deviations below the baseline's for the same words over at least "
+            f"{f['min_duration']} s, which indicates flatter, more monotone delivery than the baseline."
+        )
+    rec = (
+        f"Give these words more melody: let the pitch rise on the words that carry the meaning and fall at the end of the phrase, moving about "
+        f"{f['baseline_pitch_hz']} Hz around your usual level as the baseline readings did."
     )
     return text, rec
 
@@ -127,6 +186,7 @@ _TEMPLATES: Dict[FlawType, Callable[[GroundedFlaw, Dict[str, str]], Tuple[str, s
     FlawType.TOO_SLOW: _rate,
     FlawType.LOW_ENERGY: _energy,
     FlawType.HIGH_ENERGY: _energy,
+    FlawType.FLAT_PITCH: _pitch,
     FlawType.EXCESSIVE_PAUSE: _pause,
 }
 

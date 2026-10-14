@@ -1,4 +1,4 @@
-"""Unit tests for TASK-021: Whisper transcription service.
+"""Unit tests for Whisper transcription service.
 
 These tests do NOT download or load the real Whisper model (~140 MB).
 They mock the model entirely and validate:

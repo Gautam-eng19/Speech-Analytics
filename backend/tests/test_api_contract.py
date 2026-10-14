@@ -1,4 +1,4 @@
-"""Contract tests for TASK-002 (request, response, errors, determinism)."""
+"""Contract tests (request, response, errors, determinism)."""
 import copy
 import json
 
@@ -242,9 +242,9 @@ def _with_extras(d: dict) -> dict:
     return d
 
 
-def test_contract_version_reflects_the_additive_change():
-    assert API_CONTRACT_VERSION == "1.1.0"
-    assert AnalysisResult.model_validate(valid_result_dict()).api_contract_version == "1.1.0"
+def test_contract_version_reflects_the_additive_changes():
+    assert API_CONTRACT_VERSION == "1.3.0"                       # 1.1.0 added result fields, 1.2.0 the baseline catalogue, 1.3.0 custom passages
+    assert AnalysisResult.model_validate(valid_result_dict()).api_contract_version == "1.3.0"
 
 
 def test_1_0_payloads_remain_valid_and_get_empty_defaults():

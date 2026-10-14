@@ -1,4 +1,4 @@
-"""Tests for the deterministic analysis cache (ARCHITECTURE.md §26.4, DEC-023/032)."""
+"""Tests for the deterministic analysis cache."""
 from __future__ import annotations
 
 import json
@@ -41,7 +41,7 @@ def test_every_part_changes_the_key(field, value):
 
 
 def test_the_trim_offset_separates_otherwise_identical_audio():
-    """DEC-023: two uploads that differ only in leading silence share the trimmed-audio hash but not the key."""
+    """two uploads that differ only in leading silence share the trimmed-audio hash but not the key."""
     with_offset = make_cache_key({**PARTS, "trim_start_s": 0.0})
     other_offset = make_cache_key({**PARTS, "trim_start_s": 1.0})
     assert with_offset != other_offset

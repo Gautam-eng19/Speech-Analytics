@@ -223,7 +223,8 @@ def test_pause_evidence_and_bounding_words(grounded, baseline):
     assert (ev.pause_duration_s - ev.pause_baseline_mean_s) / ev.pause_baseline_std_s == pytest.approx(
         ev.pause_z_score, abs=1e-2)
     assert ev.boundary_type.value == "within_phrase"
-    assert pause.affected_words == ("w19", "w20") and pause.severity == 1.0
+    assert pause.affected_words == ("w19", "w20")
+    assert pause.severity == pytest.approx(ev.pause_delta_s / 3.5, abs=1e-3)       # size of the excess over the baseline's mean pause, 3.5 s = maximum
     assert pause.rule.feature == "pause_z" and pause.rule.threshold_z == 2.0
 
 
@@ -273,10 +274,11 @@ def test_score_of_the_injected_scenario_is_reproducible_from_its_flaws(grounded)
     for feature, penalty in expected_penalty.items():
         assert fs[feature].penalty_total == pytest.approx(penalty, abs=0.006)
         assert fs[feature].score == pytest.approx(100.0 - fs[feature].penalty_total, abs=1e-9)
-    assert fs[FeatureName.SPEECH_RATE].score == 70.0 and fs[FeatureName.PAUSES].score == 70.0
+    assert fs[FeatureName.SPEECH_RATE].score == 70.0                           # a baseline from one recording has no word profile: the z-score severity applies, saturated
+    assert by_type[FlawType.EXCESSIVE_PAUSE].severity < 0.4 and fs[FeatureName.PAUSES].score > 88.0   # a 1.5 s pause is a mild flaw by its size
     shown = sum(s.weight * s.score for s in fs.values())
     assert result.scores.composite_score == pytest.approx(shown, abs=0.006)
-    assert 70.0 < result.scores.composite_score < 75.0                        # about 72.5 for this scenario
+    assert 76.0 < result.scores.composite_score < 82.0                        # about 79 for this scenario
     assert FeatureName.PITCH in result.excluded and "flat_pitch" in result.excluded[FeatureName.PITCH]
 
 

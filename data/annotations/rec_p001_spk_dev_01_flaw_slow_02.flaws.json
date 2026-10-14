@@ -1,0 +1,35 @@
+{
+  "recording_id": "rec_p001_spk_dev_01_flaw_slow_02",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p001_spk_dev_01_flaw_slow_02_01",
+      "flaw_type": "too_slow",
+      "start_s": 30.432,
+      "end_s": 42.597,
+      "severity_label": "high",
+      "target_words": [
+        "We",
+        "tested",
+        "it",
+        "with",
+        "students",
+        "teachers",
+        "and",
+        "engineers",
+        "and",
+        "most",
+        "of",
+        "them",
+        "improved",
+        "within",
+        "a",
+        "single",
+        "week"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S6; words 87 to 103), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch took 2.18 times as long as in the speaker's baseline takes (the plan asked for about 1.80)."
+    }
+  ]
+}

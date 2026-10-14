@@ -1,8 +1,7 @@
-"""Energy / loudness Feature Extraction Service (TASK-032).
+"""Energy / loudness Feature Extraction Service.
 
 Single canonical implementation of frame-level energy extraction under
-`backend/app/services/features/` (ARCHITECTURE.md §7.4, §9.4, §13.3;
-DECISIONS.md DEC-P004).
+`backend/app/services/features/`.
 
 Algorithm:
     `librosa.feature.rms` computes the root-mean-square amplitude of each analysis
@@ -20,9 +19,9 @@ Analytical contract:
     2. Timestamped: frame-centre times in seconds (same convention and hop as F0 and
        MFCC, `librosa.times_like`), in processed-audio time.
     3. Units: values are dBFS relative to full-scale float PCM. Because preprocessing
-       peak-normalizes audio (TARGET_PEAK_DBFS), these are *relative loudness* values
-       comparable between recordings that went through the same preprocessing, not
-       absolute sound-pressure levels.
+       scales every recording so that its typical speech level is TARGET_SPEECH_LEVEL_DBFS
+, these are *relative loudness* values comparable between recordings that
+       went through the same preprocessing, not absolute sound-pressure levels.
     4. Stateless & extraction only: no normalization, baseline comparison, flaw
        detection or scoring happens here.
 """
@@ -47,13 +46,13 @@ class EnergyConfig:
     Defaults (PROPOSED starting values, not calibrated):
     - sample_rate: 16 000 Hz (TARGET_SAMPLE_RATE)
     - hop_length: 160 samples (10 ms), identical to the F0 and MFCC hop so all
-      frame-level feature timelines share one time grid (ARCHITECTURE.md §13.3).
-    - frame_length: 512 samples (32 ms), identical to the MFCC window. ARCHITECTURE.md
+      frame-level feature timelines share one time grid.
+    - frame_length: 512 samples (32 ms), identical to the MFCC window.
       does not fix an RMS window; 32 ms resolves syllable-scale energy changes and
       pause boundaries while smoothing individual pitch periods.
     - rms_floor: 1e-9 (-180 dBFS), the architecture's `max(rms, 1e-9)` guard.
     - quiet_warning_dbfs: -70.0; a mean level below this logs a warning because the
-      recording is extremely quiet (ARCHITECTURE.md §13.3 failure condition).
+      recording is extremely quiet (failure condition).
       Reliability handling itself belongs to the grounding stage.
 
     Frames are always centred (zero-padded by frame_length // 2 at both ends), so
@@ -108,18 +107,34 @@ class EnergyExtractionResult:
         return float(np.mean(self.values_db))
 
     def to_timeline_dict(self) -> Dict[str, List[float]]:
-        """Serialize to the API response `EnergyTimeline` shape (ARCHITECTURE.md §6.3)."""
+        """Serialize to the API response `EnergyTimeline` shape."""
         return {
             "times_s": [float(t) for t in self.times_s],
             "values_db": [float(v) for v in self.values_db],
         }
 
     def to_feature_bundle_dict(self) -> Dict[str, np.ndarray]:
-        """Export fields matching the internal `FeatureBundle` (ARCHITECTURE.md §9.4)."""
+        """Export fields matching the internal `FeatureBundle`."""
         return {
             "energy_times_s": self.times_s.copy(),
             "energy_db": self.values_db.copy(),
         }
+
+
+def frame_energy_db(audio: np.ndarray, config: EnergyConfig) -> np.ndarray:
+    """Loudness (dBFS RMS, always finite) of every centred analysis frame of a mono float signal.
+
+    The single definition of "frame loudness": the energy timeline is this function plus frame times, and the loudness scaling of
+    the preprocessing step measures the speech level with the very same frames.
+    """
+    rms = librosa.feature.rms(
+        y=audio,
+        frame_length=config.frame_length,
+        hop_length=config.hop_length,
+        center=True,
+        pad_mode="constant",
+    )[0].astype(np.float64)
+    return 20.0 * np.log10(np.maximum(rms, config.rms_floor))
 
 
 class EnergyExtractor:
@@ -156,17 +171,9 @@ class EnergyExtractor:
                 f"({self.config.sample_rate} Hz). Resample input or configure matching EnergyConfig."
             )
 
-        rms = librosa.feature.rms(
-            y=arr,
-            frame_length=self.config.frame_length,
-            hop_length=self.config.hop_length,
-            center=True,
-            pad_mode="constant",
-        )[0].astype(np.float64)
-
-        values_db = 20.0 * np.log10(np.maximum(rms, self.config.rms_floor))
+        values_db = frame_energy_db(arr, self.config)
         times_s = librosa.times_like(
-            rms,
+            values_db,
             sr=self.config.sample_rate,
             hop_length=self.config.hop_length,
         ).astype(np.float64)

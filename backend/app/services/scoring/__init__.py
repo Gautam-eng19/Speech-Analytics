@@ -1,4 +1,4 @@
-"""Deterministic scoring service package (ARCHITECTURE.md §7.6, §20)."""
+"""Deterministic scoring service package."""
 from .scoring import (
     FEATURE_FOR_FLAW,
     ScoringConfig,

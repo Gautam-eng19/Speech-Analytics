@@ -1,4 +1,4 @@
-"""API tests for the orchestrated endpoints: POST /analyze, GET /status/{id}, GET /result/{id} (DEC-016, DEC-032).
+"""API tests for the orchestrated endpoints: POST /analyze, GET /status/{id}, GET /result/{id}.
 
 The pipeline is replaced by a fake, so these tests cover the HTTP layer: error mapping, what reaches the pipeline, that
 internal error text never leaks, threading, and result retrieval from the cache.
@@ -168,7 +168,8 @@ def test_the_result_endpoints_are_plain_functions_so_disk_reads_never_block_the_
 def test_openapi_documents_all_endpoints_and_the_result_model():
     spec = app.openapi()
     assert set(spec["paths"]) == {
-        "/api/v1/health", "/api/v1/analyze", "/api/v1/status/{analysis_id}", "/api/v1/result/{analysis_id}"}
+        "/api/v1/health", "/api/v1/analyze", "/api/v1/status/{analysis_id}", "/api/v1/result/{analysis_id}",
+        "/api/v1/baselines", "/api/v1/custom/baselines", "/api/v1/custom/baselines/{baseline_id}"}
     ok = spec["paths"]["/api/v1/analyze"]["post"]["responses"]["200"]["content"]["application/json"]["schema"]
     assert ok["$ref"].endswith("/AnalysisResult")
     schemas = spec["components"]["schemas"]

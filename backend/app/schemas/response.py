@@ -1,9 +1,9 @@
-"""Response contract for the public API (ARCHITECTURE.md §6.3, §9.9-9.11, §21, §23).
+"""Response contract for the public API.
 
 Every field here maps to an object produced by the analytical pipeline; this
 module defines SHAPE only. No analytical value is computed or defaulted here.
 `AnalysisResult` is the serialization of ExplanationResult (the final pipeline
-object, ARCHITECTURE.md §9.11).
+object).
 
 Reproducibility: everything in `AnalysisResult` except `analysis_id` and
 `processing_meta` is a deterministic function of (audio, baseline, config).
@@ -34,6 +34,8 @@ __all__ = [
     "HealthResponse", "StatusResponse", "ErrorResponse", "AnalysisResult",
     "AudioInfo", "BaselineInfo", "AlignedWord", "FeatureSet", "BaselineStats",
     "Flaw", "DetectionRule", "ScoreSummary", "FeatureScore", "ProcessingMeta", "AnalysisNote",
+    "BaselineSummary", "UnavailableBaseline", "BaselineListResponse",
+    "CustomTakeSummary", "CustomBaselineResult", "CustomBaselineDeleted",
 ]
 
 _Unit = Field(ge=0.0, le=1.0)
@@ -60,7 +62,7 @@ class StatusResponse(ContractModel):
 
 
 class ErrorResponse(ContractModel):
-    """Body of every non-2xx response (ARCHITECTURE.md §23 error format)."""
+    """Body of every non-2xx response (error format)."""
 
     error: ErrorCode
     detail: str = Field(min_length=1)
@@ -71,7 +73,7 @@ class ErrorResponse(ContractModel):
 # Input / provenance
 # --------------------------------------------------------------------------
 class AudioInfo(ContractModel):
-    """Participant audio after preprocessing (PreprocessedAudio, §9.1).
+    """Participant audio after preprocessing (PreprocessedAudio).
 
     `duration_s` is the duration of the ANALYSED audio (leading/trailing silence removed). Every time in
     the result (alignment, feature timelines, pauses, flaws) is expressed in SOURCE time, i.e. on the
@@ -95,7 +97,7 @@ class AudioInfo(ContractModel):
 
 
 class BaselineInfo(ContractModel):
-    """Baseline used for comparison (BaselineStats identity, §9.5, §26.3)."""
+    """Baseline used for comparison (BaselineStats identity)."""
 
     baseline_id: str
     passage_id: str
@@ -104,7 +106,7 @@ class BaselineInfo(ContractModel):
 
 
 class AlignedWord(ContractModel):
-    """Word timing (AlignedTranscript.words, §9.3)."""
+    """Word timing (AlignedTranscript.words)."""
 
     word: str
     start_s: float = _NonNeg
@@ -119,7 +121,7 @@ class AlignedWord(ContractModel):
 
 
 # --------------------------------------------------------------------------
-# Features (FeatureBundle, §9.4) — timelines are backend output for charts.
+# Features (FeatureBundle) — timelines are backend output for charts.
 # --------------------------------------------------------------------------
 def _same_length(**arrays: list) -> None:
     lengths = {k: len(v) for k, v in arrays.items()}
@@ -196,7 +198,7 @@ class MfccSummary(ContractModel):
 
 
 class ClarityTimeline(ContractModel):
-    """P1 acoustic clarity proxy (DEC-012), not an intelligibility score."""
+    """P1 acoustic clarity proxy, not an intelligibility score."""
 
     times_s: list[float]
     hf_ratio: list[float]
@@ -217,7 +219,7 @@ class FeatureSet(ContractModel):
 
 
 class BaselineStats(ContractModel):
-    """Baseline statistics used for normalization (§9.5)."""
+    """Baseline statistics used for normalization."""
 
     f0_voiced_hz_mean: float
     f0_voiced_hz_std: float = _NonNeg
@@ -238,7 +240,7 @@ class BaselineStats(ContractModel):
 
 
 # --------------------------------------------------------------------------
-# Evidence — one model per flaw family, fields exactly as ARCHITECTURE.md §21.
+# Evidence — one model per flaw family, fields exactly as
 # All values come from the analytical pipeline; never from an LLM.
 # --------------------------------------------------------------------------
 class RateEvidence(ContractModel):  # too_fast, too_slow
@@ -312,21 +314,23 @@ _EVIDENCE_FOR_TYPE: dict[FlawType, type] = {
 
 
 class DetectionRule(ContractModel):
-    """The rule that flagged a finding (§17), so each flaw states WHY it was flagged.
+    """The rule that flagged a finding, so each flaw states WHY it was flagged.
 
     The finding was flagged where the named normalized signal was `above` (z > threshold_z) or `below`
     (z < threshold_z) the threshold for at least `min_duration_s` of flagged time. The thresholds are
-    initial, uncalibrated values (DEC-P005).
+    initial, uncalibrated values.
     """
 
-    feature: str = Field(min_length=1)  # normalized signal: "rate_z", "energy_z" or "pause_z"
+    # normalized signal: "rate_z", "energy_z", "pause_z", or for a word-by-word comparison with the baseline "rate_run_z",
+    # "rate_overall_z" or "energy_run_z"
+    feature: str = Field(min_length=1)
     direction: Literal["above", "below"]
     threshold_z: float = Field(allow_inf_nan=False)
     min_duration_s: float = Field(ge=0.0, allow_inf_nan=False)
 
 
 class Flaw(ContractModel):
-    """GroundedFlaw (§9.9) + explanation fields (§9.11)."""
+    """GroundedFlaw + explanation fields."""
 
     flaw_id: str = Field(pattern=r"^flaw_\d{3,}$")
     type: FlawType
@@ -334,7 +338,7 @@ class Flaw(ContractModel):
     end_s: float = _NonNeg
     duration_s: float = _NonNeg
     severity: float = _Unit
-    reliability: float = _Unit  # 1.0 at P0 (§19)
+    reliability: float = _Unit  # 1.0 at P0
     low_confidence: bool
     evidence: Evidence
     explanation: str = Field(min_length=1)
@@ -360,7 +364,7 @@ class Flaw(ContractModel):
 
 
 # --------------------------------------------------------------------------
-# Scores (ScoredResult, §9.10)
+# Scores (ScoredResult)
 # --------------------------------------------------------------------------
 class FeatureScore(ContractModel):
     score: float = Field(ge=0.0, le=100.0)
@@ -404,6 +408,85 @@ class AnalysisNote(ContractModel):
 
     code: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
     message: str = Field(min_length=1)
+
+
+# --------------------------------------------------------------------------
+# Baseline catalogue (1.2.0): what the dashboard offers before an analysis is run
+# --------------------------------------------------------------------------
+class BaselineSummary(ContractModel):
+    """A usable baseline and the passage it describes (GET /api/v1/baselines)."""
+
+    baseline_id: str = Field(min_length=1)
+    passage_id: str = Field(min_length=1)
+    dataset_version: str
+    sha256: str = Field(pattern="^[0-9a-f]{64}$")
+    n_baseline_recordings: int = Field(ge=0)
+    n_rate_windows: int = Field(ge=0)
+    n_pauses_within_phrase: int = Field(ge=0)
+    # Same rules as the `baseline_thin_*` analysis notes: the statistics rest on very few observations.
+    thin_rate_statistics: bool
+    thin_pause_statistics: bool
+    # From the passage catalog (null if the catalog has no entry for the passage).
+    passage_title: Optional[str] = None
+    passage_text: Optional[str] = None
+    passage_word_count: Optional[int] = Field(default=None, ge=0)
+    # True for a baseline made from a user's own passage and recordings (contract 1.3.0).
+    custom: bool = False
+
+
+class UnavailableBaseline(ContractModel):
+    """A baseline file that exists but cannot be used; `reason` is a short code, never a server path."""
+
+    baseline_id: str = Field(min_length=1)
+    reason: Literal["unreadable", "invalid_file", "integrity_check_failed", "integrity_error"]
+
+
+class BaselineListResponse(ContractModel):
+    """GET /api/v1/baselines"""
+
+    baselines: list[BaselineSummary] = Field(default_factory=list)
+    unavailable: list[UnavailableBaseline] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------
+# Custom passages (contract 1.3.0)
+# --------------------------------------------------------------------------
+class CustomTakeSummary(ContractModel):
+    """What was measured on one baseline recording of a custom passage (nothing of the audio itself is kept)."""
+
+    filename: str = Field(min_length=1)
+    duration_s: float = Field(ge=0.0)
+    words_per_min: float = Field(ge=0.0)
+    # Share of the passage's words that were found and timed in the recording.
+    timed_word_share: float = Field(ge=0.0, le=1.0)
+    # Similarity of the recognised words to the passage text (null when the speech recogniser was not used).
+    content_match: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+
+
+class CustomBaselineResult(ContractModel):
+    """POST /api/v1/custom/baselines: the baseline that was made from the user's passage and recordings."""
+
+    baseline_id: str = Field(pattern=r"^custom-[0-9a-f]{12}$")
+    passage_id: str = Field(pattern=r"^custom-[0-9a-f]{12}$")
+    title: str = Field(min_length=1)
+    passage_text: str = Field(min_length=1)
+    passage_word_count: int = Field(ge=1)
+    n_recordings: int = Field(ge=1)
+    # True when the same passage and recordings had already been made into a baseline (nothing was recomputed; `takes` is then empty).
+    already_existed: bool
+    # Whether the word-by-word comparison (needs three recordings) and its pitch part were built; without them the analysis compares with the
+    # overall averages, which is less precise.
+    word_profile_built: bool
+    pitch_profile_built: bool
+    takes: list[CustomTakeSummary] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class CustomBaselineDeleted(ContractModel):
+    """DELETE /api/v1/custom/baselines/{baseline_id}"""
+
+    baseline_id: str
+    deleted: bool
 
 
 # --------------------------------------------------------------------------

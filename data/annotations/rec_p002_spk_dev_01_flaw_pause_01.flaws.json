@@ -1,0 +1,20 @@
+{
+  "recording_id": "rec_p002_spk_dev_01_flaw_pause_01",
+  "passage_id": "p002",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p002_spk_dev_01_flaw_pause_01_01",
+      "flaw_type": "excessive_pause",
+      "start_s": 21.529,
+      "end_s": 23.35,
+      "severity_label": "medium",
+      "target_words": [
+        "good",
+        "conversation"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S4, silence after 'good'; the silence after word 54), placed by forced alignment. Not yet confirmed by ear. Take check: the silence after the word lasts 1.8 s (the plan asked for 1.5 to 2 s)."
+    }
+  ]
+}

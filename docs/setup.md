@@ -1,7 +1,7 @@
 # Development Environment Setup Guide
 
 ## Track C — Contrastive Speech Analytics & Temporal Flaw Grounding
-**Task:** TASK-004 — Development Environment
+**Task:** Development Environment
 **Last Updated:** 2026-10-09
 
 ---
@@ -11,7 +11,7 @@
 - **OS:** Windows, macOS or Linux (the commands below are given for PowerShell and for bash).
 - **Python:** 3.10 – 3.13 (the 2026-10-09 verification used 3.13).
 - **Git.**
-- **Node.js ≥ 18 / npm ≥ 9** — only for the future frontend (React + Vite + TypeScript, DEC-002). `frontend/` is still a placeholder.
+- **Node.js ≥ 20.19 / npm ≥ 10** — only to build or develop the dashboard (React + Vite + TypeScript). Not needed to run the API or its tests.
 - **ffmpeg is NOT required.** MP3 decoding uses PyAV (`av`), and Whisper receives NumPy arrays directly.
 - **Disk / network:** `openai-whisper` pulls in PyTorch (several GB). The first real Whisper/WhisperX run downloads model weights.
 
@@ -69,6 +69,29 @@ Interactive documentation: `http://127.0.0.1:8000/docs`.
 | `GET /api/v1/status/{analysis_id}` | `done` or `not_found` |
 | `GET /api/v1/result/{analysis_id}` | the stored result, or 404 `RESULT_NOT_FOUND` |
 
+### Run the dashboard
+
+```bash
+cd frontend && npm ci && npm run build        # once: writes frontend/dist
+cd .. && python -m uvicorn app.main:app --app-dir backend
+```
+
+Open `http://127.0.0.1:8000/`: the API serves the built dashboard at `/` and itself at `/api/v1`, so there is one origin and no CORS to
+configure. The four demo samples (synthetic voice, `frontend/public/samples/`) open without a baseline or the real models; analysing your
+own recording needs a baseline (§4). For development run `npm run dev` in `frontend/` (port 5173, proxies `/api` to port 8000).
+`FRONTEND_DIST_DIR` (default `frontend/dist`) and `CORS_ORIGINS` (default the Vite dev server) are in `.env.example`.
+`npm test` runs the dashboard's tests; `npm run shots` takes screenshots of every page, `npm run a11y` audits every page and state with
+axe-core and `npm run smoke` drives the running app in Chromium, including a recording with a fake microphone (the last three need the
+server running and a Chromium; see `docs/architecture/frontend.md`).
+
+**Recording in the browser** (New analysis, "Record now") needs a secure page: `http://127.0.0.1:8000/` and `http://localhost:...` count as
+secure, a plain `http://` address on another machine does not (the browser refuses microphone access there, and the panel says so).
+The take is saved as a 16 kHz mono WAV and handed to the upload form; keep recordings of people out of git.
+
+| Extra endpoint | What it does |
+|---|---|
+| `GET /api/v1/baselines` | usable baselines with their passage text and whether their statistics are thin; unusable files listed with a reason code |
+
 Notes for the first real run:
 - The first analysis loads the Whisper model and downloads the WhisperX alignment model (this can take a while on a slow
   connection; the time has not been measured); later analyses reuse them. The server analyses one recording at a time.
@@ -84,16 +107,16 @@ Notes for the first real run:
 
 ## 3. Dependencies (`requirements.txt`)
 
-Ranges (`>=`) without a lockfile; ARCHITECTURE.md §26.5 asks for exact pins, which is still to do.
+Ranges (`>=`) without a lockfile.5 asks for exact pins, which is still to do.
 
 | Package | Used for |
 |---|---|
-| `fastapi`, `uvicorn[standard]`, `python-multipart` | API and uploads (DEC-003) |
+| `fastapi`, `uvicorn[standard]`, `python-multipart` | API and uploads |
 | `pydantic`, `python-dotenv` | contracts and settings |
 | `numpy`, `scipy`, `av` | audio decoding, resampling, numerics |
 | `librosa` | pYIN F0, MFCC, RMS energy |
-| `openai-whisper` | transcription (DEC-P001) |
-| `whisperx` | forced alignment (DEC-P002) |
+| `openai-whisper` | transcription |
+| `whisperx` | forced alignment |
 | `pytest` | tests |
 
 ---
@@ -105,7 +128,7 @@ There are no recordings yet, so no baseline statistics file exists. With recordi
 ```bash
 python scripts/dataset/build_baseline_stats.py --passage-id p001 --splits dev
 ```
-`--splits` is required on purpose (it decides which speakers' baselines may contribute). See DEC-024.
+`--splits` is required on purpose (it decides which speakers' baselines may contribute). See.
 
 ---
 

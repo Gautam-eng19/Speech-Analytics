@@ -1,0 +1,36 @@
+{
+  "recording_id": "rec_p002_spk_dev_01_flaw_quiet_01",
+  "passage_id": "p002",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p002_spk_dev_01_flaw_quiet_01_01",
+      "flaw_type": "low_energy",
+      "start_s": 25.911,
+      "end_s": 31.974,
+      "severity_label": "medium",
+      "target_words": [
+        "She",
+        "would",
+        "listen",
+        "carefully",
+        "wait",
+        "for",
+        "the",
+        "right",
+        "moment",
+        "and",
+        "then",
+        "speak",
+        "slowly",
+        "so",
+        "that",
+        "each",
+        "word",
+        "mattered"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S5; words 63 to 80), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch was -3.0 dB against the rest of the take, compared with the baseline takes (the plan asked for about -8 dB); this take is a weak example of the flaw."
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-"""Unit and contract tests for MFCC Feature Extraction (TASK-031).
+"""Unit and contract tests for MFCC Feature Extraction.
 
 Covers:
 1.  Valid synthetic audio — basic extraction succeeds.
@@ -142,7 +142,7 @@ def test_time_axis_length_matches_mfcc_rows() -> None:
 # ---------------------------------------------------------------------------
 
 def test_deterministic_repeated_extraction() -> None:
-    """Test 4: same input + same config → bit-identical results (ARCHITECTURE.md §2)."""
+    """Test 4: same input + same config → bit-identical results."""
     sr = 16000
     audio = _make_sine(frequency_hz=200.0, duration_s=0.5, sample_rate=sr)
     config = MFCCConfig(sample_rate=sr)

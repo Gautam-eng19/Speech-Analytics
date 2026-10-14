@@ -1,4 +1,4 @@
-"""A real HTTP round trip through the app (DEC-016, DEC-032): upload -> orchestrated pipeline -> cache -> /status and /result.
+"""A real HTTP round trip through the app: upload -> orchestrated pipeline -> cache -> /status and /result.
 
 The app, the multipart parsing, the real `AnalysisPipeline`, the real response serialisation and the file cache are all in play;
 only Whisper and WhisperX are replaced by exact-timing stand-ins (they cannot be downloaded in CI). The point is what the
@@ -73,7 +73,7 @@ def test_upload_result_is_a_valid_finite_contract_object_with_the_injected_flaws
     assert status == 200
     assert_all_finite(body)
     result = AnalysisResult.model_validate(body)
-    assert [f["type"] for f in body["flaws"]] == ["low_energy", "too_fast", "excessive_pause"]
+    assert [f["type"] for f in body["flaws"]] == ["low_energy", "excessive_pause", "too_fast"]
     assert all(f["explanation"] and f["recommendation"] and f["rule"] and f["evidence"] for f in body["flaws"])
     assert body["processing_meta"]["cached"] is False and result.scores.composite_score < 100.0
     assert {n["code"] for n in body["notes"]} >= {"thresholds_uncalibrated", "pitch_not_scored"}

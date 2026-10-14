@@ -1,0 +1,35 @@
+{
+  "recording_id": "rec_p001_spk_dev_01_flaw_quiet_01",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p001_spk_dev_01_flaw_quiet_01_01",
+      "flaw_type": "low_energy",
+      "start_s": 23.651,
+      "end_s": 29.493,
+      "severity_label": "medium",
+      "target_words": [
+        "The",
+        "tool",
+        "marks",
+        "those",
+        "moments",
+        "on",
+        "a",
+        "timeline",
+        "explains",
+        "what",
+        "it",
+        "measured",
+        "and",
+        "suggests",
+        "one",
+        "simple",
+        "change"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S5; words 70 to 86), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch was -4.4 dB against the rest of the take, compared with the baseline takes (the plan asked for about -8 dB)."
+    }
+  ]
+}

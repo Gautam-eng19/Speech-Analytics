@@ -1,0 +1,116 @@
+{
+  "synthetic": true,
+  "generator": "scripts/demo/build_demo_samples.py",
+  "voice": "flite/slt (synthetic speech synthesiser)",
+  "note": "Synthetic voice reading one passage with deliberate, known flaws. Word timings are exact by construction; Whisper and WhisperX were replaced by stand-ins. Every other number comes from the real analysis code.",
+  "selection_note": "Each sample is the first generated take (seeds from 200 upward) that fits its description: the clean take has no flag; each flawed take has its injected flaws detected, with at most 2 additional detections. The samples illustrate the interface; they are not a measurement of detection accuracy.",
+  "diagnostics": {
+    "clean_takes_flagged": 0,
+    "clean_takes_probed": 10,
+    "comment": "How many clean synthetic takes (same generator, no flaw) the current, uncalibrated thresholds flagged. Calibration on real recordings has to bring this down."
+  },
+  "passage": {
+    "passage_id": "demo_talk",
+    "title": "Project talk (demo passage)",
+    "text": "Good morning, everyone, and thank you for joining us today. Over the past year our team has built a tool that helps people improve the way they speak. It listens to a recording, compares it with a clear example of the same message, and shows exactly where the delivery changed. For instance, you might speak too quickly during a key point, or pause for too long before an answer. The tool marks those moments on a timeline, explains what it measured, and suggests one simple change. We tested it with students, teachers, and engineers, and most of them improved within a single week. Today I will show you how it works, step by step. Please feel free to ask questions at any time.",
+    "word_count": 123
+  },
+  "baseline": {
+    "baseline_id": "demo_talk",
+    "takes": 5,
+    "sha256": "201d803a45861ff2f927d8fae6459ac3af1ef900f7f8f876ed7547d5e623b0f6"
+  },
+  "samples": [
+    {
+      "id": "clean-delivery",
+      "title": "Clean delivery",
+      "description": "A control take: the same voice reading the passage at its normal pace, with no deliberate flaw. It shows what the dashboard looks like when nothing is flagged.",
+      "analysis_id": "152de1ff-fe8b-5260-a4f0-0ca75db69818",
+      "audio": "clean-delivery.wav",
+      "result": "clean-delivery.json",
+      "duration_s": 53.995,
+      "injected": [],
+      "extra_detections": 0,
+      "seed": 200,
+      "candidates_tried": 1
+    },
+    {
+      "id": "rushed-explanation",
+      "title": "Rushed explanation",
+      "description": "The third sentence is read about 1.8 times faster than the baseline pace; everything else is normal.",
+      "analysis_id": "0aa10ee5-764c-5005-8003-39cbf6ef3ac5",
+      "audio": "rushed-explanation.wav",
+      "result": "rushed-explanation.json",
+      "duration_s": 50.075,
+      "injected": [
+        {
+          "type": "too_fast",
+          "start_s": 12.542,
+          "end_s": 17.247,
+          "detected": true
+        }
+      ],
+      "extra_detections": 0,
+      "seed": 200,
+      "candidates_tried": 1
+    },
+    {
+      "id": "hesitant-delivery",
+      "title": "Hesitant delivery",
+      "description": "A 1.9 s silence inside a phrase in the fourth sentence, and the sixth sentence read at about 0.6 times the normal speed.",
+      "analysis_id": "fef53cc9-3bda-5c9c-ad4c-9671a024b6b2",
+      "audio": "hesitant-delivery.wav",
+      "result": "hesitant-delivery.json",
+      "duration_s": 60.749,
+      "injected": [
+        {
+          "type": "excessive_pause",
+          "start_s": 24.145,
+          "end_s": 26.045,
+          "detected": true
+        },
+        {
+          "type": "too_slow",
+          "start_s": 39.329,
+          "end_s": 51.109,
+          "detected": true
+        }
+      ],
+      "extra_detections": 0,
+      "seed": 200,
+      "candidates_tried": 1
+    },
+    {
+      "id": "mixed-flaws",
+      "title": "Mixed flaws",
+      "description": "Three deliberate flaws in one take: a fast second sentence, a 3.2 s silence between two sentences, and a seventh sentence 20 dB quieter.",
+      "analysis_id": "9dc3e4f3-5046-5824-ac09-1dca140fb2a4",
+      "audio": "mixed-flaws.wav",
+      "result": "mixed-flaws.json",
+      "duration_s": 53.53,
+      "injected": [
+        {
+          "type": "too_fast",
+          "start_s": 5.4,
+          "end_s": 9.279,
+          "detected": true
+        },
+        {
+          "type": "excessive_pause",
+          "start_s": 33.812,
+          "end_s": 37.012,
+          "detected": true
+        },
+        {
+          "type": "low_energy",
+          "start_s": 44.365,
+          "end_s": 48.538,
+          "detected": true
+        }
+      ],
+      "extra_detections": 0,
+      "seed": 200,
+      "candidates_tried": 1
+    }
+  ]
+}

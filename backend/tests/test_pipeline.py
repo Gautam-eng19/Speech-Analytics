@@ -1,4 +1,4 @@
-"""Unit tests for the pipeline's own logic: error mapping, content check, config fingerprint (DEC-016, DEC-032).
+"""Unit tests for the pipeline's own logic: error mapping, content check, config fingerprint.
 
 The analytical stages are tested elsewhere; here only the orchestration contract is exercised: which failure becomes which public
 error code, that failures never leave anything in the cache and never leak internals, and how the content check and the
@@ -42,11 +42,11 @@ USABLE_SNAPSHOT = {"energy_frame_selection": "active", "energy_active_threshold_
 def usable_record(**overrides):
     """A baseline record the normalizer accepts (the provider tests' default snapshot has no energy threshold).
 
-    Its energy statistics match a peak-normalised (-3 dBFS) sine, whose RMS level is about -6 dBFS, so the test tones below are
-    "normal" delivery against it unless a test overrides the statistics.
+    Its energy statistics match a steady tone after the loudness scaling (typical speech level -26 dBFS), whose frame
+    level is -26 dBFS, so the test tones below are "normal" delivery against it unless a test overrides the statistics.
     """
     overrides.setdefault("config_snapshot", dict(USABLE_SNAPSHOT))
-    overrides.setdefault("energy_db_mean", -6.0)
+    overrides.setdefault("energy_db_mean", -26.0)
     overrides.setdefault("energy_db_std", 3.0)
     return _record(**overrides)
 
@@ -118,7 +118,7 @@ def test_the_scripted_pipeline_completes_on_simple_audio(tmp_path):
 
 def test_a_recording_that_is_flagged_from_its_very_first_frame_still_yields_a_valid_result(tmp_path):
     """Regression: a flaw touching either end of the recording used to start at -0.005 s and fail the public contract."""
-    loud_baseline = usable_record(energy_db_mean=-25.0, energy_db_std=5.0)          # the tone (-6 dBFS) is 3.8 sd too loud
+    loud_baseline = usable_record(energy_db_mean=-45.0, energy_db_std=5.0)          # the tone (-26 dBFS) is 3.8 sd too loud
     result = make_pipeline(tmp_path, record=loud_baseline).analyze(tone_wav(2.0), REQUEST)
     (flaw,) = result.flaws
     assert flaw.type.value == "high_energy" and flaw.start_s == 0.0
@@ -238,7 +238,7 @@ def test_alignment_warnings_are_reported_as_notes(tmp_path):
 
 
 def _mostly_silent_wav() -> bytes:
-    """Two short tone bursts around 6 s of digital silence: after peak normalisation the mean level is far below -70 dBFS."""
+    """Two short tone bursts around 6 s of digital silence: even with the bursts at the speech level the mean level is far below -70 dBFS."""
     burst = 0.5 * np.sin(2 * np.pi * 200.0 * np.arange(int(0.3 * SR)) / SR)
     signal = np.concatenate([burst, np.zeros(6 * SR), burst])
     buf = io.BytesIO()
@@ -320,7 +320,8 @@ def test_fingerprint_changes_with_any_analytical_constant(config):
 
 
 @pytest.mark.parametrize("name,value", [
-    ("THRESHOLDS_CALIBRATED", True), ("MIN_COVERAGE_PCT", 0.5), ("WHISPER_MODEL", "tiny"), ("TARGET_PEAK_DBFS", -6.0),
+    ("THRESHOLDS_CALIBRATED", True), ("MIN_COVERAGE_PCT", 0.5), ("WHISPER_MODEL", "tiny"), ("TARGET_SPEECH_LEVEL_DBFS", -20.0),
+    ("SPEECH_LEVEL_WINDOW_DB", 20.0), ("MAX_PEAK_DBFS", -3.0),
 ])
 def test_fingerprint_changes_with_the_settings_that_influence_results(monkeypatch, name, value):
     before = analysis_config_fingerprint(PipelineConfig())

@@ -1,4 +1,4 @@
-"""Public API contract (TASK-002). Import from here."""
+"""Public API contract. Import from here."""
 from .common import (  # noqa: F401
     API_CONTRACT_VERSION, ERROR_HTTP_STATUS, AlignmentMethod, AnalysisStatus,
     ErrorCode, ExplanationMethod, FeatureName, FlawType, PauseBoundaryType,

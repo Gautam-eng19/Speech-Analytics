@@ -1,12 +1,11 @@
-"""Deterministic file-based analysis cache (ARCHITECTURE.md §7.10, §26.4; DEC-019, DEC-023, DEC-032).
+"""Deterministic file-based analysis cache.
 
 Two parts:
 
 * `make_cache_key(parts)` / `analysis_id_for_key(key)`: the key is the SHA-256 of the canonical JSON (sorted keys, compact,
   no NaN) of everything the result depends on; the `analysis_id` is the RFC 4122 version-5 UUID of that key. The same
   input therefore always has the same id, and a stored result can be found by id alone (GET /result/{id}). The caller must
-  put into the parts at least: the preprocessed-audio hash AND its trim offset (the hash covers only the trimmed samples,
-  DEC-023), the baseline identity and hash, the passage, the manual transcript (if any), the config / pipeline / API
+  put into the parts at least: the preprocessed-audio hash AND its trim offset (the hash covers only the trimmed samples), the baseline identity and hash, the passage, the manual transcript (if any), the config / pipeline / API
   contract versions, a fingerprint of every analytical constant in effect, and the library versions.
 * `ResultCache`: stores each `AnalysisResult` as `<analysis_id>.json` in one directory, written atomically (temp file +
   rename) so a crash cannot leave a half-written result. A missing, unreadable or schema-invalid file is a cache miss,

@@ -1,0 +1,40 @@
+{
+  "recording_id": "rec_p001_spk_dev_01_flaw_quiet_02",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p001_spk_dev_01_flaw_quiet_02_01",
+      "flaw_type": "low_energy",
+      "start_s": 10.404,
+      "end_s": 17.508,
+      "severity_label": "high",
+      "target_words": [
+        "It",
+        "listens",
+        "to",
+        "a",
+        "recording",
+        "compares",
+        "it",
+        "with",
+        "a",
+        "clear",
+        "example",
+        "of",
+        "the",
+        "same",
+        "message",
+        "and",
+        "shows",
+        "exactly",
+        "where",
+        "the",
+        "delivery",
+        "changed"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S3; words 29 to 50), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch was +1.5 dB against the rest of the take, compared with the baseline takes (the plan asked for about -14 dB); this take is a weak example of the flaw."
+    }
+  ]
+}

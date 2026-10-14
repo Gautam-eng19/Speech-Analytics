@@ -52,6 +52,8 @@ coverage.xml
 Thumbs.db
 
 # Node / Frontend
+# The Python rules above ("lib/") match any directory with that name, including the dashboard's source folder.
+!frontend/src/lib/
 node_modules/
 frontend/node_modules/
 frontend/dist/
@@ -60,6 +62,18 @@ dist/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Recordings of people stay out of git (recording protocol decision 3). The dataset metadata, annotations and
+# baseline statistics are committed; the audio lives on the team's shared drive. data/incoming/ is a drop folder for fresh exports.
+data/raw/*
+!data/raw/.gitkeep
+data/incoming/
+# Custom passages and their baselines come from users' own recordings and text: never committed.
+data/custom/
+# Personal copies of the recording plan (for example made with --done after the pilot) are not committed.
+data/plan/local/
+# Audacity label files made by prepare_recordings.py (derived from the alignments; regenerate them any time).
+data/processed/labels/
 
 # Project Generated / Runtime Cache
 data/processed/cache/*

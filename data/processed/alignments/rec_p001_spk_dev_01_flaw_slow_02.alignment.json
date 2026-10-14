@@ -1,0 +1,745 @@
+{
+  "alignment_method": "whisperx",
+  "text": "Good morning, everyone, and thank you for joining us today. Over the past year our team has built a tool that helps people improve the way they speak. It listens to a recording, compares it with a clear example of the same message, and shows exactly where the delivery changed. For instance, you might speak too quickly during a key point, or pause for too long before an answer. The tool marks those moments on a timeline, explains what it measured, and suggests one simple change. We tested it with students, teachers, and engineers, and most of them improved within a single week. Today I will show you how it works, step by step. Please feel free to ask questions at any time.",
+  "total_coverage_pct": 0.6115,
+  "words": [
+    {
+      "confidence": 0.593,
+      "end_s": 0.28,
+      "start_s": 0.0,
+      "word": "Good"
+    },
+    {
+      "confidence": 0.903,
+      "end_s": 0.66,
+      "start_s": 0.34,
+      "word": "morning,"
+    },
+    {
+      "confidence": 0.729,
+      "end_s": 1.281,
+      "start_s": 0.9,
+      "word": "everyone,"
+    },
+    {
+      "confidence": 0.865,
+      "end_s": 1.861,
+      "start_s": 1.781,
+      "word": "and"
+    },
+    {
+      "confidence": 0.919,
+      "end_s": 2.101,
+      "start_s": 1.921,
+      "word": "thank"
+    },
+    {
+      "confidence": 0.943,
+      "end_s": 2.221,
+      "start_s": 2.121,
+      "word": "you"
+    },
+    {
+      "confidence": 0.857,
+      "end_s": 2.361,
+      "start_s": 2.241,
+      "word": "for"
+    },
+    {
+      "confidence": 0.917,
+      "end_s": 2.681,
+      "start_s": 2.401,
+      "word": "joining"
+    },
+    {
+      "confidence": 0.219,
+      "end_s": 2.801,
+      "start_s": 2.741,
+      "word": "us"
+    },
+    {
+      "confidence": 0.483,
+      "end_s": 3.121,
+      "start_s": 2.821,
+      "word": "today."
+    },
+    {
+      "confidence": 0.474,
+      "end_s": 4.082,
+      "start_s": 3.942,
+      "word": "Over"
+    },
+    {
+      "confidence": 0.881,
+      "end_s": 4.242,
+      "start_s": 4.122,
+      "word": "the"
+    },
+    {
+      "confidence": 0.919,
+      "end_s": 4.602,
+      "start_s": 4.282,
+      "word": "past"
+    },
+    {
+      "confidence": 0.362,
+      "end_s": 4.842,
+      "start_s": 4.682,
+      "word": "year"
+    },
+    {
+      "confidence": 0.588,
+      "end_s": 5.242,
+      "start_s": 5.062,
+      "word": "our"
+    },
+    {
+      "confidence": 0.38,
+      "end_s": 5.682,
+      "start_s": 5.482,
+      "word": "team"
+    },
+    {
+      "confidence": 0.471,
+      "end_s": 5.862,
+      "start_s": 5.702,
+      "word": "has"
+    },
+    {
+      "confidence": 0.509,
+      "end_s": 6.143,
+      "start_s": 5.922,
+      "word": "built"
+    },
+    {
+      "confidence": 0.508,
+      "end_s": 6.303,
+      "start_s": 6.223,
+      "word": "a"
+    },
+    {
+      "confidence": 0.514,
+      "end_s": 6.583,
+      "start_s": 6.323,
+      "word": "tool"
+    },
+    {
+      "confidence": 0.807,
+      "end_s": 7.103,
+      "start_s": 6.943,
+      "word": "that"
+    },
+    {
+      "confidence": 0.503,
+      "end_s": 7.403,
+      "start_s": 7.163,
+      "word": "helps"
+    },
+    {
+      "confidence": 0.844,
+      "end_s": 7.763,
+      "start_s": 7.483,
+      "word": "people"
+    },
+    {
+      "confidence": 0.657,
+      "end_s": 8.183,
+      "start_s": 7.803,
+      "word": "improve"
+    },
+    {
+      "confidence": 0.775,
+      "end_s": 8.424,
+      "start_s": 8.323,
+      "word": "the"
+    },
+    {
+      "confidence": 0.661,
+      "end_s": 8.604,
+      "start_s": 8.464,
+      "word": "way"
+    },
+    {
+      "confidence": 0.21,
+      "end_s": 8.744,
+      "start_s": 8.644,
+      "word": "they"
+    },
+    {
+      "confidence": 0.501,
+      "end_s": 9.004,
+      "start_s": 8.764,
+      "word": "speak."
+    },
+    {
+      "confidence": 0.832,
+      "end_s": 9.824,
+      "start_s": 9.744,
+      "word": "It"
+    },
+    {
+      "confidence": 0.752,
+      "end_s": 10.184,
+      "start_s": 9.864,
+      "word": "listens"
+    },
+    {
+      "confidence": 0.726,
+      "end_s": 10.284,
+      "start_s": 10.204,
+      "word": "to"
+    },
+    {
+      "confidence": 0.473,
+      "end_s": 10.364,
+      "start_s": 10.304,
+      "word": "a"
+    },
+    {
+      "confidence": 0.76,
+      "end_s": 10.804,
+      "start_s": 10.384,
+      "word": "recording,"
+    },
+    {
+      "confidence": 0.88,
+      "end_s": 11.705,
+      "start_s": 11.205,
+      "word": "compares"
+    },
+    {
+      "confidence": 0.784,
+      "end_s": 11.845,
+      "start_s": 11.765,
+      "word": "it"
+    },
+    {
+      "confidence": 0.903,
+      "end_s": 11.985,
+      "start_s": 11.885,
+      "word": "with"
+    },
+    {
+      "confidence": 0.553,
+      "end_s": 12.065,
+      "start_s": 12.045,
+      "word": "a"
+    },
+    {
+      "confidence": 0.792,
+      "end_s": 12.405,
+      "start_s": 12.125,
+      "word": "clear"
+    },
+    {
+      "confidence": 0.95,
+      "end_s": 12.845,
+      "start_s": 12.485,
+      "word": "example"
+    },
+    {
+      "confidence": 0.862,
+      "end_s": 12.965,
+      "start_s": 12.885,
+      "word": "of"
+    },
+    {
+      "confidence": 0.37,
+      "end_s": 13.125,
+      "start_s": 13.025,
+      "word": "the"
+    },
+    {
+      "confidence": 0.18,
+      "end_s": 13.246,
+      "start_s": 13.145,
+      "word": "same"
+    },
+    {
+      "confidence": 0.961,
+      "end_s": 13.666,
+      "start_s": 13.286,
+      "word": "message,"
+    },
+    {
+      "confidence": 0.713,
+      "end_s": 14.246,
+      "start_s": 14.146,
+      "word": "and"
+    },
+    {
+      "confidence": 0.673,
+      "end_s": 14.606,
+      "start_s": 14.286,
+      "word": "shows"
+    },
+    {
+      "confidence": 0.833,
+      "end_s": 15.106,
+      "start_s": 14.626,
+      "word": "exactly"
+    },
+    {
+      "confidence": 0.376,
+      "end_s": 15.366,
+      "start_s": 15.226,
+      "word": "where"
+    },
+    {
+      "confidence": 0.455,
+      "end_s": 15.486,
+      "start_s": 15.386,
+      "word": "the"
+    },
+    {
+      "confidence": 0.577,
+      "end_s": 15.907,
+      "start_s": 15.506,
+      "word": "delivery"
+    },
+    {
+      "confidence": 0.736,
+      "end_s": 16.207,
+      "start_s": 15.947,
+      "word": "changed."
+    },
+    {
+      "confidence": 0.828,
+      "end_s": 16.867,
+      "start_s": 16.667,
+      "word": "For"
+    },
+    {
+      "confidence": 0.9,
+      "end_s": 17.307,
+      "start_s": 16.927,
+      "word": "instance,"
+    },
+    {
+      "confidence": 0.915,
+      "end_s": 17.827,
+      "start_s": 17.667,
+      "word": "you"
+    },
+    {
+      "confidence": 0.882,
+      "end_s": 18.068,
+      "start_s": 17.867,
+      "word": "might"
+    },
+    {
+      "confidence": 0.942,
+      "end_s": 18.288,
+      "start_s": 18.088,
+      "word": "speak"
+    },
+    {
+      "confidence": 0.839,
+      "end_s": 18.568,
+      "start_s": 18.388,
+      "word": "too"
+    },
+    {
+      "confidence": 0.898,
+      "end_s": 18.888,
+      "start_s": 18.588,
+      "word": "quickly"
+    },
+    {
+      "confidence": 0.678,
+      "end_s": 19.168,
+      "start_s": 18.928,
+      "word": "during"
+    },
+    {
+      "confidence": 0.528,
+      "end_s": 19.308,
+      "start_s": 19.248,
+      "word": "a"
+    },
+    {
+      "confidence": 0.927,
+      "end_s": 19.528,
+      "start_s": 19.348,
+      "word": "key"
+    },
+    {
+      "confidence": 0.905,
+      "end_s": 19.768,
+      "start_s": 19.568,
+      "word": "point,"
+    },
+    {
+      "confidence": 0.702,
+      "end_s": 20.288,
+      "start_s": 20.168,
+      "word": "or"
+    },
+    {
+      "confidence": 0.91,
+      "end_s": 20.589,
+      "start_s": 20.328,
+      "word": "pause"
+    },
+    {
+      "confidence": 0.926,
+      "end_s": 20.809,
+      "start_s": 20.629,
+      "word": "for"
+    },
+    {
+      "confidence": 0.81,
+      "end_s": 21.029,
+      "start_s": 20.849,
+      "word": "too"
+    },
+    {
+      "confidence": 0.979,
+      "end_s": 21.249,
+      "start_s": 21.069,
+      "word": "long"
+    },
+    {
+      "confidence": 0.901,
+      "end_s": 21.589,
+      "start_s": 21.309,
+      "word": "before"
+    },
+    {
+      "confidence": 0.83,
+      "end_s": 21.689,
+      "start_s": 21.629,
+      "word": "an"
+    },
+    {
+      "confidence": 0.894,
+      "end_s": 22.069,
+      "start_s": 21.749,
+      "word": "answer."
+    },
+    {
+      "confidence": 0.574,
+      "end_s": 22.97,
+      "start_s": 22.809,
+      "word": "The"
+    },
+    {
+      "confidence": 0.78,
+      "end_s": 23.25,
+      "start_s": 23.01,
+      "word": "tool"
+    },
+    {
+      "confidence": 0.773,
+      "end_s": 23.71,
+      "start_s": 23.45,
+      "word": "marks"
+    },
+    {
+      "confidence": 0.632,
+      "end_s": 23.91,
+      "start_s": 23.73,
+      "word": "those"
+    },
+    {
+      "confidence": 0.898,
+      "end_s": 24.27,
+      "start_s": 23.95,
+      "word": "moments"
+    },
+    {
+      "confidence": 0.924,
+      "end_s": 24.53,
+      "start_s": 24.45,
+      "word": "on"
+    },
+    {
+      "confidence": 0.512,
+      "end_s": 24.61,
+      "start_s": 24.57,
+      "word": "a"
+    },
+    {
+      "confidence": 0.775,
+      "end_s": 25.09,
+      "start_s": 24.65,
+      "word": "timeline,"
+    },
+    {
+      "confidence": 0.624,
+      "end_s": 25.971,
+      "start_s": 25.551,
+      "word": "explains"
+    },
+    {
+      "confidence": 0.71,
+      "end_s": 26.231,
+      "start_s": 25.991,
+      "word": "what"
+    },
+    {
+      "confidence": 0.482,
+      "end_s": 26.351,
+      "start_s": 26.251,
+      "word": "it"
+    },
+    {
+      "confidence": 0.785,
+      "end_s": 26.751,
+      "start_s": 26.411,
+      "word": "measured,"
+    },
+    {
+      "confidence": 0.941,
+      "end_s": 27.211,
+      "start_s": 27.131,
+      "word": "and"
+    },
+    {
+      "confidence": 0.786,
+      "end_s": 27.632,
+      "start_s": 27.251,
+      "word": "suggests"
+    },
+    {
+      "confidence": 0.927,
+      "end_s": 27.872,
+      "start_s": 27.772,
+      "word": "one"
+    },
+    {
+      "confidence": 0.798,
+      "end_s": 28.292,
+      "start_s": 27.932,
+      "word": "simple"
+    },
+    {
+      "confidence": 0.531,
+      "end_s": 28.552,
+      "start_s": 28.332,
+      "word": "change."
+    },
+    {
+      "confidence": 0.894,
+      "end_s": 29.692,
+      "start_s": 29.272,
+      "word": "We"
+    },
+    {
+      "confidence": 0.762,
+      "end_s": 30.833,
+      "start_s": 30.153,
+      "word": "tested"
+    },
+    {
+      "confidence": 0.576,
+      "end_s": 31.013,
+      "start_s": 30.893,
+      "word": "it"
+    },
+    {
+      "confidence": 0.782,
+      "end_s": 31.913,
+      "start_s": 31.693,
+      "word": "with"
+    },
+    {
+      "confidence": 0.632,
+      "end_s": 32.794,
+      "start_s": 32.213,
+      "word": "students,"
+    },
+    {
+      "confidence": 0.739,
+      "end_s": 33.814,
+      "start_s": 33.194,
+      "word": "teachers,"
+    },
+    {
+      "confidence": 0.84,
+      "end_s": 34.334,
+      "start_s": 34.214,
+      "word": "and"
+    },
+    {
+      "confidence": 0.848,
+      "end_s": 36.215,
+      "start_s": 34.594,
+      "word": "engineers,"
+    },
+    {
+      "confidence": 0.002,
+      "end_s": 36.295,
+      "start_s": 36.235,
+      "word": "and"
+    },
+    {
+      "confidence": 0.825,
+      "end_s": 36.995,
+      "start_s": 36.535,
+      "word": "most"
+    },
+    {
+      "confidence": 0.89,
+      "end_s": 37.696,
+      "start_s": 37.536,
+      "word": "of"
+    },
+    {
+      "confidence": 0.901,
+      "end_s": 38.256,
+      "start_s": 37.956,
+      "word": "them"
+    },
+    {
+      "confidence": 0.69,
+      "end_s": 39.276,
+      "start_s": 38.676,
+      "word": "improved"
+    },
+    {
+      "confidence": 0.698,
+      "end_s": 39.877,
+      "start_s": 39.436,
+      "word": "within"
+    },
+    {
+      "confidence": 0.663,
+      "end_s": 40.097,
+      "start_s": 39.977,
+      "word": "a"
+    },
+    {
+      "confidence": 0.713,
+      "end_s": 41.137,
+      "start_s": 40.517,
+      "word": "single"
+    },
+    {
+      "confidence": 0.594,
+      "end_s": 41.437,
+      "start_s": 41.157,
+      "word": "week."
+    },
+    {
+      "confidence": 0.609,
+      "end_s": 42.318,
+      "start_s": 41.957,
+      "word": "Today"
+    },
+    {
+      "confidence": 0.971,
+      "end_s": 42.658,
+      "start_s": 42.598,
+      "word": "I"
+    },
+    {
+      "confidence": 0.982,
+      "end_s": 42.838,
+      "start_s": 42.678,
+      "word": "will"
+    },
+    {
+      "confidence": 0.998,
+      "end_s": 42.998,
+      "start_s": 42.878,
+      "word": "show"
+    },
+    {
+      "confidence": 0.898,
+      "end_s": 43.158,
+      "start_s": 43.038,
+      "word": "you"
+    },
+    {
+      "confidence": 0.979,
+      "end_s": 43.418,
+      "start_s": 43.238,
+      "word": "how"
+    },
+    {
+      "confidence": 0.74,
+      "end_s": 43.638,
+      "start_s": 43.498,
+      "word": "it"
+    },
+    {
+      "confidence": 0.554,
+      "end_s": 43.878,
+      "start_s": 43.678,
+      "word": "works,"
+    },
+    {
+      "confidence": 0.868,
+      "end_s": 44.459,
+      "start_s": 44.238,
+      "word": "step"
+    },
+    {
+      "confidence": 0.871,
+      "end_s": 44.659,
+      "start_s": 44.519,
+      "word": "by"
+    },
+    {
+      "confidence": 0.86,
+      "end_s": 44.999,
+      "start_s": 44.719,
+      "word": "step."
+    },
+    {
+      "confidence": 0.366,
+      "end_s": 45.599,
+      "start_s": 45.299,
+      "word": "Please"
+    },
+    {
+      "confidence": 0.678,
+      "end_s": 46.259,
+      "start_s": 45.999,
+      "word": "feel"
+    },
+    {
+      "confidence": 0.71,
+      "end_s": 46.539,
+      "start_s": 46.299,
+      "word": "free"
+    },
+    {
+      "confidence": 0.648,
+      "end_s": 46.659,
+      "start_s": 46.559,
+      "word": "to"
+    },
+    {
+      "confidence": 0.661,
+      "end_s": 46.86,
+      "start_s": 46.719,
+      "word": "ask"
+    },
+    {
+      "confidence": 0.836,
+      "end_s": 47.26,
+      "start_s": 46.92,
+      "word": "questions"
+    },
+    {
+      "confidence": 0.816,
+      "end_s": 47.44,
+      "start_s": 47.38,
+      "word": "at"
+    },
+    {
+      "confidence": 0.924,
+      "end_s": 47.78,
+      "start_s": 47.64,
+      "word": "any"
+    },
+    {
+      "confidence": 0.966,
+      "end_s": 48.02,
+      "start_s": 47.82,
+      "word": "time."
+    }
+  ]
+}

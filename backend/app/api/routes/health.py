@@ -1,4 +1,4 @@
-"""Health check endpoint (ARCHITECTURE.md §6.3, §23; api-contract.md)."""
+"""Health check endpoint (api-contract.md)."""
 from __future__ import annotations
 
 from fastapi import APIRouter

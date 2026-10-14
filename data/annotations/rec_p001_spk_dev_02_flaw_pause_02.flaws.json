@@ -1,0 +1,20 @@
+{
+  "recording_id": "rec_p001_spk_dev_02_flaw_pause_02",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p001_spk_dev_02_flaw_pause_02_01",
+      "flaw_type": "excessive_pause",
+      "start_s": 31.393,
+      "end_s": 34.594,
+      "severity_label": "high",
+      "target_words": [
+        "change",
+        "We"
+      ],
+      "annotator_notes": "Proposed from the recording plan (between S5 and S6; the silence after word 86), placed by forced alignment. Not yet confirmed by ear. Take check: the silence after the word lasts 3.2 s (the plan asked for 3 to 4 s)."
+    }
+  ]
+}

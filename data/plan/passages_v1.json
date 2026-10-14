@@ -1,0 +1,20 @@
+[
+  {
+    "passage_id": "p001",
+    "title": "Project talk",
+    "text": "Good morning, everyone, and thank you for joining us today. Over the past year our team has built a tool that helps people improve the way they speak. It listens to a recording, compares it with a clear example of the same message, and shows exactly where the delivery changed. For instance, you might speak too quickly during a key point, or pause for too long before an answer. The tool marks those moments on a timeline, explains what it measured, and suggests one simple change. We tested it with students, teachers, and engineers, and most of them improved within a single week. Today I will show you how it works, step by step. Please feel free to ask questions at any time.",
+    "target_word_count": 123,
+    "domain": "presentation",
+    "dataset_version": "1.0.0",
+    "created_at": "2026-10-11"
+  },
+  {
+    "passage_id": "p002",
+    "title": "Morning market",
+    "text": "Every morning, the market in our town opens before sunrise. Farmers arrive with baskets of fresh vegetables, bakers carry warm bread across the square, and children follow behind, still half asleep. By seven o'clock the noise is overwhelming, yet everyone somehow manages to hear a friendly greeting. My grandmother taught me that a good conversation needs patience, curiosity, and a little humor. She would listen carefully, wait for the right moment, and then speak slowly so that each word mattered. I have never forgotten those lessons. When I stand in front of a crowd now, I remember her voice and I try to speak the same way, calmly and clearly. That is how a message becomes a memory.",
+    "target_word_count": 118,
+    "domain": "storytelling",
+    "dataset_version": "1.0.0",
+    "created_at": "2026-10-11"
+  }
+]

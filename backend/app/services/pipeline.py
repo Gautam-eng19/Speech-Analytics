@@ -1,4 +1,4 @@
-"""Analysis pipeline orchestration (ARCHITECTURE.md §4, §6, §23, §26; DEC-016, DEC-019, DEC-023, DEC-029, DEC-032).
+"""Analysis pipeline orchestration.
 
 `AnalysisPipeline.analyze(audio_bytes, request)` runs the canonical pipeline once, synchronously, and returns the public
 `AnalysisResult`:
@@ -11,12 +11,12 @@ evaluated. It contains no analytics of its own.
 
 Key properties
     * Time: stages work in processed-audio time. All times in the result are converted to SOURCE time (the uploaded recording's
-      timeline) exactly once, by adding `PreprocessedAudio.trim_start_s` while assembling the result (DEC-023, DEC-029).
+      timeline) exactly once, by adding `PreprocessedAudio.trim_start_s` while assembling the result.
     * Honesty: everything not evaluated or limited is listed in `AnalysisResult.notes` (unavailable features, features left out
       of the score, thin baselines, a transcript that does not match the passage, alignment warnings, uncalibrated thresholds).
     * Reproducibility: the cache key covers the audio, its trim offset, the baseline, the transcript override, all versions, a
       fingerprint of every analytical constant in effect and the library versions; the `analysis_id` is derived from it.
-    * One analysis at a time (a lock): the Whisper/WhisperX models are shared and the work is CPU-bound (DEC-016).
+    * One analysis at a time (a lock): the Whisper/WhisperX models are shared and the work is CPU-bound.
     * Models are injected (`transcriber`, `aligner`), created lazily on first use otherwise, so the logic is testable without them.
 
 Errors are reported as `PipelineError(code, detail)`, mapped onto the public `ErrorCode`s; unexpected exceptions are not
@@ -42,6 +42,8 @@ from app.core.baseline import (
     BaselineNotFoundError,
     BaselinePassageMismatchError,
     BaselineProvider,
+    pause_statistics_thin,
+    rate_statistics_thin,
 )
 from app.core.cache import ResultCache, analysis_id_for_key, make_cache_key
 from app.core.config import settings
@@ -75,8 +77,10 @@ from app.services.grounding import (
     EvidenceError,
     NormalizationError,
     SeverityConfig,
+    clip_to_audio,
     detect_candidates,
     ground_flaws,
+    measure_words,
     normalize_features,
     to_api_flaw,
 )
@@ -116,8 +120,8 @@ class PipelineConfig:
 
 
 _SETTINGS_IN_FINGERPRINT = (
-    "TARGET_SAMPLE_RATE", "TARGET_PEAK_DBFS", "VAD_ENERGY_THRESHOLD_DBFS", "MAX_DURATION_S", "WHISPER_MODEL",
-    "WHISPER_LANGUAGE", "ALIGNMENT_LANGUAGE", "ALIGNMENT_DEVICE", "MIN_COVERAGE_PCT", "PASSAGE_MATCH_MIN_RATIO",
+    "TARGET_SAMPLE_RATE", "TARGET_SPEECH_LEVEL_DBFS", "SPEECH_LEVEL_WINDOW_DB", "MAX_PEAK_DBFS", "VAD_ENERGY_THRESHOLD_DBFS", "MAX_DURATION_S",
+    "WHISPER_MODEL", "WHISPER_LANGUAGE", "ALIGNMENT_LANGUAGE", "ALIGNMENT_DEVICE", "MIN_COVERAGE_PCT", "PASSAGE_MATCH_MIN_RATIO",
     "BASELINE_THIN_RATE_WINDOWS", "BASELINE_THIN_PAUSES", "THRESHOLDS_CALIBRATED", "EXPLANATION_PROVIDER",
 )
 
@@ -151,7 +155,7 @@ def analysis_config_fingerprint(config: PipelineConfig) -> str:
 
 
 def library_versions() -> Dict[str, Optional[str]]:
-    """Installed versions of the libraries whose numerics can change results (ARCHITECTURE.md §26.5)."""
+    """Installed versions of the libraries whose numerics can change results."""
     versions: Dict[str, Optional[str]] = {}
     for name in ("numpy", "scipy", "librosa", "av", "openai-whisper", "whisperx", "torch"):
         try:
@@ -354,8 +358,20 @@ class AnalysisPipeline:
 
             try:
                 normalized = normalize_features(record, f0=f0, energy=energy, rate=rate, pauses=pauses.events)
-                detection = detect_candidates(normalized, cfg.detection)
-                grounded = ground_flaws(detection, normalized, record, rate=rate, energy=energy, aligned=aligned, severity=cfg.severity)
+                # The words are measured the way the baseline's word profile was built (its own gap cap and activity threshold).
+                profile = record.word_profile
+                pitch_profile = profile.pitch if profile is not None else None
+                observations = measure_words(
+                    aligned, energy,
+                    max_gap_s=profile.max_gap_s if profile is not None else cfg.rate.max_gap_s,
+                    active_threshold_dbfs=profile.active_threshold_dbfs if profile is not None else cfg.pause.vad_energy_threshold_dbfs,
+                    f0=f0,
+                    pitch_min_voiced_frames=pitch_profile.min_voiced_frames if pitch_profile is not None else settings.PITCH_MIN_VOICED_FRAMES,
+                    pitch_deviation_clip_st=pitch_profile.deviation_clip_st if pitch_profile is not None else settings.PITCH_DEVIATION_CLIP_ST,
+                )
+                detection = detect_candidates(normalized, cfg.detection, aligned=aligned, baseline=record, observations=observations)
+                grounded = clip_to_audio(
+                    ground_flaws(detection, normalized, record, rate=rate, energy=energy, aligned=aligned, severity=cfg.severity), audio.duration_s)
                 scoring = score_analysis(grounded, detection.skipped, settings.CONFIG_VERSION, cfg.scoring)
             except (NormalizationError, EvidenceError, ScoringError) as exc:
                 logger.exception("analytical stage failed")
@@ -374,7 +390,7 @@ class AnalysisPipeline:
             notes = self._notes(
                 request=request, record=record, aligned=aligned, transcript=transcript, alignment_warnings=alignment_warnings,
                 normalized=normalized, scoring=scoring, mfcc_available=mfcc_summary is not None, fallback_used=fallback_used,
-                energy=energy,
+                energy=energy, detection=detection,
             )
             summary = build_overall_summary(
                 source_flaws, scoring.scores, scoring.unevaluated, audio.duration_s,
@@ -477,7 +493,7 @@ class AnalysisPipeline:
     def _notes(
         self, *, request: AnalyzeRequest, record: BaselineStatsRecord, aligned: AlignedTranscript, transcript: Transcript,
         alignment_warnings: Sequence[str], normalized: Any, scoring: Any, mfcc_available: bool, fallback_used: bool,
-        energy: Any,
+        energy: Any, detection: Any,
     ) -> List[AnalysisNote]:
         notes: List[AnalysisNote] = []
 
@@ -488,11 +504,11 @@ class AnalysisPipeline:
             add("thresholds_uncalibrated",
                 "Detection thresholds and score weights are initial values that have not been calibrated on recorded data; "
                 "treat findings and scores as indicative.")
-        if record.n_rate_windows < settings.BASELINE_THIN_RATE_WINDOWS:
+        if rate_statistics_thin(record):
             add("baseline_thin_rate",
                 f"The baseline speech-rate statistics rest on only {record.n_rate_windows} rolling window(s); speech-rate "
                 "z-scores can be over-sensitive.")
-        if record.n_pauses_within_phrase < settings.BASELINE_THIN_PAUSES:
+        if pause_statistics_thin(record):
             add("baseline_thin_pauses",
                 f"The baseline pause statistics rest on only {record.n_pauses_within_phrase} within-phrase pause(s); "
                 "pause z-scores can be over-sensitive.")
@@ -516,8 +532,30 @@ class AnalysisPipeline:
         for warning in alignment_warnings:
             add("alignment_warning", warning)
 
+        judged_by_profile = {name for name, mode in detection.modes.items() if mode == "profile"}
+        if "pitch" in judged_by_profile:
+            judged_by_profile.add("f0")          # the word-by-word pitch comparison does not need the overall pitch statistics
         for name in sorted(normalized.unavailable):
+            if name in judged_by_profile:
+                continue          # the word-by-word comparison judged it, whatever the overall statistics could not
             add(f"{name}_unavailable", f"The {name} analysis was not available: {normalized.unavailable[name]}.")
+
+        if detection.profile_note == "baseline_without_profile":
+            add("baseline_without_profile",
+                "This baseline has no word-by-word profile (it was built before profiles existed, or from fewer than three recordings that "
+                "match the passage text), so pace and loudness were compared with its overall averages, which is much less precise. "
+                "Rebuild the baseline to compare word by word.")
+        elif detection.profile_note == "transcript_mismatch":
+            add("profile_not_applicable",
+                "Too few of the recognised words match the passage text for the word-by-word comparison with the baseline, so pace and "
+                "loudness were compared with the baseline's overall averages, which is much less precise.")
+        elif detection.profile_note == "too_few_words":
+            add("profile_not_applicable",
+                "Too few words could be compared with the baseline's reading of the same words, so pace and loudness were compared with the "
+                "baseline's overall averages, which is much less precise.")
+
+        if detection.modes.get("pitch") != "profile":
+            add("pitch_not_judged", f"Flat pitch was not checked: {detection.skipped.get('flat_pitch', 'it could not be compared with the baseline')}.")
 
         uncomparable = sum(1 for p in normalized.pauses if not math.isfinite(p.z_score))
         if uncomparable:

@@ -1,4 +1,4 @@
-"""Fact sheet: the only numbers an explanation may use (TASK-070; ARCHITECTURE.md §22).
+"""Fact sheet: the only numbers an explanation may use.
 
 `build_fact_sheet(flaw)` formats every number that can appear in a flaw's explanation or recommendation, ONCE,
 from the grounded evidence, the detection rule and the flaw interval. Templates insert these strings verbatim;
@@ -15,7 +15,7 @@ from __future__ import annotations
 from typing import Dict
 
 from app.schemas.common import FlawType
-from app.schemas.response import EnergyEvidence, PauseEvidence, RateEvidence
+from app.schemas.response import EnergyEvidence, FlatPitchEvidence, PauseEvidence, RateEvidence
 from app.services.grounding.flaws import GroundedFlaw
 
 TYPE_LABELS: Dict[FlawType, str] = {
@@ -74,6 +74,16 @@ def build_fact_sheet(flaw: GroundedFlaw) -> Dict[str, str]:
             baseline_db_std=fmt(ev.energy_baseline_std_db, 1),
             delta_db=fmt(ev.energy_delta_db, 1),
             z=fmt(ev.energy_z_score, 2),
+            window_s=fmt(ev.window_duration_s, 1),
+        )
+    elif isinstance(ev, FlatPitchEvidence):
+        facts.update(
+            pitch_hz=fmt(ev.f0_std_hz_in_window, 1),
+            baseline_pitch_hz=fmt(ev.f0_std_baseline_hz, 1),
+            delta_pitch_hz=fmt(ev.f0_std_baseline_hz - ev.f0_std_hz_in_window, 1),
+            less_pct=fmt(100.0 * (1.0 - ev.f0_std_hz_in_window / ev.f0_std_baseline_hz) if ev.f0_std_baseline_hz > 0.0 else 0.0, 0),
+            z=fmt(ev.f0_std_z, 2),
+            voiced_pct=fmt(100.0 * ev.f0_voiced_fraction, 0),
             window_s=fmt(ev.window_duration_s, 1),
         )
     elif isinstance(ev, PauseEvidence):

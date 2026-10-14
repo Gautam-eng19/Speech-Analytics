@@ -1,0 +1,34 @@
+{
+  "recording_id": "rec_p002_spk_dev_02_flaw_quiet_02",
+  "passage_id": "p002",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p002_spk_dev_02_flaw_quiet_02_01",
+      "flaw_type": "low_energy",
+      "start_s": 14.106,
+      "end_s": 20.128,
+      "severity_label": "high",
+      "target_words": [
+        "By",
+        "seven",
+        "o'clock",
+        "the",
+        "noise",
+        "is",
+        "overwhelming",
+        "yet",
+        "everyone",
+        "somehow",
+        "manages",
+        "to",
+        "hear",
+        "a",
+        "friendly",
+        "greeting"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S3; words 32 to 47), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch was -12.9 dB against the rest of the take, compared with the baseline takes (the plan asked for about -14 dB)."
+    }
+  ]
+}

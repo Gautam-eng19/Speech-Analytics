@@ -14,7 +14,7 @@ from pydantic import Field, field_validator, model_validator
 
 from .common import ContractModel, SpeakerGender
 
-# Allowed upload formats (ARCHITECTURE.md §10, §23): WAV or MP3.
+# Allowed upload formats: WAV or MP3.
 ALLOWED_AUDIO_EXTENSIONS = frozenset({".wav", ".mp3"})
 ALLOWED_AUDIO_CONTENT_TYPES = frozenset(
     {
@@ -28,7 +28,7 @@ ALLOWED_AUDIO_CONTENT_TYPES = frozenset(
 )
 
 # Identifiers are used to locate baseline files; restrict to a safe charset
-# (path-traversal protection, ARCHITECTURE.md §27).
+# (path-traversal protection).
 ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_\-]{0,63}$"
 
 
@@ -38,10 +38,10 @@ class AnalyzeRequest(ContractModel):
     baseline_id: str = Field(pattern=ID_PATTERN)
     passage_id: str = Field(pattern=ID_PATTERN)
     speaker_gender: Optional[SpeakerGender] = None
-    # ARCHITECTURE.md §23: optional at P0. If supplied it must equal the server
+    # optional at P0. If supplied it must equal the server
     # CONFIG_VERSION, otherwise the API returns CONFIG_VERSION_MISMATCH.
     config_version: Optional[str] = Field(default=None, min_length=1)
-    # ARCHITECTURE.md §7.2/§11: optional manual transcript bypasses ASR.
+    # optional manual transcript bypasses ASR.
     manual_transcript: Optional[str] = Field(default=None, min_length=1)
 
     @field_validator("manual_transcript")
@@ -62,7 +62,7 @@ class AudioUploadMeta(ContractModel):
     @field_validator("filename")
     @classmethod
     def _sanitize_and_check_extension(cls, v: str) -> str:
-        # Never trust client filenames (ARCHITECTURE.md §27).
+        # Never trust client filenames.
         name = os.path.basename(v.replace("\\", "/"))
         if not name:
             raise ValueError("filename is empty")
