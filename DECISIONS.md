@@ -1251,6 +1251,59 @@ Date: 2026-10-13
 
 ---
 
+## DEC-041 — First Check of DEC-040 on the Real Recordings: Settings Kept, and the Evaluation Tool Now Explains Its Misses and Extras
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Why (`evaluate_takes.py` and `--sweep` on the team's real dev takes after the baselines were rebuilt with the word profile, 2026-10-14; 48 takes: 40 planned flaws, 8 clean takes; two dev speakers, two passages, six baseline takes per passage):
+- Planned flaws found: **34 of 40** (excessive_pause 8 of 8, too_slow 8 of 8, high_energy 7 of 8, too_fast 6 of 8, low_energy 5 of 8). Where found: start off by 0.0 to 0.4 s, end by 0.4 to 0.6 s, overlap 83 to 100 %, detected range 0.8 to 1.0
+  times the plan. Before DEC-040 (30 planned flaws): 1 of 6 too_fast, 0 of 12 loud and quiet, too_slow 2 s off, pauses exact. Clean takes: **1 of 8 flagged, one false alarm in 5.9 minutes** (before: 6 of 8, eight alarms).
+- By the per-category measure that ARCHITECTURE.md 25.3 proposes (F1 above 0.65 on held-out speakers; here dev speakers, annotations unconfirmed, and every flag nobody planned counted as false, side effects included), computed by hand from the printed report:
+  excessive_pause 0.94, too_slow 0.80, high_energy 0.74, too_fast 0.71, low_energy 0.62. The tool now prints precision and F1 per kind itself.
+- **All six missed flaws are takes of one speaker** (`spk_dev_01`: the first fast, loud and quiet take of passage 1, the first fast and quiet take of passage 2, and a quiet take whose quiet stretch turned up 14 s later than planned).
+  Every one of the other speaker's 20 planned flaws was found. Five of the six misses are the first take of its kind, so the likeliest reading is a performance that was milder than planned rather than a detector that is too strict. That is a reading, not a finding:
+  the next report states under each miss the change that was measured over the planned words and what the registration check said, and a person has to listen to decide.
+- 14 other flags on flawed takes. Counted on the printed report with the rule the tool now applies (on a planned stretch / at most 3 s from one / further away): **7 on a planned stretch, 3 right next to one, 4 away**. People do not change one
+  thing at a time: while speaking quietly the speaker also slowed down (four takes), while slowing down or speeding up they also got louder (three takes), after a loud, slow or paused stretch they relaxed or caught up. These flags state
+  measured evidence, they were only not planned, so counting them as false alarms would push every threshold up and cost real flaws. The four away from every planned flaw and the one flag on a clean take (a stretch read 25 % slower, z -5.1) are what a
+  person's ear has to settle.
+- The sweep (one setting at a time, same takes): `z_run_rate` 3 finds one more fast flaw but adds 8 extras and flags 3 of 8 clean takes; 3.5 adds 3 extras for nothing; 4 (default) is 34 of 40, 14 extras, 1 of 8 clean flagged; 4.5 loses a real fast flaw (found with z 4.1) to
+  remove 5 extras; 5 loses two. `run_min_words` 8 loses a quiet flaw and flags 2 of 8 clean takes; 12 removes two extras at no cost on these takes, which cannot show what it costs on a flaw shorter than a sentence (all planned stretches are whole sentences of 17 to 22
+  words). `min_rate_change_pct` 10, 15 and 20 give identical tables (the size guard on pace never decided anything here; z did). `min_energy_change_db` 4 removes two extras, but the mildest real loud flaw found changed the level by 4.2 dB, so 4 dB is
+  on the edge of the real flaws. `min_pause_s` 1.5 loses a planned pause (1.39 s) to remove one extra; 1.0 adds one.
+
+Decision:
+- **The settings of DEC-040 stay as they are** (`Z_RUN_RATE` and `Z_RUN_ENERGY` 4.0, `RUN_MIN_WORDS` 10, `MIN_RATE_CHANGE_PCT` 15, `MIN_ENERGY_CHANGE_DB` 3, `MIN_PAUSE_FLAW_S` 1.2): each is at the point where raising it loses planned flaws and lowering it adds flags faster than it finds flaws.
+  `THRESHOLDS_CALIBRATED` stays false: the annotations are still only proposed from the plan, and calibrating against flaw labels that nobody has heard would measure the speakers' performance, not the detector. TASK-131 closes after the
+  misses and the flags away from the plan have been listened to and the annotations confirmed or corrected, with the sweep run again.
+- **The evaluation tool explains instead of only counting** (`scripts/dataset/evaluate_takes.py`; no change to any analysis result):
+  - for each MISSED planned flaw: the sentence of the registration check (is the take a weak example of the flaw?), the change measured over exactly the planned words with the detection's own yardstick, set against what a finding needs
+    (`those 14 words were 9% faster than the baseline readers spoke the same words (z 1.8); a finding needs a change of at least 15% with z above 4 over at least 10 words`), and whether the same kind of flaw was found elsewhere in the take;
+  - for each EXTRA on a flawed take: whether it lies on a planned stretch, within 3 s of one, or away from all of them; the summary counts the three;
+  - a `Listen to these first` list: planned flaws not found, flags on clean takes and flags away from the plan, with the seconds;
+  - per kind of flaw: the flags of that kind nobody planned (on flawed and clean takes), precision and F1 (the metrics of ARCHITECTURE.md 25.3; the start and end errors were already there);
+  - `--labels` writes what was detected as Audacity label files (`data/processed/labels/<take>.detected.txt`, ignored by git) to import next to the word and planned-flaw labels;
+  - the sweep table gets an `away` column (extras that are not on or next to a planned flaw).
+- **One implementation of the yardstick:** `measure_stretch` in `grounding/profile_detection.py` measures the pace and loudness of the words of a time range exactly as the findings do (overall pace and median level removed, the spread of a baseline
+  reading over that many words); a test ties it to the findings of the scan. The tool captures the analysis' own word measurements while it replays a take; the pipeline is unchanged.
+
+Reason:
+A tool that only says MISSED or EXTRA cannot tell a detector that is too strict from a speaker who did not do what was planned, and the team has no other way to find out. With the measured size next to the limit, a miss reads either "the change was 5 %: perform it more clearly"
+or "the change was 24 %, z 3.6: the limit may be too strict", and the second kind is what TASK-131 needs in order to move a limit with evidence. Separating the extras keeps the thresholds from being tuned to flags that are real but unplanned.
+
+Impact:
+- `backend/app/services/grounding/profile_detection.py` (`measure_stretch`, `StretchReading`, `SignalReading`; the expectation arrays of `detect_runs` moved into a helper, no behaviour change), `scripts/dataset/evaluate_takes.py`.
+  No API, schema, setting or baseline change; nothing needs rebuilding.
+- Tests (38 new; 1304 in all): eleven for `measure_stretch` in `backend/tests/test_profile_detection.py` (the words of a stretch are those whose middle lies in it; the size and z agree with the finding the scan reports for the same words; overall pace and level removed; unjudgeable readings give the reason),
+  and in `tests/test_evaluate_takes.py` and `tests/test_profile_e2e.py` the classification of extras (limits, ties), the sentence of the registration check, the description against the limits (every boundary), the listening list, the label files, and misses explained on the synthetic takes.
+- `docs/methodology/dataset-guide.md` 6g and 6h describe the new report; TASKS.md TASK-131 and PROJECT_STATE.md carry the results.
+- Not verified: nobody has listened to the misses or the flags yet. The thresholds are still those chosen by simulation and checked against two speakers; scores are not calibrated either (a take with one clear flaw scored 86 to 98).
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-14
+
+---
+
 ## PROPOSED DECISIONS (require team approval before implementation)
 
 The following decisions are recommended by the architecture review but have NOT been

@@ -39,6 +39,7 @@ import argparse
 import contextlib
 import hashlib
 import json
+import re
 import sys
 import tempfile
 from dataclasses import asdict, dataclass, field
@@ -56,6 +57,7 @@ from app.schemas.contracts import AlignedTranscript  # noqa: E402
 from app.schemas.request import AnalyzeRequest  # noqa: E402
 from app.services import pipeline as pipeline_module  # noqa: E402
 from app.services.grounding import DetectionConfig  # noqa: E402
+from app.services.grounding.profile_detection import StretchReading, measure_stretch  # noqa: E402
 from app.services.pipeline import AnalysisPipeline, PipelineConfig, PipelineError  # noqa: E402
 
 MIN_COVER = 0.5   # a detection must cover at least this share of the annotated interval
@@ -71,6 +73,7 @@ class Annotated:
     start_s: float
     end_s: float
     status: str      # "proposed", "confirmed" or "unknown" (written by hand)
+    notes: str = ""  # the annotator notes: at registration, where the flaw was placed and what the take check said about how well it was performed
 
 
 @dataclass
@@ -80,6 +83,8 @@ class Detected:
     end_s: float
     severity: float
     note: str        # the evidence in one phrase, as the analysis reports it
+    where: str = ""       # an extra on a take that has planned flaws: "on" a planned stretch, "next" to one or "away" from all (see relate_extras)
+    where_note: str = ""  # the same in words
 
 
 @dataclass
@@ -91,6 +96,8 @@ class Match:
     end_error_s: Optional[float] = None      # detected end minus planned end (positive: detected too late)
     iou: float = 0.0                         # overlap / union of the two intervals
     range_ratio: Optional[float] = None      # detected length / planned length (2.0: twice as long as it should be)
+    why: List[str] = field(default_factory=list)          # a miss: what the registration check said, what the analysis measures there, what was found instead
+    measured: Optional[Dict[str, Any]] = None             # the numbers behind `why` (written with --json)
 
 
 @dataclass
@@ -134,6 +141,85 @@ def match_flaws(planned: Sequence[Annotated], detected: Sequence[Detected], min_
         matches.append(Match(plan, det, best_overlap, det.start_s - plan.start_s, det.end_s - plan.end_s,
                              best_overlap / union if union > 0 else 0.0, (det.end_s - det.start_s) / length))
     return matches, [d for i, d in enumerate(detected) if i not in used]
+
+
+NEAR_S = 3.0   # an extra flag this close (seconds) to a planned flaw counts as right next to it
+
+
+def relate_extras(planned: Sequence[Annotated], extras: Sequence[Detected], near_s: float = NEAR_S) -> None:
+    """Say for each extra on a take that has planned flaws how it relates to them: ON a planned stretch (overlaps it), NEXT to one (at most `near_s`
+    seconds away) or AWAY from all of them.
+
+    People do not change one thing at a time: someone asked to speak quietly often slows down too, and after a loud, slow or paused stretch they
+    often catch up. Such a flag is real (its evidence is measured) but not what was planned, so it is told apart from a flag far from anything
+    planned, which is the kind worth listening to.
+    """
+    if not planned:
+        return
+    for d in extras:
+        nearest: List[Tuple[float, str, Annotated]] = []
+        for p in planned:
+            if overlap(p.start_s, p.end_s, d.start_s, d.end_s) > 0.0:
+                nearest.append((0.0, "on", p))
+            elif d.start_s >= p.end_s:
+                nearest.append((d.start_s - p.end_s, "after", p))
+            else:
+                nearest.append((p.start_s - d.end_s, "before", p))
+        gap, side, plan = min(nearest, key=lambda candidate: (candidate[0], candidate[1] != "on"))      # overlapping beats touching; then the earlier flaw
+        if side == "on":
+            d.where, d.where_note = "on", f"on the planned {plan.flaw_type} stretch"
+        elif gap <= near_s + 1e-9:
+            d.where, d.where_note = "next", f"{gap:.1f} s {side} the planned {plan.flaw_type} stretch"
+        else:
+            d.where, d.where_note = "away", "away from every planned flaw"
+
+
+_TAKE_CHECK = re.compile(r"Take check: (.+?)\.?\s*$", re.S)
+
+
+def take_check_note(notes: str) -> str:
+    """What the registration check said about how well the flaw was performed: the last sentence of the notes prepare_recordings.py wrote ('' if none)."""
+    found = _TAKE_CHECK.search(notes or "")
+    return found.group(1).strip() if found else ""
+
+
+MEASURED_TYPES = ("too_fast", "too_slow", "high_energy", "low_energy")
+
+
+def describe_stretch(flaw_type: str, reading: StretchReading, rules: DetectionConfig) -> str:
+    """The measurement of a planned stretch in one sentence, set against what a finding needs (nothing is computed here; '' for a flaw type that
+    is not judged word by word)."""
+    if flaw_type not in MEASURED_TYPES:
+        return ""
+    if reading.reason == "transcript_mismatch":
+        return "the words of this take do not match the passage well enough to be compared word by word"
+    pace = flaw_type in ("too_fast", "too_slow")
+    signal = reading.rate if pace else reading.level
+    if signal is None:
+        return "too few words could be compared word by word in this take"
+    if signal.n_words == 0 or signal.change is None or signal.z is None:
+        return "no word that the baseline knows lies in that stretch"
+    if pace:
+        size, direction = f"{abs(signal.change):.0f}%", "faster" if signal.change > 0 else "slower"
+        min_size, z_needed = f"{rules.min_rate_change_pct:g}%", rules.z_run_rate
+        enough = abs(signal.change) >= rules.min_rate_change_pct
+        subject = "the baseline readers spoke the same words"
+    else:
+        size, direction = f"{abs(signal.change):.1f} dB", "louder" if signal.change > 0 else "quieter"
+        min_size, z_needed = f"{rules.min_energy_change_db:g} dB", rules.z_run_energy
+        enough = abs(signal.change) >= rules.min_energy_change_db
+        subject = "the baseline readers spoke the same words"
+    planned_up = flaw_type in ("too_fast", "high_energy")
+    right_way = (signal.change > 0) == planned_up
+    text = (f"those {signal.n_words} words were {size} {direction} than {subject} (z {abs(signal.z):.1f}); a finding needs a change of at least "
+            f"{min_size} with z above {z_needed:g} over at least {rules.run_min_words} words")
+    if signal.n_words < rules.run_min_words:
+        text += f" (this stretch has only {signal.n_words})"
+    if not right_way:
+        return text + ". That is the opposite of what was planned"
+    if enough and abs(signal.z) > z_needed and signal.n_words >= rules.run_min_words:
+        return text + ". This stretch passes all three, so something else held the finding back (for example a longer finding that took its words); send this line to the developer"
+    return text
 
 
 #: settings of the detection that --detect may change: name -> how to read the value
@@ -201,7 +287,7 @@ def load_annotations(data_dir: Path, recording_id: str) -> List[Annotated]:
         return []
     data = read_json(path, "an annotation file")
     status = str(data.get("annotation_status", "unknown"))
-    return [Annotated(str(f["flaw_type"]), float(f["start_s"]), float(f["end_s"]), status) for f in data.get("flaws", [])]
+    return [Annotated(str(f["flaw_type"]), float(f["start_s"]), float(f["end_s"]), status, str(f.get("annotator_notes") or "")) for f in data.get("flaws", [])]
 
 
 def evidence_note(flaw: Any) -> str:
@@ -214,6 +300,21 @@ def evidence_note(flaw: Any) -> str:
     if hasattr(ev, "pause_duration_s"):
         return f"pause {ev.pause_duration_s:.2f} s against {ev.pause_baseline_mean_s:.2f} s usual, z {ev.pause_z_score:.1f}"
     return ""
+
+
+@contextlib.contextmanager
+def captured_word_measurements() -> Iterator[List[Any]]:
+    """Keep the word measurements the analysis judges (the very objects it uses), so a planned flaw that was missed can be measured with the same numbers."""
+    kept: List[Any] = []
+    measure = pipeline_module.measure_words
+
+    def capture(*args: Any, **kwargs: Any) -> Any:
+        observations = measure(*args, **kwargs)
+        kept.append(observations)
+        return observations
+
+    with mock.patch.object(pipeline_module, "measure_words", capture):
+        yield kept
 
 
 class Evaluator:
@@ -254,18 +355,48 @@ class Evaluator:
         if not wav.is_file():
             wav = self.data_dir / "raw" / f"{rec_id}.wav"
         try:
-            with tempfile.TemporaryDirectory() as tmp:
+            with captured_word_measurements() as words, tempfile.TemporaryDirectory() as tmp:
                 pipeline = self.pipeline_for(entry, Path(tmp))
                 text = PassageCatalog(self.data_dir / "metadata" / "passages.json").get_text(passage_id)
                 request = AnalyzeRequest(baseline_id=passage_id, passage_id=passage_id, manual_transcript=None if self.live else text)
                 analysis = pipeline.analyze(wav.read_bytes(), request)
+                profile = pipeline.baseline_provider.get(passage_id, passage_id=passage_id).word_profile
         except (EvaluationError, PipelineError, OSError) as exc:
             result.error = getattr(exc, "detail", None) or str(exc)
             return result
         detected = [Detected(f.type.value, f.start_s, f.end_s, f.severity, evidence_note(f)) for f in analysis.flaws]
         result.composite_score = analysis.scores.composite_score
         result.matches, result.extras = match_flaws(planned, detected)
+        relate_extras(planned, result.extras)
+        for match in result.matches:
+            if match.found is None:
+                self.explain_miss(match, result.extras, words[-1] if words else None, profile, analysis.audio.trim_start_s)
         return result
+
+    @property
+    def rules(self) -> DetectionConfig:
+        return (self.config or PipelineConfig()).detection
+
+    def explain_miss(self, match: Match, extras: Sequence[Detected], observed: Any, profile: Any, trim_start_s: float) -> None:
+        """Fill in why a planned flaw was not found: what the registration check said, how big the change really was over the planned words (judged
+        with the analysis' own measurements and yardstick), and whether the same kind of flaw turned up somewhere else in the take."""
+        plan = match.planned
+        check = take_check_note(plan.notes)
+        if check:
+            match.why.append(f"registration check: {check}")
+        if plan.flaw_type in MEASURED_TYPES:
+            if not self.rules.use_profile:
+                match.why.append("measured by the analysis: the word-by-word comparison is switched off in this run")
+            elif profile is None:
+                match.why.append("measured by the analysis: this baseline has no word profile (rebuild it with --build-baseline), so only the overall statistics judged the take")
+            elif observed is not None:
+                reading = measure_stretch(observed, profile, self.rules, plan.start_s - trim_start_s, plan.end_s - trim_start_s)
+                match.measured = asdict(reading)
+                match.why.append(f"measured by the analysis: {describe_stretch(plan.flaw_type, reading, self.rules)}")
+        elsewhere = [d for d in extras if d.flaw_type == plan.flaw_type]
+        if elsewhere:
+            places = ", ".join(_fmt_interval(d.start_s, d.end_s) for d in elsewhere)
+            match.why.append(f"a {plan.flaw_type} was found elsewhere in this take ({places}): the flaw may have been performed in another place than planned")
 
     def run(self, splits: Sequence[str], include_baseline: bool = False, only: Optional[str] = None, confirmed_only: bool = False) -> List[TakeResult]:
         entries = self.select(splits, include_baseline, only)
@@ -346,7 +477,7 @@ SHORT_TYPES = {"too_fast": "fast", "too_slow": "slow", "excessive_pause": "pause
 def render_sweep(rows: Sequence[Tuple[str, Dict[str, Any]]], take_count: int) -> str:
     """One line per setting: planned flaws found (per type and in total), extra flags on flawed takes, clean takes flagged, false alarms a minute."""
     types = sorted({t for _, s in rows for t in s["types"]}, key=lambda t: list(SHORT_TYPES).index(t) if t in SHORT_TYPES else 99)
-    head = ["setting".ljust(26)] + [SHORT_TYPES.get(t, t).rjust(6) for t in types] + ["found".rjust(7), "extras".rjust(7), "clean flagged".rjust(14), "false/min".rjust(10)]
+    head = ["setting".ljust(26)] + [SHORT_TYPES.get(t, t).rjust(6) for t in types] + ["found".rjust(7), "extras".rjust(7), "away".rjust(6), "clean flagged".rjust(14), "false/min".rjust(10)]
     lines = [f"Sweep over {take_count} take(s). Each row changes ONE setting; everything else keeps its normal value.", "", "  ".join(head)]
     for label, s in rows:
         found = sum(v["found"] for v in s["types"].values())
@@ -356,11 +487,12 @@ def render_sweep(rows: Sequence[Tuple[str, Dict[str, Any]]], take_count: int) ->
             v = s["types"].get(t)
             cells.append((f"{v['found']}/{v['planned']}" if v else "-").rjust(6))
         per_minute = s["false_alarms_on_clean_takes"] / s["clean_minutes"] if s["clean_minutes"] else 0.0
-        cells += [f"{found}/{planned}".rjust(7), str(s["extras_on_flawed_takes"]).rjust(7),
+        cells += [f"{found}/{planned}".rjust(7), str(s["extras_on_flawed_takes"]).rjust(7), str(s["extras_away_from_planned_flaws"]).rjust(6),
                   f"{s['clean_takes_with_a_flag']}/{s['clean_takes']}".rjust(14), f"{per_minute:.2f}".rjust(10)]
         lines.append("  ".join(cells))
-    lines += ["", "found = planned flaws found / planned; extras = other flags on takes that have a planned flaw; clean flagged = clean takes with at least one flag;",
-              "false/min = flags on clean takes per minute of clean speech. A good setting finds more and flags less."]
+    lines += ["", "found = planned flaws found / planned; extras = other flags on takes that have a planned flaw; away = those extras that are not on or right next to a",
+              "planned flaw; clean flagged = clean takes with at least one flag; false/min = flags on clean takes per minute of clean speech.",
+              "A good setting finds more and flags less."]
     return "\n".join(lines)
 
 
@@ -389,12 +521,23 @@ def summarise(results: Sequence[TakeResult]) -> Dict[str, Any]:
         return sum(values) / len(values) if values else None
 
     flawed_extras = sum(len(r.extras) for r in results if r.matches)
+    unplanned: Dict[str, int] = {}
+    for r in results:
+        for d in r.extras:
+            unplanned[d.flaw_type] = unplanned.get(d.flaw_type, 0) + 1
+    where = [d.where for r in results if r.matches for d in r.extras]
     clean = [r for r in results if not r.matches and not r.error]
     return {
         "types": {t: {"planned": v["planned"], "found": v["found"], "mean_abs_start_error_s": mean(v["start_errors"]),
-                      "mean_abs_end_error_s": mean(v["end_errors"]), "mean_iou": mean(v["iou"]), "mean_range_ratio": mean(v["range_ratio"])}
+                      "mean_abs_end_error_s": mean(v["end_errors"]), "mean_iou": mean(v["iou"]), "mean_range_ratio": mean(v["range_ratio"]),
+                      "unplanned_flags": unplanned.get(t, 0),
+                      "precision": v["found"] / (v["found"] + unplanned.get(t, 0)) if v["found"] + unplanned.get(t, 0) else None,
+                      "f1": 2 * v["found"] / (2 * v["found"] + unplanned.get(t, 0) + v["planned"] - v["found"])}
                   for t, v in sorted(by_type.items())},
         "extras_on_flawed_takes": flawed_extras,
+        "extras_on_planned_flaws": where.count("on"),
+        "extras_next_to_planned_flaws": where.count("next"),
+        "extras_away_from_planned_flaws": where.count("away"),
         "clean_takes": len(clean),
         "clean_takes_with_a_flag": sum(1 for r in clean if r.extras),
         "false_alarms_on_clean_takes": sum(len(r.extras) for r in clean),
@@ -417,13 +560,15 @@ def render(results: Sequence[TakeResult]) -> str:
             p = m.planned
             if m.found is None:
                 lines.append(f"    MISSED  {p.flaw_type:<16} planned {_fmt_interval(p.start_s, p.end_s)}")
+                lines += [f"              - {reason}" for reason in m.why]
                 continue
             d = m.found
             lines.append(f"    FOUND   {p.flaw_type:<16} planned {_fmt_interval(p.start_s, p.end_s)}, detected {_fmt_interval(d.start_s, d.end_s)}: "
                          f"start {m.start_error_s:+.1f} s, end {m.end_error_s:+.1f} s, overlap {m.iou:.0%}, detected range {m.range_ratio:.1f}x the plan"
                          + (f" ({d.note})" if d.note else ""))
         for d in r.extras:
-            lines.append(f"    EXTRA   {d.flaw_type:<16} detected {_fmt_interval(d.start_s, d.end_s)}, severity {d.severity:.2f}" + (f" ({d.note})" if d.note else ""))
+            lines.append(f"    EXTRA   {d.flaw_type:<16} detected {_fmt_interval(d.start_s, d.end_s)}, severity {d.severity:.2f}" + (f" ({d.note})" if d.note else "")
+                         + (f" - {d.where_note}" if d.where_note else ""))
         if not r.matches and not r.extras:
             lines.append("    nothing flagged")
     s = summarise(results)
@@ -431,10 +576,13 @@ def render(results: Sequence[TakeResult]) -> str:
     for t, v in s["types"].items():
         if v["found"]:
             lines.append(f"  {t:<16} found {v['found']} of {v['planned']}; start off by {v['mean_abs_start_error_s']:.1f} s and end by {v['mean_abs_end_error_s']:.1f} s on average; "
-                         f"overlap {v['mean_iou']:.0%}; detected range {v['mean_range_ratio']:.1f}x the plan")
+                         f"overlap {v['mean_iou']:.0%}; detected range {v['mean_range_ratio']:.1f}x the plan; {v['unplanned_flags']} flag(s) of this kind nobody planned, "
+                         f"precision {v['precision']:.0%}, F1 {v['f1']:.2f}")
         else:
-            lines.append(f"  {t:<16} found 0 of {v['planned']}")
-    lines.append(f"  extra detections on flawed takes: {s['extras_on_flawed_takes']}")
+            lines.append(f"  {t:<16} found 0 of {v['planned']}; {v['unplanned_flags']} flag(s) of this kind nobody planned, F1 0.00")
+    lines.append(f"  extra detections on flawed takes: {s['extras_on_flawed_takes']}" + (
+        f" ({s['extras_on_planned_flaws']} on a planned stretch, {s['extras_next_to_planned_flaws']} right next to one, "
+        f"{s['extras_away_from_planned_flaws']} away from every planned flaw)" if s["extras_on_flawed_takes"] else ""))
     if s["clean_takes"]:
         lines.append(f"  clean takes: {s['clean_takes_with_a_flag']} of {s['clean_takes']} had at least one flag; {s['false_alarms_on_clean_takes']} false alarms in "
                      f"{s['clean_minutes']:.1f} minutes")
@@ -442,7 +590,44 @@ def render(results: Sequence[TakeResult]) -> str:
         lines.append(f"  {s['annotations_proposed']} of {s['annotations_total']} planned flaws are annotations that no person has confirmed by ear yet")
     if s["failed_takes"]:
         lines.append(f"  {s['failed_takes']} take(s) could not be replayed (see above)")
+    rows = listen_first(results)
+    if rows:
+        lines += ["", "Listen to these first: here the plan and the analysis disagree. Open the take (data\\raw\\<take>.wav) in Audacity and play the stretch."]
+        lines += [f"  {take:<36} {_fmt_interval(start, end):<14} {what}" for take, start, end, what in rows]
     return "\n".join(lines)
+
+
+def listen_first(results: Sequence[TakeResult]) -> List[Tuple[str, float, float, str]]:
+    """The places where a person's ear settles the question: a planned flaw nothing was found for, a flag on a clean take, and a flag on a flawed
+    take that is away from every planned flaw. (A flag on or next to a planned flaw is usually a side effect of how it was performed.)"""
+    rows: List[Tuple[str, float, float, str]] = []
+    for r in results:
+        if r.error:
+            continue
+        found = [(m.planned.start_s, m.planned.end_s, f"planned {m.planned.flaw_type}, not found") for m in r.matches if m.found is None]
+        found += [(d.start_s, d.end_s, f"{d.flaw_type} flagged on a clean take" if not r.matches else f"{d.flaw_type} flagged away from the planned flaw")
+                  for d in r.extras if not r.matches or d.where == "away"]
+        rows += [(r.recording_id, start, end, what) for start, end, what in sorted(found)]
+    return rows
+
+
+def write_detected_labels(data_dir: Path, results: Sequence[TakeResult]) -> int:
+    """Write what was detected as Audacity label files (data/processed/labels/<take>.detected.txt), next to the word and planned-flaw labels that
+    prepare_recordings.py wrote, so the findings can be checked by ear on the take itself. Returns the number of files written (an empty file means nothing was flagged)."""
+    from prepare_recordings import audacity_labels            # the one place that knows the label format
+
+    folder = Path(data_dir) / "processed" / "labels"
+    folder.mkdir(parents=True, exist_ok=True)
+    written = 0
+    for r in results:
+        if r.error:
+            continue
+        detections = [("FOUND", m.found) for m in r.matches if m.found is not None] + [("EXTRA", d) for d in r.extras]
+        rows = [(d.start_s, d.end_s, f"{kind} {d.flaw_type} severity {d.severity:.2f}" + (f" ({d.note})" if d.note else "") + (f" - {d.where_note}" if d.where_note else ""))
+                for kind, d in sorted(detections, key=lambda item: (item[1].start_s, item[1].end_s))]
+        (folder / f"{r.recording_id}.detected.txt").write_text(audacity_labels(rows), encoding="utf-8")
+        written += 1
+    return written
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -457,6 +642,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                         help="try other detection settings for this run only, for example z_pause_within=3 min_pause_s=0.8 refine_rate=false")
     parser.add_argument("--sweep", nargs="+", default=[], metavar="NAME=V1,V2,...",
                         help="compare several values of a setting in one table, for example z_run_rate=3,3.5,4 run_min_words=8,10,12")
+    parser.add_argument("--labels", action="store_true",
+                        help="also write what was detected as Audacity labels (data/processed/labels/<take>.detected.txt) to check the findings by ear")
     parser.add_argument("--live", action="store_true", help="run the real Whisper and WhisperX as on the site (slower, needs the models)")
     parser.add_argument("--json", type=Path, default=None, dest="json_out", help="also write the full results to this file")
     args = parser.parse_args(argv)
@@ -466,6 +653,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if args.sweep:
             if args.detect:
                 raise EvaluationError("Use either --detect (one run with changed settings) or --sweep (a table), not both.")
+            if args.labels:
+                raise EvaluationError("--labels belongs to a normal run: a sweep replays the takes with many settings, so there is no single set of findings to label.")
             rows, count = sweep(args.data_dir, args.sweep, args.splits, args.include_baseline, args.only, args.confirmed_only, args.live)
             if not count:
                 print("No takes matched. Register recordings first (prepare_recordings.py) or change --splits / --only.", file=sys.stderr)
@@ -483,6 +672,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.detect:
         print(f"Detection settings changed for this run: {' '.join(args.detect)}\n")
     print(render(results))
+    if args.labels:
+        print(f"\nAudacity labels of the detections: {write_detected_labels(args.data_dir, results)} file(s) written to "
+              f"{args.data_dir / 'processed' / 'labels'} (<take>.detected.txt; import them like the other labels).")
     if args.json_out:
         args.json_out.write_text(json.dumps({"summary": summarise(results), "takes": [asdict(r) for r in results]}, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     return 1 if any(r.error for r in results) else 0

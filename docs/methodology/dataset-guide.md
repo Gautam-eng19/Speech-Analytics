@@ -270,10 +270,15 @@ It replays every dev take (not the baseline takes) through the real analysis, wi
 | Word | Meaning |
 |---|---|
 | `FOUND` | the planned flaw was found. It tells you how many seconds early or late the start and the end are (a minus means too early), how much of the detected range really was the flaw (`overlap`), and how long the detected range is compared with the plan (`1.0x` is exact, `3x` is three times too long) |
-| `MISSED` | nothing of the same type covered at least half of the planned flaw |
-| `EXTRA` | something was flagged that nobody planned. On a clean take every `EXTRA` is a false alarm |
+| `MISSED` | nothing of the same type covered at least half of the planned flaw. The lines under it say **why**: what the registration check said about the take (`this take is a weak example of the flaw` means the speaker did not do it clearly), how big the change really was over the planned words measured the way the analysis measures (`those 14 words were 9% faster ... z 1.8; a finding needs at least 15% with z above 4`), and whether the same kind of flaw turned up somewhere else in the take (it may have been performed in another place than planned) |
+| `EXTRA` | something was flagged that nobody planned. On a clean take every `EXTRA` is a false alarm. On a take with a planned flaw the line ends with **where** it lies: `on the planned ... stretch` or `2.3 s after the planned ... stretch` is usually a side effect of how the flaw was performed (someone who speaks quietly often slows down too); `away from every planned flaw` is the kind to check by ear |
 
-The last lines count the false alarms on clean takes. To try another setting without changing any file, add for example `--detect z_pause_within=3 min_pause_s=1.0`, or `--detect use_profile=false` to see the old way (overall averages, 8 second windows). **Send me the whole output**: it tells me exactly what to improve.
+The summary at the end has one line per kind of flaw: how many were found, how far off the start and end are, how many flags of that kind nobody planned, and two scores: **precision** (of the flags of that kind, how many were planned: low means many unplanned flags)
+and **F1** (one number from 0 to 1 that is high only when the flaws are found and few unplanned flags appear; the project proposes above 0.65 per kind, ARCHITECTURE.md 25.3 -- but unplanned flags next to a planned flaw are often real side effects, so judge them with the `EXTRA` lines).
+It then counts the false alarms on clean takes and ends with **Listen to these first**: the places where the plan and the analysis disagree (a planned flaw that was not found, a flag on a clean take, a flag away from the plan), with the seconds.
+Open that take in Audacity (`data\raw\<take>.wav`) and play the stretch: the ear decides who is right. To see the findings on the take itself, add `--labels` (`python scripts\dataset\evaluate_takes.py --labels`): it writes `data\processed\labels\<take>.detected.txt`, which you import in Audacity
+(**File, Import, Labels...**) next to the word and planned-flaw labels of 6e; each label says FOUND or EXTRA, the type, the severity and the evidence.
+To try another setting without changing any file, add for example `--detect z_pause_within=3 min_pause_s=1.0`, or `--detect use_profile=false` to see the old way (overall averages, 8 second windows). **Send me the whole output**: it tells me exactly what to improve.
 Only the dev speakers are replayed; the test speakers stay sealed (the tool refuses them unless you add `--allow-test`, which is for the single final run).
 
 **6h. Choose the settings from numbers (the sweep)**
@@ -283,7 +288,7 @@ python scripts\dataset\evaluate_takes.py --sweep "z_run_rate=3,3.5,4,4.5,5" "run
 ```
 
 (Keep the quotation marks: PowerShell would otherwise cut each list at its commas.) It prints one table. Each row changes **one** setting (the first row is the normal settings) and counts how many planned flaws were found, how many other flags appeared on the flawed takes,
-how many clean takes were flagged, and the false alarms per minute of clean speech. A good setting finds more and flags less. It takes a few minutes. **Send me the whole table**; I choose
+how many clean takes were flagged, and the false alarms per minute of clean speech (`away` counts the extras that are not on or right next to a planned flaw). A good setting finds more and flags less. It takes a few minutes. **Send me the whole table**; I choose
 the values from it. Do not choose by looking at one take: change nothing in a file, this command never does.
 
 Still to do: the final frozen test run (TASK-127).

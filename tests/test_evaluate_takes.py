@@ -3,8 +3,10 @@
 The matching and the report are tested on hand-made intervals; the replay is tested on synthetic takes registered with a stand-in aligner, so the
 real analysis (preprocessing, features, baseline comparison, grounding, scoring) runs without any speech model. Covers the 50 % rule on both sides of its
 limit, best-overlap pairing and single use of a detection, boundary-error signs, extra detections, the summary and the report text, annotation status,
-what is selected (dev only, no baseline takes, the sealed test split), takes that cannot be replayed, the file written with --json, determinism, and the
-sweep table that compares several values of a setting (DEC-040).
+what is selected (dev only, no baseline takes, the sealed test split), takes that cannot be replayed, the file written with --json, determinism, the
+sweep table that compares several values of a setting (DEC-040), and what helps a person judge the findings: where each extra flag lies against the planned
+flaws, why a planned flaw was missed (the registration check and the measured change), the list of places to listen to first, and the Audacity labels of the
+detections (DEC-041).
 """
 from __future__ import annotations
 
@@ -22,7 +24,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 import dataset_takes as dt  # noqa: E402
 import evaluate_takes as ev  # noqa: E402
 import prepare_recordings as pr  # noqa: E402
+from app.services.grounding import DetectionConfig  # noqa: E402
+from app.services.grounding.profile_detection import SignalReading, StretchReading, measure_stretch  # noqa: E402
 from test_prepare_recordings import S3, S5, World, take_id  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "backend" / "tests"))
+from profile_helpers import make_profile, reading as hand_reading  # noqa: E402  (hand-made readings with known words, times and levels)
 
 A = ev.Annotated
 D = ev.Detected
@@ -96,9 +103,10 @@ def test_overlap_of_disjoint_intervals_is_zero():
 
 def results() -> List[ev.TakeResult]:
     flawed = ev.TakeResult("rec_a_flaw_fast_01", "flawed_human_controlled", "spk_dev_01", 50.0, 80.0)
-    flawed.matches, flawed.extras = ev.match_flaws(
-        [A("too_fast", 10.0, 14.0, "proposed"), A("excessive_pause", 20.0, 22.0, "confirmed")],
-        [det("too_fast", 8.0, 15.0), det("low_energy", 30.0, 31.0, 0.2)])
+    planned = [A("too_fast", 10.0, 14.0, "proposed"), A("excessive_pause", 20.0, 22.0, "confirmed")]
+    flawed.matches, flawed.extras = ev.match_flaws(planned, [det("too_fast", 8.0, 15.0), det("low_energy", 30.0, 31.0, 0.2)])
+    ev.relate_extras(planned, flawed.extras)
+    flawed.matches[1].why = ["registration check: the silence after the word lasts 0.4 s (the plan asked for 1.5 to 2 s); this take is a weak example of the flaw"]
     clean = ev.TakeResult("rec_a_clean_01", "clean_control", "spk_dev_01", 60.0, 95.0)
     clean.extras = [det("too_fast", 1.0, 2.0), det("excessive_pause", 5.0, 6.0)]
     quiet = ev.TakeResult("rec_a_clean_02", "clean_control", "spk_dev_01", 60.0, 99.0)
@@ -113,7 +121,10 @@ def test_the_summary_counts_what_the_report_claims():
     assert fast["mean_iou"] == pytest.approx(4.0 / 7.0) and fast["mean_range_ratio"] == pytest.approx(1.75)
     pause = s["types"]["excessive_pause"]
     assert (pause["planned"], pause["found"], pause["mean_iou"]) == (1, 0, None)
+    assert (fast["unplanned_flags"], fast["precision"], fast["f1"]) == (1, 0.5, pytest.approx(2 / 3))        # one found, one more flag of that kind (on a clean take), nothing missed
+    assert (pause["unplanned_flags"], pause["precision"], pause["f1"]) == (1, 0.0, 0.0)                      # nothing found, a stray flag of that kind on a clean take, one missed
     assert s["extras_on_flawed_takes"] == 1
+    assert (s["extras_on_planned_flaws"], s["extras_next_to_planned_flaws"], s["extras_away_from_planned_flaws"]) == (0, 0, 1)     # 8 s after the planned pause
     assert (s["clean_takes"], s["clean_takes_with_a_flag"], s["false_alarms_on_clean_takes"]) == (2, 1, 2)
     assert s["clean_minutes"] == pytest.approx(2.0)
     assert (s["annotations_proposed"], s["annotations_total"], s["failed_takes"]) == (1, 2, 1)
@@ -124,11 +135,279 @@ def test_the_report_names_every_finding_miss_extra_and_failure():
     assert "rec_a_flaw_fast_01  (flawed_human_controlled)  score 80" in text
     assert "FOUND   too_fast" in text and "planned 10.0-14.0 s, detected 8.0-15.0 s: start -2.0 s, end +1.0 s, overlap 57%, detected range 1.8x the plan" in text
     assert "MISSED  excessive_pause" in text and "EXTRA   low_energy" in text and "severity 0.20" in text
+    assert "              - registration check: the silence after the word lasts 0.4 s" in text                      # the reason sits under the miss
+    assert "severity 0.20 - away from every planned flaw" in text
+    assert "extra detections on flawed takes: 1 (0 on a planned stretch, 0 right next to one, 1 away from every planned flaw)" in text
+    assert "detected range 1.8x the plan; 1 flag(s) of this kind nobody planned, precision 50%, F1 0.67" in text
+    assert "excessive_pause  found 0 of 1; 1 flag(s) of this kind nobody planned, F1 0.00" in text
     assert "nothing flagged" in text and "could not be replayed: its stored alignment is missing" in text
     assert "1 of 2 had at least one flag; 2 false alarms in 2.0 minutes" in text.replace("clean takes: ", "")
     assert "1 of 2 planned flaws are annotations that no person has confirmed by ear yet" in text
     assert "1 take(s) could not be replayed" in text
     text.encode("ascii")
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Helping a person judge the findings (DEC-041)
+# ---------------------------------------------------------------------------------------------------------------------------------
+
+def test_an_extra_is_told_apart_by_where_it_lies_against_the_planned_flaws():
+    planned = [A("low_energy", 25.5, 32.5, "x"), A("too_fast", 50.0, 55.0, "x")]
+    extras = [det("too_slow", 27.4, 33.2), det("too_slow", 20.5, 24.5), det("too_slow", 32.5, 33.5), det("too_slow", 35.5, 37.0),
+              det("too_slow", 35.75, 37.0), det("too_slow", 40.0, 41.0)]
+    ev.relate_extras(planned, extras)
+    assert [(e.where, e.where_note) for e in extras] == [
+        ("on", "on the planned low_energy stretch"),                       # overlaps it
+        ("next", "1.0 s before the planned low_energy stretch"),
+        ("next", "0.0 s after the planned low_energy stretch"),            # touching is not overlapping, but it is right next to it
+        ("next", "3.0 s after the planned low_energy stretch"),            # exactly the limit still counts as next to it
+        ("away", "away from every planned flaw"),                          # 3.25 s
+        ("away", "away from every planned flaw"),
+    ]
+
+
+def test_the_nearest_planned_flaw_is_the_one_an_extra_is_related_to_and_an_overlap_beats_touching():
+    planned = [A("low_energy", 10.0, 20.0, "x"), A("too_fast", 24.0, 30.0, "x")]
+    (between,) = [det("too_slow", 22.0, 23.0)]
+    ev.relate_extras(planned, [between])
+    assert between.where_note == "1.0 s before the planned too_fast stretch"               # 2 s after the first flaw, 1 s before the second
+    touching_first = [A("low_energy", 10.0, 20.0, "x"), A("too_fast", 19.0, 25.0, "x")]
+    inside = det("too_slow", 20.0, 22.0)                                                  # touches the first and lies in the second
+    ev.relate_extras(touching_first, [inside])
+    assert (inside.where, inside.where_note) == ("on", "on the planned too_fast stretch")
+
+
+def test_a_take_without_planned_flaws_has_nothing_to_relate_its_extras_to_and_the_limit_can_be_changed():
+    stray = det("too_slow", 1.0, 2.0)
+    ev.relate_extras([], [stray])
+    assert (stray.where, stray.where_note) == ("", "")
+    far = det("too_slow", 36.0, 37.0)
+    ev.relate_extras([A("low_energy", 25.5, 32.5, "x")], [far], near_s=5.0)
+    assert far.where == "next" and far.where_note == "3.5 s after the planned low_energy stretch"
+
+
+def test_the_registration_check_is_read_from_the_end_of_the_annotator_notes():
+    check = ("the stretch was +2.4 dB against the rest of the take, compared with the baseline takes (the plan asked for about +8 dB); "
+             "this take is a weak example of the flaw")
+    notes = f"Proposed from the recording plan (sentence 3; words 30 to 47), placed by forced alignment. Not yet confirmed by ear. Take check: {check}."
+    assert ev.take_check_note(notes) == check
+    assert ev.take_check_note("Proposed from the recording plan. Not yet confirmed by ear.") == ""
+    assert ev.take_check_note("") == "" and ev.take_check_note(None) == ""
+    assert ev.take_check_note("Take check: the silence after the word lasts 1.4 s (the plan asked for 1.5 to 2 s)") == "the silence after the word lasts 1.4 s (the plan asked for 1.5 to 2 s)"
+
+
+def test_the_notes_of_an_annotation_are_read_with_it(copy: World):
+    name = take_id("flaw_slow")
+    path = copy.data / "annotations" / f"{name}.flaws.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert "Take check:" in data["flaws"][0]["annotator_notes"]
+    (planned,) = ev.load_annotations(copy.data, name)
+    assert planned.notes == data["flaws"][0]["annotator_notes"] and ev.take_check_note(planned.notes)
+    path.write_text(json.dumps({"flaws": [{"flaw_type": "too_slow", "start_s": 2.0, "end_s": 4.0}]}), encoding="utf-8")
+    assert ev.load_annotations(copy.data, name)[0].notes == ""
+
+
+RULES = DetectionConfig()
+
+
+def stretch(rate=None, level=None, reason=None):
+    return StretchReading(rate, level, reason)
+
+
+def test_a_stretch_below_the_limits_is_described_with_its_size_its_z_and_the_limits():
+    pace = ev.describe_stretch("too_fast", stretch(SignalReading(14, 9.4, 1.8), SignalReading(14, 0.4, 0.3)), RULES)
+    assert pace == ("those 14 words were 9% faster than the baseline readers spoke the same words (z 1.8); a finding needs a change of at least 15% "
+                    "with z above 4 over at least 10 words")
+    loud = ev.describe_stretch("high_energy", stretch(None, SignalReading(14, 2.46, 2.1)), RULES)
+    assert loud == ("those 14 words were 2.5 dB louder than the baseline readers spoke the same words (z 2.1); a finding needs a change of at least 3 dB "
+                    "with z above 4 over at least 10 words")
+    assert "quieter" in ev.describe_stretch("low_energy", stretch(None, SignalReading(14, -2.0, -1.5)), RULES)
+    assert "slower" in ev.describe_stretch("too_slow", stretch(SignalReading(14, -12.0, -2.5), None), RULES)
+
+
+def test_the_limits_in_the_description_are_those_of_the_settings_in_use():
+    strict = DetectionConfig(min_rate_change_pct=20, z_run_rate=5.5, run_min_words=12, min_energy_change_db=4.5, z_run_energy=6)
+    assert "at least 20% with z above 5.5 over at least 12 words" in ev.describe_stretch("too_fast", stretch(SignalReading(14, 9.0, 1.8)), strict)
+    assert "at least 4.5 dB with z above 6 over at least 12 words" in ev.describe_stretch("low_energy", stretch(None, SignalReading(14, -2.0, -1.8)), strict)
+
+
+def test_a_stretch_that_changed_the_wrong_way_a_stretch_that_passes_every_limit_and_a_short_one_are_said_so():
+    wrong = ev.describe_stretch("too_slow", stretch(SignalReading(12, 20.0, 5.0)), RULES)
+    assert wrong.endswith(". That is the opposite of what was planned") and "20% faster" in wrong
+    wrong_loudness = ev.describe_stretch("high_energy", stretch(None, SignalReading(12, -6.0, -5.0)), RULES)
+    assert wrong_loudness.endswith("the opposite of what was planned") and "quieter" in wrong_loudness
+    passes = ev.describe_stretch("too_fast", stretch(SignalReading(20, 60.0, 9.0)), RULES)
+    assert passes.endswith("send this line to the developer") and "something else held the finding back" in passes
+    short = ev.describe_stretch("too_fast", stretch(SignalReading(8, 60.0, 9.0)), RULES)
+    assert "(this stretch has only 8)" in short and "passes all three" not in short                    # large enough, but too few words for a finding
+    for weak in (SignalReading(20, 10.0, 9.0), SignalReading(20, 60.0, 4.0)):                          # too small a change / z exactly on the limit
+        assert "passes all three" not in ev.describe_stretch("too_fast", stretch(weak), RULES)
+    assert "passes all three" not in ev.describe_stretch("high_energy", stretch(None, SignalReading(20, 2.9, 9.0)), RULES)
+    assert "passes all three" in ev.describe_stretch("high_energy", stretch(None, SignalReading(20, 3.0, 4.1)), RULES)             # a change of exactly the minimum counts
+    assert "passes all three" in ev.describe_stretch("too_fast", stretch(SignalReading(20, 15.0, 4.1)), RULES)
+    assert "passes all three" not in ev.describe_stretch("too_fast", stretch(SignalReading(20, 14.9, 9.0)), RULES)
+    on_the_limit = ev.describe_stretch("too_fast", stretch(SignalReading(10, 60.0, 9.0)), RULES)                                    # exactly the words a finding needs
+    assert "passes all three" in on_the_limit and "this stretch has only" not in on_the_limit
+    assert "this stretch has only 9" in ev.describe_stretch("too_fast", stretch(SignalReading(9, 60.0, 9.0)), RULES)
+
+
+def test_a_stretch_the_profile_could_not_judge_is_described_by_the_reason():
+    assert "do not match the passage" in ev.describe_stretch("too_fast", stretch(None, None, "transcript_mismatch"), RULES)
+    assert "too few words could be compared" in ev.describe_stretch("low_energy", stretch(None, None, "too_few_words"), RULES)
+    assert "no word that the baseline knows lies in that stretch" in ev.describe_stretch("too_slow", stretch(SignalReading(0, None, None), None), RULES)
+    assert ev.describe_stretch("excessive_pause", stretch(SignalReading(14, 9.4, 1.8), SignalReading(14, 0.4, 0.3)), RULES) == ""      # a pause is not judged word by word
+
+
+def test_the_planned_stretch_is_measured_in_the_time_of_the_processed_audio_not_of_the_file(tmp_path: Path):
+    profile, obs = make_profile(), hand_reading(600, stretches=[(30, 47, 0.6)])
+    start, end, trimmed = float(obs.start_s[30]), float(obs.end_s[47]), 2.5          # 2.5 s of silence were cut off the start: time in the file = time in the audio + 2.5 s
+    match = ev.Match(A("too_fast", start + trimmed, end + trimmed, "proposed"), None)
+    ev.Evaluator(tmp_path).explain_miss(match, [], obs, profile, trimmed)
+    exact = measure_stretch(obs, profile, DetectionConfig(), start, end)               # the very words of the planned stretch
+    assert exact.rate.n_words == 18 and match.measured["rate"]["n_words"] == 18
+    assert match.measured["rate"]["change"] == pytest.approx(exact.rate.change) and match.measured["rate"]["z"] == pytest.approx(exact.rate.z)
+    assert match.measured["level"]["z"] == pytest.approx(exact.level.z)
+
+
+def test_precision_and_f1_count_every_stray_flag_of_a_kind_including_those_on_clean_takes():
+    s = ev.summarise(listening_results())
+    low = s["types"]["low_energy"]                                   # planned once, not found, no flag of that kind anywhere
+    assert (low["planned"], low["found"], low["unplanned_flags"], low["precision"], low["f1"]) == (1, 0, 0, None, 0.0)
+    pause = s["types"]["excessive_pause"]                            # planned once, found, no stray flag
+    assert (pause["unplanned_flags"], pause["precision"], pause["f1"]) == (0, 1.0, 1.0)
+    many = ev.TakeResult("rec_b_flaw_fast_01", "flawed_human_controlled", "spk", 50.0, 90.0)
+    planned = [A("too_fast", 10.0, 14.0, "x"), A("too_fast", 30.0, 34.0, "x"), A("too_fast", 50.0, 54.0, "x")]
+    many.matches, many.extras = ev.match_flaws(planned, [det("too_fast", 10.0, 14.0), det("too_fast", 30.0, 34.0), det("too_fast", 70.0, 72.0), det("too_fast", 80.0, 82.0)])
+    clean = ev.TakeResult("rec_b_clean_01", "clean_control", "spk", 60.0, 100.0)
+    clean.extras = [det("too_fast", 5.0, 6.0)]
+    fast = ev.summarise([many, clean])["types"]["too_fast"]
+    assert (fast["planned"], fast["found"], fast["unplanned_flags"]) == (3, 2, 3)               # two on the flawed take, one on the clean take
+    assert fast["precision"] == pytest.approx(2 / 5) and fast["f1"] == pytest.approx(2 * 2 / (2 * 2 + 3 + 1))
+    broken = ev.TakeResult("rec_b_flaw_fast_02", "flawed_human_controlled", "spk", 0.0, error="x")
+    assert ev.summarise([many, clean, broken])["types"]["too_fast"]["unplanned_flags"] == 3      # a take that could not be replayed adds nothing
+
+
+def test_only_a_flag_of_the_same_kind_counts_as_the_planned_flaw_found_elsewhere(tmp_path: Path):
+    match = ev.Match(A("too_fast", 10.0, 14.0, "proposed"), None)
+    ev.Evaluator(tmp_path).explain_miss(match, [det("too_slow", 1.0, 2.0), det("too_fast", 30.0, 33.0), det("high_energy", 40.0, 41.0)], None, None, 0.0)
+    elsewhere = [line for line in match.why if "found elsewhere" in line]
+    assert elsewhere == ["a too_fast was found elsewhere in this take (30.0-33.0 s): the flaw may have been performed in another place than planned"]
+    twice = ev.Match(A("too_slow", 10.0, 14.0, "proposed"), None)
+    ev.Evaluator(tmp_path).explain_miss(twice, [det("too_slow", 1.0, 2.0), det("too_slow", 30.0, 33.0)], None, None, 0.0)
+    assert any("(1.0-2.0 s, 30.0-33.0 s)" in line for line in twice.why)
+
+
+def test_a_missed_flaw_is_explained_with_what_is_known_and_never_with_what_is_not(tmp_path: Path):
+    check = "the stretch took 0.97 times as long as in the speaker's baseline takes (the plan asked for about 0.75); this take is a weak example of the flaw"
+    plan = A("too_fast", 10.0, 14.0, "proposed", f"Proposed from the recording plan. Not yet confirmed by ear. Take check: {check}.")
+    explain = ev.Evaluator(tmp_path).explain_miss
+    no_measurements = ev.Match(plan, None)
+    explain(no_measurements, [], None, make_profile(), 0.0)                                  # for example nothing was measured: the registration check still speaks
+    assert no_measurements.why == [f"registration check: {check}"] and no_measurements.measured is None
+    no_profile = ev.Match(plan, None)
+    explain(no_profile, [], hand_reading(600), None, 0.0)
+    assert no_profile.why[1].startswith("measured by the analysis: this baseline has no word profile (rebuild it with --build-baseline)") and no_profile.measured is None
+    switched_off = ev.Match(plan, None)
+    ev.Evaluator(tmp_path, detection=ev.detection_config(["use_profile=false"])).explain_miss(switched_off, [], hand_reading(600), make_profile(), 0.0)
+    assert switched_off.why[1] == "measured by the analysis: the word-by-word comparison is switched off in this run" and switched_off.measured is None
+    pause = ev.Match(A("excessive_pause", 10.0, 12.0, "proposed", "Take check: the silence after the word lasts 0.4 s (the plan asked for 1.5 to 2 s)."), None)
+    explain(pause, [], hand_reading(600), make_profile(), 0.0)
+    assert pause.why == ["registration check: the silence after the word lasts 0.4 s (the plan asked for 1.5 to 2 s)"] and pause.measured is None     # a pause is not a pace
+    bare = ev.Match(A("too_slow", 10.0, 14.0, "unknown"), None)
+    explain(bare, [], None, make_profile(), 0.0)
+    assert bare.why == []                                                                    # nothing to say: not even a hint
+
+
+def listening_results() -> List[ev.TakeResult]:
+    flawed = ev.TakeResult("rec_a_flaw_quiet_01", "flawed_human_controlled", "spk_dev_01", 50.0, 90.0)
+    planned = [A("low_energy", 25.5, 32.5, "proposed")]
+    flawed.matches, flawed.extras = ev.match_flaws(planned, [det("too_slow", 27.0, 33.0), det("too_fast", 34.0, 38.0), det("high_energy", 1.0, 7.0),
+                                                             det("high_energy", 28.0, 29.0)])
+    ev.relate_extras(planned, flawed.extras)
+    clean = ev.TakeResult("rec_a_clean_02", "clean_control", "spk_dev_01", 60.0, 95.0)
+    clean.extras = [det("too_slow", 23.8, 28.9)]
+    found = ev.TakeResult("rec_a_flaw_pause_01", "flawed_human_controlled", "spk_dev_01", 60.0, 92.0)
+    found.matches, found.extras = ev.match_flaws([A("excessive_pause", 20.0, 22.0, "x")], [det("excessive_pause", 20.0, 22.0)])
+    broken = ev.TakeResult("rec_a_flaw_slow_01", "flawed_human_controlled", "spk_dev_01", 0.0, error="its stored alignment is missing")
+    broken.extras = [det("too_slow", 1.0, 2.0)]
+    return [clean, flawed, found, broken]
+
+
+def test_the_summary_counts_the_extras_on_a_planned_stretch_next_to_one_and_away_apart():
+    s = ev.summarise(listening_results())
+    assert s["extras_on_flawed_takes"] == 4
+    assert (s["extras_on_planned_flaws"], s["extras_next_to_planned_flaws"], s["extras_away_from_planned_flaws"]) == (2, 1, 1)        # the flag on the clean take is not counted
+    assert "extra detections on flawed takes: 4 (2 on a planned stretch, 1 right next to one, 1 away from every planned flaw)" in ev.render(listening_results())
+
+
+def test_the_sweep_table_shows_the_extras_away_from_the_plan_apart_from_all_the_extras():
+    text = ev.render_sweep([("normal settings", ev.summarise(listening_results()))], take_count=4)
+    row = next(line for line in text.splitlines() if line.startswith("normal settings"))
+    assert row.split()[-5:] == ["1/2", "4", "1", "1/1", "1.00"]            # found 1 of 2, extras 4 of which away 1, clean flagged 1 of 1, one false alarm in a clean minute
+
+
+def test_the_listening_list_has_the_disagreements_and_not_the_side_effects():
+    rows = ev.listen_first(listening_results())
+    assert rows == [
+        ("rec_a_clean_02", 23.8, 28.9, "too_slow flagged on a clean take"),
+        ("rec_a_flaw_quiet_01", 1.0, 7.0, "high_energy flagged away from the planned flaw"),            # sorted by time inside a take
+        ("rec_a_flaw_quiet_01", 25.5, 32.5, "planned low_energy, not found"),
+    ]                                                                                                    # the flag on the planned stretch, the one right next to it, the found flaw and the broken take are left out
+    text = ev.render(listening_results())
+    assert "Listen to these first" in text and "rec_a_clean_02" in text.split("Listen to these first")[1]
+    assert "  rec_a_flaw_quiet_01                  25.5-32.5 s    planned low_energy, not found" in text
+    assert "rec_a_flaw_pause_01" not in text.split("Listen to these first")[1]
+    text.encode("ascii")
+
+
+def test_nothing_to_listen_to_when_everything_agrees_and_the_report_then_has_no_such_section():
+    agree = ev.TakeResult("rec_a_flaw_pause_01", "flawed_human_controlled", "spk_dev_01", 60.0, 92.0)
+    agree.matches, agree.extras = ev.match_flaws([A("excessive_pause", 20.0, 22.0, "x")], [det("excessive_pause", 20.0, 22.0)])
+    clean = ev.TakeResult("rec_a_clean_01", "clean_control", "spk_dev_01", 60.0, 100.0)
+    assert ev.listen_first([agree, clean]) == [] and "Listen to these first" not in ev.render([agree, clean])
+    assert "extra detections on flawed takes: 0\n" in ev.render([agree, clean]) + "\n"                                # no breakdown of nothing
+
+
+def test_the_detections_are_written_as_audacity_labels_next_to_the_other_labels(tmp_path: Path):
+    folder = tmp_path / "data" / "processed" / "labels"
+    folder.mkdir(parents=True)
+    stale = folder / "rec_a_clean_01.detected.txt"
+    stale.write_text("1.000\t2.000\told finding\n", encoding="utf-8")
+    flawed = ev.TakeResult("rec_a_flaw_fast_01", "flawed_human_controlled", "spk_dev_01", 50.0, 80.0)
+    planned = [A("too_fast", 10.0, 14.0, "proposed")]
+    flawed.matches, flawed.extras = ev.match_flaws(planned, [D("too_fast", 8.0, 15.0, 0.5, "rate 296 words/min against 175 expected, z 10.9"),
+                                                             D("low_energy", 30.0, 31.0, 0.2, ""), D("high_energy", 1.0, 2.0, 0.1, "")])
+    ev.relate_extras(planned, flawed.extras)
+    clean = ev.TakeResult("rec_a_clean_01", "clean_control", "spk_dev_01", 60.0, 100.0)
+    broken = ev.TakeResult("rec_a_flaw_slow_01", "flawed_human_controlled", "spk_dev_01", 0.0, error="its stored alignment is missing")
+    assert ev.write_detected_labels(tmp_path / "data", [flawed, clean, broken]) == 2
+    rows = [line.split("\t") for line in (folder / "rec_a_flaw_fast_01.detected.txt").read_text(encoding="utf-8").splitlines()]
+    assert rows == [["1.000", "2.000", "EXTRA high_energy severity 0.10 - away from every planned flaw"],             # in time order, whatever kind of detection
+                    ["8.000", "15.000", "FOUND too_fast severity 0.50 (rate 296 words/min against 175 expected, z 10.9)"],
+                    ["30.000", "31.000", "EXTRA low_energy severity 0.20 - away from every planned flaw"]]
+    assert stale.read_text(encoding="utf-8") == ""                                       # nothing was flagged on the clean take: an old file must not say otherwise
+    assert not (folder / "rec_a_flaw_slow_01.detected.txt").exists()                     # a take that could not be replayed gets no file
+
+
+def test_the_labels_option_writes_the_files_and_says_where_and_a_sweep_refuses_it(registered: World, copy: World, capsys):
+    assert ev.main(["--data-dir", str(copy.data), "--only", "flaw_fast", "--labels"]) == 0
+    out = capsys.readouterr().out
+    label = copy.data / "processed" / "labels" / f"{take_id('flaw_fast')}.detected.txt"
+    assert "Audacity labels of the detections: 1 file(s) written to" in out and label.is_file()
+    assert not (registered.data / "processed" / "labels" / f"{take_id('flaw_fast')}.detected.txt").exists()
+    assert ev.main(["--data-dir", str(registered.data), "--only", "flaw_fast", "--sweep", "z_run_rate=3", "--labels"]) == 1
+    assert "--labels belongs to a normal run" in capsys.readouterr().err
+    assert ev.main(["--data-dir", str(registered.data), "--only", "flaw_fast"]) == 0
+    assert "Audacity labels" not in capsys.readouterr().out                               # no option, no files
+
+
+def test_what_the_report_adds_is_in_the_json_file_too(registered: World, tmp_path: Path):
+    out_file = tmp_path / "report.json"
+    assert ev.main(["--data-dir", str(registered.data), "--only", "flaw_", "--json", str(out_file)]) == 0
+    saved = json.loads(out_file.read_text(encoding="utf-8"))
+    assert {"extras_on_planned_flaws", "extras_next_to_planned_flaws", "extras_away_from_planned_flaws"} <= set(saved["summary"])
+    take = saved["takes"][0]
+    assert {"why", "measured"} <= set(take["matches"][0]) and all({"where", "where_note"} <= set(extra) for t in saved["takes"] for extra in t["extras"])
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------
@@ -352,10 +631,11 @@ def test_the_sweep_table_has_one_line_per_setting_and_says_what_each_column_coun
     lines = text.splitlines()
     assert lines[0].startswith("Sweep over 4 take(s). Each row changes ONE setting")
     header = next(l for l in lines if l.startswith("setting"))
-    for column in ("fast", "pause", "found", "extras", "clean flagged", "false/min"):
+    for column in ("fast", "pause", "found", "extras", "away", "clean flagged", "false/min"):
         assert column in header
     normal = next(l for l in lines if l.startswith("normal settings"))
     assert "1/1" in normal and "0/1" in normal and "1/2" in normal and "2/2" not in normal.replace("1/2", "")      # fast 1/1, pause 0/1, clean flagged 1/2
+    assert normal.split()[-5:] == ["1/2", "1", "1", "1/2", "1.00"]                          # found 1/2, extras 1 of which away 1, clean flagged 1/2, false/min 1.00
     assert "1.00" in normal                                                                                         # 2 false alarms in 2.0 clean minutes
     assert next(l for l in lines if l.startswith("z_run_rate=5")).endswith("0.00")                                  # the clean take with the flags is gone
     assert "A good setting finds more and flags less." in text
