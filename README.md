@@ -566,6 +566,8 @@ python scripts/dataset/evaluate_takes.py
 
 Recordings go in `data/incoming/` (or any folder) and are never committed. `scripts/dataset/build_baseline_stats.py` builds baseline statistics directly (`--passage-id p001 --splits dev`; `--splits` is required on purpose).
 
+Dataset download: (https://drive.google.com/drive/folders/1kmk0tuiJ4oNRsaD_QJ-qc3IXxK6TFdk6?usp=sharing)
+
 ## Documentation
 
 | Document | What is in it |
