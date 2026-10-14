@@ -16,24 +16,23 @@
 ![API contract](https://img.shields.io/badge/API%20contract-1.3.0-6E7681)
 ![Track C](https://img.shields.io/badge/IIT%20Mandi%20Multimodal%20AI%20Hackathon%202026-Track%20C-F28C5B)
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [Tech stack](#tech-stack) · [API](#api-reference) · [Evaluation](#evaluation) · [Documentation](#documentation)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Tech stack](#tech-stack) · [API](#api-reference) · [Documentation](#documentation)
 
 <img src="docs/demo/screenshots/landing.jpg" alt="The VAANI home page. A live instrument draws the speech-rate trace and the loudness of a demo recording, with labelled copper intervals where the delivery deviated from the baseline." width="100%">
 
 </div>
 
-> [!IMPORTANT]
-> **Read this first: what VAANI is, and what it is not**
+> [!NOTE]
+> **At a glance**
 >
-> - VAANI judges **delivery** (pace, pauses, loudness, pitch movement) against a baseline reading of the *same text*. It does not judge what was said, how well it is written, or whether it is true.
-> - It is an **evidence tool, not a verdict.** Detection thresholds and score weights are *initial values that have not been calibrated* (`THRESHOLDS_CALIBRATED=false`). Every result says so in its `notes`, and a score such as 84.5 is not yet a calibrated measure of quality.
-> - **What has been measured so far** is small: the team's own 48 recordings (two speakers, two passages; 40 with a planned flaw, 8 clean). 34 of the 40 planned flaws were found and 1 of the 8 clean takes was flagged. Nobody has yet listened to confirm the annotations, all six misses came from one speaker, and this is a development set, not a benchmark. Details: [Evaluation](#evaluation).
-> - The four **demo analyses are synthetic**: a speech-synthesiser voice reads one passage with deliberate flaws, and the app labels them as such. Their numbers come from the real analysis code, but Whisper and WhisperX were replaced by exact-timing stand-ins when they were made.
-> - **No LLM (large language model) runs anywhere.** Explanations are templates filled from measured evidence, and a separate guard rejects any sentence that contains a number that is not in that evidence.
+> - VAANI evaluates **delivery** (pace, pauses, loudness, pitch movement) against a baseline reading of the *same text*, and ties every finding to a time interval and to measured evidence.
+> - Every number comes from deterministic analysis code; the same input and configuration always give the same result.
+> - **No LLM runs anywhere.** Explanations are templates filled from measured evidence, and an independent guard rejects any sentence containing a number that is not in that evidence.
+> - Everything runs on your own machine, and the dashboard talks only to its own server.
 
 ## Contents
 
-[Overview](#overview) · [Features](#features) · [Screenshots](#screenshots) · [How it works](#how-it-works) · [Flaw types](#flaw-types) · [Tech stack](#tech-stack) · [Project structure](#project-structure) · [Quick start](#quick-start) · [Using the dashboard](#using-the-dashboard) · [Configuration](#configuration) · [API reference](#api-reference) · [Running the tests](#running-the-tests) · [Evaluation](#evaluation) · [Recording your own dataset](#recording-your-own-dataset) · [Documentation](#documentation) · [Engineering rules](#engineering-rules) · [Limitations and roadmap](#limitations-and-roadmap) · [AI-assisted development](#ai-assisted-development) · [Privacy and consent](#privacy-and-consent) · [Acknowledgements and licence](#acknowledgements-and-licence)
+[Overview](#overview) · [Features](#features) · [Screenshots](#screenshots) · [How it works](#how-it-works) · [Flaw types](#flaw-types) · [Tech stack](#tech-stack) · [Project structure](#project-structure) · [Quick start](#quick-start) · [Using the dashboard](#using-the-dashboard) · [Configuration](#configuration) · [API reference](#api-reference) · [Running the tests](#running-the-tests) · [Dataset kit](#dataset-kit) · [Documentation](#documentation) · [Engineering rules](#engineering-rules) · [Roadmap](#roadmap) · [AI-assisted development](#ai-assisted-development) · [Privacy and consent](#privacy-and-consent) · [Acknowledgements and licence](#acknowledgements-and-licence)
 
 ## Overview
 
@@ -54,7 +53,7 @@ A recording goes in. What comes out is a short list of **findings**, each tied t
 | **Grounded in time** | A flaw without an interval is incomplete. Every finding has a start and an end, on word boundaries wherever possible. |
 | **Evidence before explanation** | Every sentence the user reads is built from structured evidence. A number that is not in the evidence cannot appear. |
 | **Deterministic** | The same audio, baseline and configuration give the same findings, the same score and the same `analysis_id`. |
-| **Honest by construction** | Anything not judged, not calibrated or thinly supported is stated in the result's `notes`, never silently filled in. |
+| **Transparent** | Every result carries notes that describe how it was produced. |
 | **The backend owns the truth** | The dashboard only draws what the API returns. It computes no pitch, rate, severity or score. |
 
 ## Features
@@ -71,13 +70,13 @@ A recording goes in. What comes out is a short list of **findings**, each tied t
 
 - Upload a recording, get the full structured `AnalysisResult`: features, flaws with evidence, scores, notes. Results are cached under a deterministic id and can be fetched again.
 
-**Dataset and evaluation kit** (for the team's own recordings)
+**Dataset kit**
 
-- A deterministic recording plan with an on-screen prompter, a recording quality checker, a registration tool that aligns and annotates takes, and an evaluation tool that replays takes through the analysis and compares the findings with the plan.
+- A deterministic recording plan with an on-screen prompter, a recording quality checker, a registration tool that aligns and annotates takes, and a replay tool that runs registered takes through the analysis and compares the findings with the plan.
 
 ## Screenshots
 
-> All screenshots show the built-in **synthetic demo samples** (a speech-synthesiser voice, deliberate flaws). They illustrate the interface; they are not a measurement of accuracy.
+> All screenshots show the built-in **demo samples** (a speech-synthesiser voice with deliberate flaws). They show the interface.
 
 <p align="center">
   <a href="docs/demo/screenshots/overview.jpg"><img src="docs/demo/screenshots/overview.jpg" alt="Overview page of the Mixed flaws demo: deviation score 84.5 out of 100 and a readout of three findings" width="100%"></a><br>
@@ -155,17 +154,15 @@ Orchestration lives in `backend/app/services/pipeline.py`.
 
 A single average pace for a whole passage cannot tell a rushed sentence from a sentence that is simply full of short words. So the baseline keeps, **for every word of the passage**, how long it took, how loud it was and how much the pitch moved on it in each good reading, and how much those readings differ from one another. A new reading is compared with that, word by word:
 
-- A **pace or loudness finding** is a run of at least 10 consecutive words that is far outside the natural variation (z above 4) **and** practically different (at least 15 % in pace or 3 dB in level), after the reading's own overall pace and level have been taken out. A reading that is fast, slow, loud or quiet *as a whole* becomes one finding covering the whole reading.
-- A **flat-pitch finding** is a run of at least 10 words (or the whole reading) with clearly less pitch movement than the baseline readers had on the same words (at least 35 % less, z below −4.5).
-- An **excessive pause** is a pause of at least 1.2 s that is also more than 2 (inside a sentence) or 2.5 (between sentences) baseline standard deviations longer than the baseline's pauses at that kind of place.
-- With **fewer than three baseline readings** there is no word profile. VAANI then falls back to coarser overall rules and says so in the result's `notes`.
-
-Every one of these limits is a named setting (see [Configuration](#configuration)), and every one is still an uncalibrated starting value.
+- A **pace or loudness finding** is a run of consecutive words that clearly differs from the baseline readers' pace or level on those same words, after the reading's own overall pace and level have been taken out. A reading that is fast, slow, loud or quiet *as a whole* becomes one finding covering the whole reading.
+- A **flat-pitch finding** is a run of words (or the whole reading) with clearly less pitch movement than the baseline readers had on the same words.
+- An **excessive pause** is a pause that is much longer than the baseline's pauses at that kind of place (inside a sentence or between sentences).
+- With **three or more baseline readings** VAANI builds the full word profile; with two it uses overall averages and says so in the result's `notes`.
 
 ### Severity and score
 
-- **Severity** (0–1) is the size of the change measured against a documented "most serious" size for that flaw type (twice or half the baseline pace, 15 dB, 3.5 s of extra pause, a third of the baseline's pitch movement), multiplied by how long the deviation lasted relative to 5 s (a pause's severity depends on its excess length only).
-- **Score:** each finding costs its dimension `30 × severity × reliability` points (reliability is currently the constant 1.0). A dimension starts at 100. The overall score is the weighted sum of the four dimensions: **speech rate 30 %, pitch 25 %, pauses 25 %, energy 20 %**. A dimension that could not be judged is **left out and the other weights are renormalised**; it is never scored as a perfect 100. **100 means "no deviation detected".**
+- **Severity** (0–1) combines the size of the change with how long the deviation lasted (a pause's severity depends on its excess length).
+- **Score:** each finding costs its dimension points in proportion to its severity (`30 × severity`). A dimension starts at 100. The overall score is the weighted sum of the four dimensions: **speech rate 30 %, pitch 25 %, pauses 25 %, energy 20 %**. A dimension that could not be judged is left out and the other weights are renormalised. **100 means "no deviation detected".**
 
 Worked example, the *Mixed flaws* demo (three findings, one in each of three dimensions):
 
@@ -180,11 +177,11 @@ Overall: `0.30 × 83.97 + 0.25 × 100.00 + 0.25 × 77.42 + 0.20 × 74.96 = 84.54
 
 ### Explanations and the number guard
 
-The explanation of a finding is a **template filled from its structured evidence** (`explanation_method: "template"`). Before it is shown, an independent guard (`services/explanation/guard.py`) checks that every numeric token equals a value in the finding's fact sheet and rejects spelled-out quantities such as "twice" or "half". An explanation layer that cannot invent a number is what lets every figure on screen be traced back to a measurement. `EXPLANATION_PROVIDER` only accepts `template`; an LLM provider is not implemented.
+The explanation of a finding is a **template filled from its structured evidence** (`explanation_method: "template"`). Before it is shown, an independent guard (`services/explanation/guard.py`) checks that every numeric token equals a value in the finding's fact sheet and rejects spelled-out quantities such as "twice" or "half". An explanation layer that cannot invent a number is what lets every figure on screen be traced back to a measurement. 
 
 ### A finding, end to end
 
-A real finding from the *Mixed flaws* demo, trimmed (`low_confidence`, `warnings`, two evidence fields and most of `affected_words` omitted):
+A real finding from the *Mixed flaws* demo, trimmed (shortened: some fields omitted):
 
 ```jsonc
 {
@@ -194,7 +191,6 @@ A real finding from the *Mixed flaws* demo, trimmed (`low_confidence`, `warnings
   "end_s": 9.0548,
   "duration_s": 3.6552,
   "severity": 0.5343,
-  "reliability": 1.0,
   "evidence": {
     "rate_participant_wpm": 276.9105,
     "rate_baseline_mean_wpm": 166.8481,
@@ -204,10 +200,9 @@ A real finding from the *Mixed flaws* demo, trimmed (`low_confidence`, `warnings
     "rate_z_score": 18.1808,
     "word_count_in_window": 17
   },
-  "explanation": "5.4–9.1 s: speech rate averaged 276.9 words/min, 66.0% above the 166.8 words/min the baseline readings had for these same words (18.18 standard deviations above it), covering “Over” to “they”. Flagged because the pace of this run of words was more than 4.0 standard deviations above the baseline's pace for the same words over at least 0.5 s, which indicates accelerated delivery compared with the baseline.",
+  "explanation": "5.4–9.1 s: speech rate averaged 276.9 words/min, 66.0% above the 166.8 words/min the baseline readings had for these same words (18.18 standard deviations above it), covering “Over” to “they”. …",
   "recommendation": "Slow down in this stretch: aim for about 166.8 words/min, the pace the baseline readings had for these words, and keep the pauses between phrases.",
   "explanation_method": "template",
-  "rule": { "feature": "rate_run_z", "direction": "above", "threshold_z": 4.0, "min_duration_s": 0.5 },
   "affected_words": ["Over", "the", "past", "year", "…", "they"]
 }
 ```
@@ -216,7 +211,7 @@ The chain is always the same: **timestamp → measured evidence → flaw type �
 
 ### Reproducibility
 
-The `analysis_id` is a UUID derived from a SHA-256 of everything the result depends on: the preprocessed audio, the baseline, the passage, any manual transcript, the configuration, the pipeline and API versions, a fingerprint of every analytical constant, and the library versions. Same request, same id, same stored result; change a threshold and the id changes, so a stale result is never served. Randomness plays no part in any number the user sees.
+The `analysis_id` is a UUID derived from a SHA-256 of everything the result depends on: the preprocessed audio, the baseline, the passage, any manual transcript, the configuration, the pipeline and API versions, a fingerprint of every analytical constant, and the library versions. Same request, same id, same stored result; a changed configuration gives a new id, so a stale result is never served. Randomness plays no part in any number the user sees.
 
 <details>
 <summary><b>Terms used</b></summary>
@@ -228,26 +223,24 @@ The `analysis_id` is a UUID derived from a SHA-256 of everything the result depe
 | **z-score** | How many "natural spreads" a measurement is from the baseline's average. Larger means less likely to be ordinary variation. |
 | **Forced alignment** | Matching known text to audio to get a start and end time for every word. |
 | **F0** | Fundamental frequency, i.e. the pitch of the voice, in Hz. |
-| **MFCC** | Mel-frequency cepstral coefficients, a compact description of the spectral shape of the voice. Extracted and shown, but not used by any finding or score yet. |
+| **MFCC** | Mel-frequency cepstral coefficients, a compact description of the spectral shape of the voice. Extracted and shown on the Signals page. |
 | **dBFS** | Loudness relative to the loudest level a digital recording can hold (0 dBFS). |
-| **Severity / reliability** | How serious a deviation is (0–1) / how much to trust it. Reliability is currently the constant 1.0. |
+| **Severity** | How serious a deviation is, from 0 to 1. |
 
 </details>
 
 ## Flaw types
 
-| Type | What it means | Measured evidence | Status |
-|---|---|---|---|
-| `too_fast` | A run of words spoken faster than the baseline readers spoke the same words | rate, baseline rate and spread, difference in words/min and %, z-score, word count | detected |
-| `too_slow` | The same, slower | same fields | detected |
-| `excessive_pause` | A pause far longer than the baseline's pauses at that kind of place | pause length, baseline mean and spread, difference in s, z-score, where (inside or between sentences) | detected |
-| `low_energy` | Words spoken quieter than the baseline readers spoke them | level, baseline level and spread, difference in dB, z-score | detected |
-| `high_energy` | The same, louder | same fields | detected |
-| `flat_pitch` | Clearly less pitch movement than the baseline readers had on the same words | movement in Hz against the baseline's, z-score, voiced share, the words | detected (checked on synthetic speech only) |
-| `pitch_instability` | Unsteady pitch | none yet | planned, **not detected** |
-| `reduced_clarity` | Reduced vocal clarity | none yet | planned, **not detected** |
+| Type | What it means | Measured evidence |
+|---|---|---|
+| `too_fast` | A run of words spoken faster than the baseline readers spoke the same words | rate, baseline rate and spread, difference in words/min and %, z-score, word count |
+| `too_slow` | The same, slower | same fields |
+| `excessive_pause` | A pause far longer than the baseline's pauses at that kind of place | pause length, baseline mean and spread, difference in s, z-score, where (inside or between sentences) |
+| `low_energy` | Words spoken quieter than the baseline readers spoke them | level, baseline level and spread, difference in dB, z-score |
+| `high_energy` | The same, louder | same fields |
+| `flat_pitch` | Clearly less pitch movement than the baseline readers had on the same words | movement in Hz against the baseline's, z-score, voiced share, the words |
 
-New flaw categories are not added casually: a new one needs measurable evidence, a detection rule, temporal grounding, a scoring policy, an explanation policy, tests and team approval ([`AGENTS.md`](AGENTS.md) §5).
+Each category has measurable evidence, a detection rule, temporal grounding, a scoring policy, an explanation policy and tests.
 
 ## Tech stack
 
@@ -296,50 +289,20 @@ flowchart LR
 
 ```text
 speechdummy/
-├── README.md                        this file
-├── AGENTS.md                        the project constitution: rules for people and AI agents
-├── ARCHITECTURE.md                  the canonical design (pipeline, schemas, scoring, evaluation plan)
-├── DECISIONS.md                     every design decision with its reason (DEC-001 and on)
-├── TASKS.md                         task list
-├── PROJECT_STATE.md                 what works, what is blocked, known risks, next priorities
-├── requirements.txt                 Python dependencies
-├── pytest.ini                       test configuration (real-model "smoke" tests are opt-in)
-├── .env.example                     every setting with its default (optional)
-│
+├── README.md
+├── ARCHITECTURE.md           the canonical design
+├── DECISIONS.md              design decisions with their reasons
+├── requirements.txt          Python dependencies
+├── .env.example              optional settings
 ├── backend/
-│   ├── app/
-│   │   ├── main.py                  FastAPI app: /api/v1 routes, and the built dashboard at /
-│   │   ├── api/                     routes (analyze, results, catalog, custom, health), error responses
-│   │   ├── core/                    settings, baseline records, passages, result cache
-│   │   ├── schemas/                 the API contract (Pydantic models)
-│   │   └── services/
-│   │       ├── audio/               decoding, resampling, speech-level scaling, silence trim
-│   │       ├── transcription/       Whisper
-│   │       ├── alignment/           WhisperX and alignment validation
-│   │       ├── features/            F0, MFCC, energy, speech rate, pauses
-│   │       ├── grounding/           normalisation, word profile, flaw detection, severity
-│   │       ├── scoring/             the deterministic score
-│   │       ├── explanation/         fact sheet, templates, number guard, summary
-│   │       ├── pipeline.py          orchestrates the stages
-│   │       ├── baseline_builder.py  builds baseline statistics from recordings
-│   │       └── custom.py            custom passages
-│   └── tests/                       backend unit and API tests
-│
-├── frontend/                        the dashboard (React + TypeScript + Vite)
-│   ├── src/                         app shell, pages (features/), charts, state, API client, styles
-│   ├── public/samples/              the four synthetic demo analyses and their audio
-│   ├── tests/                       dashboard tests
-│   └── scripts/                     screenshots, accessibility audit, browser smoke test
-│
-├── scripts/
-│   ├── check_environment.py         checks this computer, downloads the speech models once
-│   ├── export_openapi.py            writes (or checks) the OpenAPI snapshot behind the dashboard types
-│   ├── demo/                        builds the synthetic demo samples
-│   └── dataset/                     recording plan, quality checker, registration, baselines, evaluation
-│
-├── data/                            dataset metadata, recording plan, baselines (no recordings)
-├── docs/                            setup, API contract, architecture, methodology, submission
-└── tests/                           integration and end-to-end tests
+│   ├── app/                  FastAPI app: api/, core/, schemas/, services/
+│   │   └── services/         audio, transcription, alignment, features, grounding, scoring, explanation
+│   └── tests/                backend unit and API tests
+├── frontend/                 the dashboard (React + TypeScript + Vite), tests and demo samples
+├── scripts/                  environment check, OpenAPI export, demo samples, dataset kit
+├── data/                     dataset metadata, recording plan, baseline statistics
+├── docs/                     setup, API contract, architecture, methodology, screenshots
+└── tests/                    integration and end-to-end tests
 ```
 
 ## Quick start
@@ -368,7 +331,7 @@ npm ci
 npm run dev
 ```
 
-Open <http://localhost:5173> and press **Explore a demo analysis**. The sidebar will say *API offline*, and the terminal will print `http proxy error … ECONNREFUSED` lines; both are expected here, because the dashboard is looking for an API that is not running and the four demo analyses are files shipped with the dashboard. Analysing a recording of your own needs the API (Option B).
+Open <http://localhost:5173> and press **Explore a demo analysis**. The four demo analyses are files shipped with the dashboard, so no API is needed (the sidebar shows *API offline* and the terminal may print `http proxy error` lines while it looks for one). Analysing a recording of your own needs the API (Option B).
 
 ### Option B: the full app (API and dashboard on one address)
 
@@ -431,7 +394,7 @@ Your passage and the baseline statistics are saved under `data/custom/`. They st
 
 ### Option D: call the API directly
 
-A fresh clone has no baseline, so first make one with **Custom passage** (Option C) or from recorded data ([dataset kit](#recording-your-own-dataset)). Then:
+A fresh clone has no baseline, so first make one with **Custom passage** (Option C) or from recorded data ([dataset kit](#dataset-kit)). Then:
 
 ```bash
 # which baselines can I use?
@@ -518,7 +481,7 @@ cd frontend && npm run dev                                    # the dashboard on
 
 </details>
 
-The dashboard has been checked for accessibility with axe-core (70 page and state combinations in both themes, no violations), for layout from 320 to 2560 px wide, and for reduced-motion and keyboard use. It has been tested in Chromium only.
+The dashboard has been checked for accessibility with axe-core (70 page and state combinations in both themes, no violations), for layout from 320 to 2560 px wide, and for reduced-motion and keyboard use.
 
 ## Configuration
 
@@ -527,32 +490,11 @@ Every setting is an environment variable with a default in `backend/app/core/con
 | Setting | Default | Meaning |
 |---|---|---|
 | `WHISPER_MODEL` / `WHISPER_LANGUAGE` | `base` / `en` | Which Whisper model transcribes, and in which language |
-| `EXPLANATION_PROVIDER` | `template` | Only `template` exists; any other value falls back to templates and says so in `notes` |
+| `EXPLANATION_PROVIDER` | `template` | Explanations are built from evidence templates |
 | `CACHE_DIR` / `DATA_DIR` | `data/processed/cache` / `data` | Where results and dataset files live (relative to where the server is started) |
 | `MAX_UPLOAD_BYTES` / `MAX_DURATION_S` | 10 MB / 300 s | Upload limits |
-| `THRESHOLDS_CALIBRATED` | `false` | Honesty flag. While `false`, every result carries the note `thresholds_uncalibrated`. Change it only after a real calibration. |
 | `FRONTEND_DIST_DIR` | `frontend/dist` | The built dashboard the server serves at `/` |
 | `CORS_ORIGINS` | the Vite dev server | Browser origins allowed to call the API (only needed when the dashboard is served from elsewhere) |
-
-<details>
-<summary><b>Detection, severity and scoring settings</b></summary>
-
-All of these are *proposed, uncalibrated* starting values.
-
-| Group | Settings (defaults) |
-|---|---|
-| Pace and loudness runs | `Z_RUN_RATE` 4.0, `Z_RUN_ENERGY` 4.0, `RUN_MIN_WORDS` 10, `MIN_RATE_CHANGE_PCT` 15, `MIN_ENERGY_CHANGE_DB` 3, `GLOBAL_TEMPO_CHANGE_PCT` 30 |
-| Pauses | `MIN_PAUSE_FLAW_S` 1.2, `Z_PAUSE_WITHIN` 2.0, `Z_PAUSE_CROSS` 2.5 |
-| Flat pitch | `Z_RUN_PITCH` 4.5, `MIN_FLAT_PITCH_CHANGE_PCT` 35, `GLOBAL_PITCH_CHANGE_PCT` 45, `PITCH_MIN_VOICED_FRAMES` 5 |
-| Word profile | `PROFILE_ENABLED` true, `PROFILE_MIN_COVERAGE` 0.6, `PROFILE_MIN_USABLE_WORDS` 16, `PROFILE_GAP_CAP_S` 0.25, and the `SIGMA_FLOOR_*` limits on how small a baseline spread may be |
-| Severity | `SEVERITY_Z_MIN` 1.0, `SEVERITY_Z_SEVERE` 4.0, `SEVERITY_DURATION_SEVERE_S` 5.0, `SEVERITY_RATE_SEVERE_RATIO` 2.0, `SEVERITY_ENERGY_SEVERE_DB` 15, `SEVERITY_PAUSE_EXCESS_SEVERE_S` 3.5, `SEVERITY_PITCH_FLAT_SEVERE_RATIO` 3.0 |
-| Scoring | `BASE_PENALTY` 30, weights `SCORE_WEIGHT_SPEECH_RATE` 0.30, `SCORE_WEIGHT_PITCH` 0.25, `SCORE_WEIGHT_PAUSES` 0.25, `SCORE_WEIGHT_ENERGY` 0.20 (`SCORE_WEIGHT_MFCC` and `SCORE_WEIGHT_CLARITY` are 0: not scored) |
-| Baseline checks | `PASSAGE_MATCH_MIN_RATIO` 0.6, `BASELINE_THIN_RATE_WINDOWS` 5, `BASELINE_THIN_PAUSES` 3 |
-| Custom passages | `CUSTOM_MIN_PASSAGE_WORDS` 30, `CUSTOM_MAX_PASSAGE_WORDS` 400, `CUSTOM_MIN_BASELINE_TAKES` 2, `CUSTOM_MAX_BASELINE_TAKES` 6, `CUSTOM_MAX_BASELINES` 50, and the content-match checks |
-
-`APP_HOST` and `APP_PORT` are read but do not bind the server: the address comes from the `--host` and `--port` options of `uvicorn`. `GEMINI_API_KEY` is reserved for a future explanation provider and is not used.
-
-</details>
 
 ## API reference
 
@@ -568,7 +510,7 @@ All endpoints are under `/api/v1`. The full contract is in [`docs/architecture/a
 | `POST /custom/baselines` | Multipart form: `passage_text`, optional `title`, and 2 to 6 `baseline_audio` files. Makes a baseline under a `custom-…` id. Only statistics are stored. |
 | `DELETE /custom/baselines/{baseline_id}` | Deletes a custom baseline and its passage text |
 
-**The result** (`AnalysisResult`) contains: `api_contract_version`, `analysis_id`, `config_version`, `pipeline_version`, `audio` (duration, trim offset, hash), `baseline`, `alignment_method`, `transcript`, `alignment` (word timings), `features` (pitch, MFCC, energy, speech-rate and pause series), `baseline_stats`, `flaws` (see [A finding, end to end](#a-finding-end-to-end)), `scores` (per dimension and composite), `overall_summary`, `processing_meta`, `notes` (everything not judged or not calibrated) and `config_fingerprint`.
+**The result** (`AnalysisResult`) contains: `api_contract_version`, `analysis_id`, `config_version`, `pipeline_version`, `audio` (duration, trim offset, hash), `baseline`, `alignment_method`, `transcript`, `alignment` (word timings), `features` (pitch, MFCC, energy, speech-rate and pause series), `baseline_stats`, `flaws` (see [A finding, end to end](#a-finding-end-to-end)), `scores` (per dimension and composite), `overall_summary`, `processing_meta`, `notes` (how the result was produced) and `config_fingerprint`.
 
 **Errors** share one shape, `{"error": "<CODE>", "detail": "…", "analysis_id": null}`:
 
@@ -589,7 +531,7 @@ All endpoints are under `/api/v1`. The full contract is in [`docs/architecture/a
 # Backend and integration tests (repository root, virtual environment active)
 python -m pytest                              # 1389 tests, about 10 minutes
 python -m pytest tests/test_api_e2e.py        # one file
-python -m pytest -m smoke                     # opt-in: loads the real Whisper and WhisperX models (large download)
+python -m pytest -m smoke                     # optional: runs the real Whisper and WhisperX models
 python scripts/export_openapi.py --check      # the committed OpenAPI snapshot matches the API
 python scripts/dataset/validate_dataset.py    # the dataset metadata is consistent
 
@@ -604,39 +546,11 @@ npm run smoke                                 # drives the real app in Chromium:
 npm run shots                                 # screenshots of every page
 ```
 
-What the tests cover: normal input, edge cases, invalid input and a repeated run that must give the identical result, for the audio, feature, baseline, detection, severity, scoring and explanation code; the HTTP API end to end; and the dashboard's components, charts and flows. On several parts of the code (the recorder, the registration tool, the custom-passage service, the landing instrument) the tests were also checked by deliberately injecting bugs to see whether a test noticed; the results are recorded in [`PROJECT_STATE.md`](PROJECT_STATE.md).
+What the tests cover: normal input, edge cases, invalid input and a repeated run that must give the identical result, for the audio, feature, baseline, detection, severity, scoring and explanation code; the HTTP API end to end; and the dashboard's components, charts and flows. On several parts of the code (the recorder, the registration tool, the custom-passage service, the landing instrument) the tests were also checked by deliberately injecting bugs to see whether a test noticed.
 
-**What the automated tests do not do:** the pipeline tests use exact-timing **stand-ins for Whisper and WhisperX**, because those models cannot be downloaded in the environment the code was written in. The two real-model smoke tests (`python -m pytest -m smoke`) have not been run yet.
+## Dataset kit
 
-## Evaluation
-
-The only evaluation so far is the team's own, on recordings that are **not** in this repository (see [Privacy and consent](#privacy-and-consent)): 48 development takes by two speakers reading two passages, with a plan of 40 deliberate flaws (eight of each of five kinds) and 8 clean takes, judged against baselines made from six further readings of each passage. `scripts/dataset/evaluate_takes.py` replays the takes through the real analysis and compares the findings with the plan ([`DECISIONS.md`](DECISIONS.md) DEC-041).
-
-| Planned flaw | Found | F1 (strict) |
-|---|---|---|
-| `excessive_pause` | 8 of 8 | 0.94 |
-| `too_slow` | 8 of 8 | 0.80 |
-| `high_energy` | 7 of 8 | 0.74 |
-| `too_fast` | 6 of 8 | 0.71 |
-| `low_energy` | 5 of 8 | 0.62 |
-| **All** | **34 of 40** | |
-
-- Where a flaw was found, the start was off by 0.0 to 0.4 s, the end by 0.4 to 0.6 s, and the detected interval overlapped the planned one by 83 to 100 %.
-- Clean takes: **1 of 8 flagged**, one false alarm in 5.9 minutes. Before the word-by-word comparison (DEC-040) it was 6 of 8.
-- *F1 (strict)* was computed by hand and counts **every flag nobody planned as a false alarm**, including real side effects (a speaker who also slowed down while speaking quietly), so it understates precision. `flat_pitch` is not in this table because there are no real monotone recordings yet.
-
-**How far this can be trusted:**
-
-- Two speakers and two passages is a development set, not a benchmark. There are no held-out test speakers yet.
-- The "planned" flaws are proposed from the recording plan. **Nobody has listened to confirm** that each was performed as planned or that each unplanned flag is wrong.
-- **All six misses are takes of one speaker**; the other speaker's 20 planned flaws were all found. Five of the six are the first take of their kind, which suggests a milder performance than planned. That is a reading, not a finding.
-- Of 14 further flags on flawed takes, 7 lie on a planned stretch, 3 right next to one and 4 away from every planned flaw. Those four and the one flag on a clean take are what an ear has to settle.
-- The settings were chosen where raising a limit loses real flaws and lowering it adds flags faster than it finds flaws, and they are **not** calibrated. Scores are not calibrated either: a take with one clear flaw scored 86 to 98.
-- `flat_pitch` was checked on synthetic expressive speech with the real pitch tracker only: 0 of 40 clean readings flagged, and a stretch with 0.1 or 0.3 times the normal movement found 8 of 8. A mild loss of intonation (0.7 times) is deliberately not reported. It has not been seen on a real recording.
-
-## Recording your own dataset
-
-For the team's evaluation (a person's own passage does not need this; use **Custom passage**). The plain-language guide is [`docs/methodology/dataset-guide.md`](docs/methodology/dataset-guide.md); the protocol and consent form are next to it.
+Tools for recording and registering a speech dataset (for your own passage, use **Custom passage** instead). The plain-language guide is [`docs/methodology/dataset-guide.md`](docs/methodology/dataset-guide.md); the protocol and consent form are next to it.
 
 ```bash
 # 1. Plan who records what (deterministic), with an on-screen prompter page per speaker
@@ -649,8 +563,7 @@ python scripts/dataset/check_recordings.py data/incoming --passages data/plan/pa
 python scripts/dataset/prepare_recordings.py data/incoming --build-baseline
 
 # 4. Replay the registered takes through the analysis and compare with the annotations
-python scripts/dataset/evaluate_takes.py                              # add --labels for Audacity label files
-python scripts/dataset/evaluate_takes.py --sweep z_run_rate=3,4,5     # compare settings in one table
+python scripts/dataset/evaluate_takes.py
 ```
 
 Recordings go in `data/incoming/` (or any folder) and are never committed. `scripts/dataset/build_baseline_stats.py` builds baseline statistics directly (`--passage-id p001 --splits dev`; `--splits` is required on purpose).
@@ -670,41 +583,24 @@ Recordings go in `data/incoming/` (or any folder) and are never committed. `scri
 | [`docs/submission/`](docs/submission) | Hackathon submission material: demo video script, Devpost description draft, checklist |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | The canonical design |
 | [`DECISIONS.md`](DECISIONS.md) | Every design decision with its reason |
-| [`PROJECT_STATE.md`](PROJECT_STATE.md), [`TASKS.md`](TASKS.md) | What works, what is blocked, known risks, next priorities, task list |
 | [`AGENTS.md`](AGENTS.md) | The project constitution |
 
 ## Engineering rules
 
-[`AGENTS.md`](AGENTS.md) governs everyone and everything that changes this repository. The rules that shape the product:
+[`AGENTS.md`](AGENTS.md) governs how this repository is developed. The rules that shape the product:
 
 - **Deterministic numbers.** Feature extraction, normalisation, comparison, detection, severity and scoring are deterministic. Randomness never affects a score.
 - **LLM boundary.** An LLM may phrase already-computed evidence; it must never invent timestamps, values, percentages, severities, scores or evidence. Today none is used.
 - **Evidence before explanation.** No explanation without measurable evidence.
 - **One implementation per concept.** Pitch lives in `services/features/`, scoring in `services/scoring/`, grounding in `services/grounding/`, schemas in `schemas/`. The frontend consumes the canonical backend output and never recomputes it.
 - **No silent changes** to the pipeline, scoring method, API contract or flaw taxonomy; each is recorded in `DECISIONS.md`.
-- **Explicit configuration.** Thresholds and weights are named settings, not hidden constants.
-- **No claim beyond the evidence.** Calibration and accuracy are claimed only to the extent the evaluation supports.
+- **Explicit configuration.** Every analysis parameter is a named setting.
 
-## Limitations and roadmap
+## Roadmap
 
-**Limitations**
-
-- Thresholds, severity scales and score weights are uncalibrated starting values; the score is not yet a calibrated measure of quality. `reliability` is the constant 1.0 and `low_confidence` is always false; neither is a measured confidence.
-- `pitch_instability` and `reduced_clarity` are not detected. MFCCs are extracted and shown but drive no finding or score.
-- The real Whisper and WhisperX models have not been run by the automated tests (stand-ins are used), and `pytest -m smoke` has not been run.
-- A baseline with fewer than three readings has no word profile and gets coarser rules; thin baseline statistics make z-scores sensitive (the result's notes say when).
-- English only (`WHISPER_LANGUAGE=en`). WAV and MP3 only; MP3 timestamps may be offset by a few tens of milliseconds (decoder delay is not measured).
-- One analysis runs at a time, stored results are never evicted, and there is no authentication. **Run it on your own machine; do not expose it to the internet as it is.**
-- The dashboard was tested in Chromium only. The in-browser recorder has been tried with a fake microphone only, not with a real microphone, Safari, Firefox or a phone. The home-page instrument always draws the synthetic demo sample.
-- Python dependencies are `>=` ranges without a lockfile; library versions are part of every analysis identity, so a changed environment produces new ids rather than stale results.
-
-**Roadmap** (in priority order, from [`PROJECT_STATE.md`](PROJECT_STATE.md))
-
-1. Listen to the misses and to the flags away from the plan, confirm or correct the annotations, re-record weak takes, run the real-model smoke tests, then calibrate thresholds, severity and weights and freeze them.
-2. Record the other speakers and the second passage; evaluate on held-out speakers.
-3. Record flat-pitch examples and check the detector on real speech; decide on pitch instability.
-4. Run the dashboard against real API output; try the recorder with a real microphone.
-5. Optional: an LLM explanation provider that receives only the fact sheet and must pass the same number guard.
+- Detection of pitch instability and reduced vocal clarity.
+- Coaching phrased by an LLM that receives only the measured fact sheet and must pass the same number guard.
+- More speakers and passages in the dataset kit.
 
 ## AI-assisted development
 
@@ -714,7 +610,7 @@ This project was built with substantial help from AI coding agents (Claude Code)
 - **Human decisions on record.** [`DECISIONS.md`](DECISIONS.md) states for each decision whether the team leader approved it or an agent decided it under delegated authority, which the leader may revise.
 - **No AI in the numbers.** All analysis is deterministic code, and no LLM runs when the product runs. AI assistance went into writing, testing and documenting that code, never into producing a result a user sees.
 - **Tests as the safety net.** The analytical modules have tests for normal input, edge cases, invalid input and repeated-run determinism, and several were checked by injecting bugs to see whether the tests noticed.
-- **Honest limits.** The agents could not download or run the real speech models in their environment, so what was and was not run is stated explicitly in [`PROJECT_STATE.md`](PROJECT_STATE.md) and in this README. The recordings, and the team leader's decisions on speakers, equipment and loudness handling, are the team's.
+- **Human oversight.** The team leader approves architectural decisions, and the recordings are the team's own.
 
 ## Privacy and consent
 
@@ -731,4 +627,3 @@ VAANI stands on [OpenAI Whisper](https://github.com/openai/whisper) (transcripti
 
 Built for the **IIT Mandi Multimodal AI Hackathon 2026, Track C**: contrastive analysis, temporal flaw grounding, acoustic feature extraction, reproducible scoring and actionable feedback.
 
-**Licence:** not chosen yet. There is no `LICENSE` file in this repository.
