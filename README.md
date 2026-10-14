@@ -56,6 +56,8 @@ A recording goes in. What comes out is a short list of **findings**, each tied t
 | **Transparent** | Every result carries notes that describe how it was produced. |
 | **The backend owns the truth** | The dashboard only draws what the API returns. It computes no pitch, rate, severity or score. |
 
+Youtube Link : (https://youtube.com/watch?v=RAUbhJ1S9z4&si=YDYDUJuvXlpIbj_i)
+
 ## Features
 
 **Dashboard** (React, dark by default, light on request)
