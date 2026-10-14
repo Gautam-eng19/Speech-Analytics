@@ -13,7 +13,7 @@ audio → preprocessing → transcription → forced alignment → feature extra
       → API → dashboard
 ```
 
-## Status (2026-10-13)
+## Status (2026-10-14)
 
 Working and tested (1389 backend and 322 dashboard tests, on synthetic speech):
 
@@ -21,7 +21,7 @@ Working and tested (1389 backend and 322 dashboard tests, on synthetic speech):
 - features: pitch (pYIN), MFCC, energy (dBFS), rolling-window speech rate, pauses (energy VAD + alignment gaps)
 - baseline statistics (record, builder script, provider) and baseline-relative z-score normalization
 - flaws with start/end times, severity and typed evidence: `too_fast`, `too_slow`, `low_energy`, `high_energy`, `excessive_pause`
-- deterministic scoring that leaves unevaluated dimensions out (pitch is currently "not scored")
+- deterministic scoring that leaves unevaluated dimensions out (pitch is scored when the baseline has a pitch profile)
 - template explanations and recommendations whose numbers are checked by an independent guard (no LLM is called)
 - `POST /api/v1/analyze` runs the whole pipeline; `GET /api/v1/status/{id}` and `GET /api/v1/result/{id}` return stored results
   (deterministic ids, file cache), with a `notes` list that states everything not evaluated or uncalibrated; `GET /api/v1/baselines`
@@ -44,12 +44,22 @@ Working and tested (1389 backend and 322 dashboard tests, on synthetic speech):
   the baseline's movement on the same words and where it happened (tried on synthetic speech with a real pitch tracker; no real monotone recording exists yet)
 
 Not done yet: `pitch_instability` detection, an LLM explanation provider. The in-browser recorder has only been tried with Chromium's fake
-microphone, not with a real microphone, Safari, Firefox or a phone. There are **no recordings** in the repository,
-so detection thresholds and weights are uncalibrated starting values and nothing has been evaluated on real speech. The real
-Whisper/WhisperX models were not run in the development sandbox: the pipeline is tested end to end with stand-ins for those two
-models, and `python -m pytest -m smoke` (run it on a machine that can download them) is the first thing to do. See `PROJECT_STATE.md`.
+microphone, not with a real microphone, Safari, Firefox or a phone. No recordings of people are in the repository (they are kept out of git on purpose);
+the team evaluated the system on its own 48 recordings of two speakers (40 with a planned flaw, 8 clean): 34 of the 40 planned flaws were found, 1 of the 8 clean readings was flagged
+(see `DECISIONS.md`, DEC-041, and `PROJECT_STATE.md`). Detection thresholds and weights are still starting values, not calibrated, and every result says so in its `notes`.
+The automated tests use stand-ins for Whisper and WhisperX (they cannot be downloaded in a sandbox); `python -m pytest -m smoke` runs the real models on a machine that can download them.
 
 ## Quickstart
+
+**Prerequisites:** Python 3.10 to 3.13, Git, and Node.js 20.19 or newer (only to build the dashboard). No ffmpeg. Analysing a recording with the real speech models downloads Whisper and a WhisperX
+alignment model on first use (PyTorch is several GB), so allow time and disk space; the four demo samples need none of that.
+
+**Three ways to try it**
+
+1. **Look at a demo (no models, no recordings):** build and open the dashboard (below); on *New analysis* open one of the four demo samples (synthetic voice with deliberate flaws, analysed by the real pipeline).
+2. **Analyse your own voice on your own text:** open *Custom passage*, paste a text (30+ words, two sentences or more), add two or three recordings of a good reading to make a baseline, then add one more reading and analyse it.
+   This uses the real speech models, so run `python scripts/check_environment.py --download-models` once first.
+3. **Use the API directly:** see the `curl` example below (needs a baseline statistics file, which *Custom passage* creates, or see [`docs/setup.md`](docs/setup.md) §4 for the dataset route).
 
 ```bash
 python -m venv .venv && source .venv/bin/activate        # PowerShell: .\.venv\Scripts\Activate.ps1
@@ -86,6 +96,7 @@ Details and options: [`docs/setup.md`](docs/setup.md); the response is documente
 | `docs/` | architecture proposal, API contract, dashboard, dataset methodology, setup |
 | `frontend/` | the dashboard (React + Vite + TypeScript), its tests and the demo samples; see [`docs/architecture/frontend.md`](docs/architecture/frontend.md) |
 | `scripts/demo/` | builds the synthetic demo samples |
+| `docs/submission/` | the hackathon submission material: demo video script, Devpost description draft, checklist |
 
 Project control documents: `AGENTS.md` (rules), `ARCHITECTURE.md` (canonical design), `DECISIONS.md`, `TASKS.md`, `PROJECT_STATE.md`.
 
