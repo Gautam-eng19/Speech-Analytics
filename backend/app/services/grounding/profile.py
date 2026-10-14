@@ -196,8 +196,10 @@ def _pitch_movement(f0: Any, start: np.ndarray, end: np.ndarray, min_voiced_fram
     if not (math.isfinite(clip_st) and clip_st > 0.0):
         raise ValueError(f"pitch_deviation_clip_st must be a positive finite number, got {clip_st}")
     times = np.asarray(f0.times_s, dtype=np.float64)
-    values = np.asarray(f0.values_hz, dtype=np.float64)
-    voiced = np.asarray(f0.voiced, dtype=bool)
+    track_values = getattr(f0, "track_values_hz", None)          # the more permissive voicing of the pitch track, when the extractor gave it
+    track_voiced = getattr(f0, "track_voiced", None)
+    values = np.asarray(f0.values_hz if track_values is None or track_voiced is None else track_values, dtype=np.float64)
+    voiced = np.asarray(f0.voiced if track_values is None or track_voiced is None else track_voiced, dtype=bool)
     if times.ndim != 1 or times.shape != values.shape or times.shape != voiced.shape:
         raise ValueError("f0.times_s, f0.values_hz and f0.voiced must be 1D arrays of equal length")
     usable = voiced & np.isfinite(values) & (values > 0.0)

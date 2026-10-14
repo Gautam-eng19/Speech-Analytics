@@ -595,3 +595,40 @@ def test_the_difference_in_hz_is_written_as_a_positive_number():
     _, (flaw,) = grounded(reading(600, pitch=True, flat=[FLAT]))
     ev = flaw.evidence
     assert build_fact_sheet(flaw)["delta_pitch_hz"] == f"{ev.f0_std_baseline_hz - ev.f0_std_hz_in_window:.1f}"
+
+
+# ------------------------------------------------------------------------------------------------------------------------------
+# Found with the first real recordings: the strict voicing decision left about 5 % of the frames, too few per word
+# ------------------------------------------------------------------------------------------------------------------------------
+def test_the_pitch_movement_uses_the_permissive_pitch_track_when_the_extractor_gave_one():
+    strict = pitch_track()                                                                  # nothing passes the strict decision (as on real speech)
+    permissive = pitch_track((0.0, 0.5, [UP, DOWN]))
+    track = SimpleNamespace(times_s=strict.times_s, values_hz=strict.values_hz, voiced=strict.voiced,
+                            track_values_hz=permissive.values_hz, track_voiced=permissive.voiced)
+    aligned = words((0.0, 0.5))
+    assert measure(strict, aligned).pitch_movement_st2 is None                              # too little voiced speech for a reference pitch
+    long = pitch_track((0.0, 2.5, [UP, DOWN]))
+    track = SimpleNamespace(times_s=strict.times_s, values_hz=strict.values_hz, voiced=strict.voiced,
+                            track_values_hz=long.values_hz, track_voiced=long.voiced)
+    measured = measure(track, words((0.0, 2.5))).pitch_movement_st2
+    assert measured is not None and np.isfinite(measured[0]) and measured[0] > 0.0                  # measured from the permissive track although `voiced` is empty
+
+
+def test_the_f0_extractor_gives_a_permissive_track_that_contains_the_strict_one():
+    from app.services.features.f0 import F0Config, extract_f0
+
+    sr = 16000
+    t = np.arange(int(1.5 * sr)) / sr
+    audio = (0.3 * np.sin(2 * np.pi * 180.0 * t) * (1 + 0.3 * np.sin(2 * np.pi * 3.0 * t))).astype(np.float32)
+    result = extract_f0(audio)
+    assert result.track_voiced is not None and result.track_values_hz is not None
+    assert np.all(result.track_voiced[result.voiced]) and result.track_voiced.sum() >= result.voiced.sum()
+    assert np.all(np.isfinite(result.track_values_hz[result.track_voiced])) and np.all(np.isnan(result.track_values_hz[~result.track_voiced]))
+    assert extract_f0(audio, F0Config(track_prob_threshold=1.0)).track_voiced.sum() <= result.track_voiced.sum()
+    with pytest.raises(ValueError, match="track_prob_threshold"):
+        F0Config(track_prob_threshold=1.5)
+
+
+def test_a_reading_that_is_flat_as_a_whole_is_not_also_reported_in_pieces():
+    found = detect_runs(reading(605, pitch=True, expressive=0.3, flat=[(10, 25, 0.3)]), PROFILE, RULES)
+    assert [r.kind for r in found.pitch] == ["pitch_overall"]

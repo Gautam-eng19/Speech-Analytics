@@ -7,7 +7,7 @@ Updated by:
 Coding agent (registration tools, then rounds of accuracy work after the first tests on real recordings, then flat pitch; control files synchronised, delegated by the team leader)
 
 All statements below were checked against the repository and full test runs on 2026-10-13
-(1369 backend tests passed, 2 smoke tests deselected; 296 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
+(1372 backend tests passed, 2 smoke tests deselected; 296 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -61,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch is judged by the word profile's pitch part (DEC-042; synthetic speech only); pitch_instability is not detected
 
 Testing:
-🟢 1369 backend + 296 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 1372 backend + 296 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
