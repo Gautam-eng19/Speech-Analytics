@@ -71,7 +71,7 @@ frontend/
   src/
     api/                 client.ts (fetch + upload with progress), types.ts (names for generated types), schema.d.ts (generated)
     app/                 App (routes), Shell, Sidebar, Topbar, Ribbon, Transport, CommandPalette, GlobalKeys, router
-    charts/              TimelineStack (shared plot), lanes.tsx, overlays.tsx, geometry.ts, useWidth.ts
+    charts/              TimelineStack (shared plot), lanes.tsx, overlays.tsx, geometry.ts, useWidth.ts, ScoreRadar.tsx (the score profile on the Overview page)
     components/          Icon (custom set), ui.tsx (buttons, chips, meters, dialog, toasts), page.tsx, EvidenceView.tsx
     features/            one folder per page: analyze, library, overview, timeline, flaws, signals, transcript, baseline, report, settings, help
     lib/                 pure helpers: format, time, decimate, result, lookup, evidence, flawMeta, notesMeta, settings, store, csv

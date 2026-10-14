@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { AnalysisNote, Flaw, SampleIndex } from '@/api/types';
+import { ScoreRadar, type RadarDim } from '@/charts/ScoreRadar';
 import { TimelineStack } from '@/charts/TimelineStack';
 import { Icon } from '@/components/Icon';
 import { Fact, Figure, HashValue, PageHead, SeverityBar, SourceChip } from '@/components/page';
@@ -92,15 +93,40 @@ function Readout({ analysis }: { analysis: LoadedAnalysis }) {
 function Breakdown({ analysis }: { analysis: LoadedAnalysis }) {
   const { result } = analysis;
   const scores = result.scores.feature_scores;
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+
+  const dims: RadarDim[] = SCORE_DIMENSIONS.map((dim) => {
+    const entry = scores[dim.key];
+    const note = result.notes?.find((n) => n.code === `${dim.key}_not_scored` || n.code === `${dim.key}_unavailable`);
+    return entry
+      ? { key: dim.key, label: dim.label, score: entry.score, weight: entry.weight, flawCount: entry.flaw_count, penalty: entry.penalty_total }
+      : { key: dim.key, label: dim.label, score: null, weight: 0, flawCount: 0, penalty: 0, reason: note ? note.message : undefined };
+  });
+
+  /** A dimension opens its strongest finding (the findings of its flaw types, strongest first). */
+  const open = (key: string) => {
+    const dim = SCORE_DIMENSIONS.find((d) => d.key === key);
+    const strongest = dim ? flawsBySeverity(result.flaws.filter((f) => (dim.flaws as readonly string[]).includes(f.type)))[0] : undefined;
+    if (!strongest) return;
+    selectFlaw(strongest.flaw_id);
+    navigate(analysisPath(analysis.id, 'flaws', strongest.flaw_id));
+  };
+
   return (
-    <Panel eyebrow="How the score is made" title="Score by dimension">
+    <Panel eyebrow="How the score is made" title="Score profile">
+      <div className="profile">
+      <ScoreRadar
+        dims={dims} activeKey={activeKey} onActive={setActiveKey} onOpen={open} openHint="Click to open its strongest finding"
+        label="Score profile: the score of each dimension on a scale from 0 to 100, where the outer ring is no deviation from the baseline"
+      />
       <ul className="dims">
         {SCORE_DIMENSIONS.map((dim) => {
           const entry = scores[dim.key];
           const note = result.notes?.find((n) => n.code === `${dim.key}_not_scored` || n.code === `${dim.key}_unavailable`);
+          const on = activeKey === dim.key;
           if (!entry) {
             return (
-              <li key={dim.key} className="dim dim--off">
+              <li key={dim.key} className={`dim dim--off ${on ? 'is-active' : ''}`} onPointerEnter={() => setActiveKey(dim.key)} onPointerLeave={() => setActiveKey(null)}>
                 <div className="dim__head"><span className="dim__name">{dim.label}</span><span className="dim__value muted">not scored</span></div>
                 <div className="meter meter--off" aria-hidden="true" />
                 <p className="dim__why">{note ? note.message : 'The backend did not evaluate this dimension for this analysis.'}</p>
@@ -108,7 +134,7 @@ function Breakdown({ analysis }: { analysis: LoadedAnalysis }) {
             );
           }
           return (
-            <li key={dim.key} className="dim">
+            <li key={dim.key} className={`dim ${on ? 'is-active' : ''}`} onPointerEnter={() => setActiveKey(dim.key)} onPointerLeave={() => setActiveKey(null)}>
               <div className="dim__head">
                 <span className="dim__name">{dim.label}</span>
                 <span className="dim__value num">{fmtNum(entry.score, 1)}</span>
@@ -123,6 +149,7 @@ function Breakdown({ analysis }: { analysis: LoadedAnalysis }) {
           );
         })}
       </ul>
+      </div>
       <p className="panel__foot-note">Each dimension starts at 100 and loses points for every finding, in proportion to its severity and reliability. A dimension that could not be evaluated is left out, never scored as perfect, and the remaining weights are renormalised: the weights shown are those effective weights. The composite is their weighted sum, computed by the backend.</p>
     </Panel>
   );
@@ -345,10 +372,8 @@ export function OverviewPage({ analysis }: { analysis: LoadedAnalysis }) {
         />
       </Figure>
 
-      <div className="grid-split">
-        <Findings analysis={analysis} />
-        <Breakdown analysis={analysis} />
-      </div>
+      <Findings analysis={analysis} />
+      <Breakdown analysis={analysis} />
 
       <div className="grid-split grid-split--even">
         <Notes notes={result.notes ?? []} />
