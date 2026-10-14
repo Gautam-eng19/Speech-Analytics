@@ -27,7 +27,7 @@
 >
 > - VAANI judges **delivery** (pace, pauses, loudness, pitch movement) against a baseline reading of the *same text*. It does not judge what was said, how well it is written, or whether it is true.
 > - It is an **evidence tool, not a verdict.** Detection thresholds and score weights are *initial values that have not been calibrated* (`THRESHOLDS_CALIBRATED=false`). Every result says so in its `notes`, and a score such as 84.5 is not yet a calibrated measure of quality.
-> - **What has been measured so far** is small: the team's own 48 recordings (two speakers, two passages; 40 with a planned flaw, 8 clean). 34 of the 40 planned flaws were found and 1 of the 8 clean takes was flagged. Nobody has yet listened to confirm the annotations, all six misses came from one speaker, and this is a development set, not a benchmark. Details: [Evaluation](#evaluation).
+> - **What has been measured so far** is small: the team's own 85+ recordings (three speakers, two passages).
 > - The four **demo analyses are synthetic**: a speech-synthesiser voice reads one passage with deliberate flaws, and the app labels them as such. Their numbers come from the real analysis code, but Whisper and WhisperX were replaced by exact-timing stand-ins when they were made.
 > - **No LLM (large language model) runs anywhere.** Explanations are templates filled from measured evidence, and a separate guard rejects any sentence that contains a number that is not in that evidence.
 
