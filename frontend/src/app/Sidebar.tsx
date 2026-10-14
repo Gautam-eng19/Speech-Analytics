@@ -152,6 +152,7 @@ export function Sidebar() {
         <nav aria-label="Workspace" className="nav-group">
           {collapsed ? <div className="nav-group__rule" /> : <div className="nav-group__label eyebrow">Workspace</div>}
           <NavItem href="/" icon="plus" label="New analysis" active={route.name === 'analyze'} collapsed={collapsed} hint="g n" />
+          <NavItem href="/custom" icon="book" label="Custom passage" active={route.name === 'custom'} collapsed={collapsed} hint="g c" />
           <NavItem href="/library" icon="layers" label="Library" active={route.name === 'library'} collapsed={collapsed} hint="g l" />
         </nav>
       </div>

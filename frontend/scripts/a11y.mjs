@@ -31,6 +31,7 @@ const sample = (id, view) => `#/a/${byId[id]}/${view}`;
 const PAGES = [
   ['analyze', '#/'],
   ['library', '#/library'],
+  ['custom', '#/custom'],
   ['overview', sample('hesitant-delivery', 'overview')],
   ['overview-clean', sample('clean-delivery', 'overview')],
   ['timeline', sample('mixed-flaws', 'timeline')],
@@ -51,6 +52,14 @@ const STATES = [
   ['timeline, finding selected', sample('mixed-flaws', 'timeline'), {}, async (page) => { await page.locator('.flawband').first().click(); }],
   ['timeline, zoomed', sample('mixed-flaws', 'timeline'), {}, async (page) => { await page.keyboard.press('+'); await page.keyboard.press('+'); }],
   ['sidebar collapsed', sample('mixed-flaws', 'overview'), {}, async (page) => { await page.keyboard.press('b'); }],
+  ['custom, passage typed and recordings added', '#/custom', {}, async (page) => {
+    await page.fill('#custom-text', 'Good morning, my dear friends. Today we begin our long journey together. First we study the signal, then we measure every word. A clear voice carries ideas across the room. Speak with steady pace, calm breath, and care. Thank you for listening to this talk.');
+    const wav = Buffer.from('UklGRiQAAABXQVZFZm10IBAAAAABAAEAgLsAAAB3AQACABAAZGF0YQAAAAA=', 'base64');
+    await page.setInputFiles('input[type=file][multiple]', [{ name: 'one.wav', mimeType: 'audio/wav', buffer: wav }, { name: 'two.wav', mimeType: 'audio/wav', buffer: wav }]);
+    await page.waitForSelector('.take-list__item');
+  }],
+  ['custom, recorder', '#/custom', {}, async (page) => { await page.getByRole('radio', { name: 'Record now' }).first().click(); }],
+  ['phone, custom', '#/custom', { width: 390, height: 844 }, async () => {}],
   ['recorder, idle', '#/', {}, async (page) => { await page.getByRole('radio', { name: 'Record now' }).click(); }],
   ['recorder, live', '#/', {}, async (page) => { await page.getByRole('radio', { name: 'Record now' }).click(); await page.getByRole('button', { name: 'Start recording' }).click(); await page.waitForSelector('.rec__live'); await page.waitForTimeout(900); }],
   ['recorder, take ready', '#/', {}, async (page) => { await page.getByRole('radio', { name: 'Record now' }).click(); await page.getByRole('button', { name: 'Start recording' }).click(); await page.waitForSelector('.rec__live'); await page.waitForTimeout(900); await page.getByRole('button', { name: 'Stop' }).click(); await page.waitForSelector('.rec__take'); }],

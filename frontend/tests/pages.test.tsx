@@ -28,7 +28,7 @@ beforeEach(() => {
   setView({ t0: 0, t1: mixedResult.audio.source_duration_s! });
   clearHistory();
   catalogStore.set({ status: 'idle', data: null, error: null });
-  connectionStore.set({ status: 'online', health: { status: 'ok', api_contract_version: '1.2.0', config_version: '1.0.0', pipeline_version: '1.0.0' }, checkedAt: 0 });
+  connectionStore.set({ status: 'online', health: { status: 'ok', api_contract_version: '1.3.0', config_version: '1.0.0', pipeline_version: '1.0.0' }, checkedAt: 0 });
 });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 

@@ -38,3 +38,10 @@ describe('analysisPath', () => {
     }
   });
 });
+
+describe('the custom passage page', () => {
+  it('has its own route and no sub-pages', () => {
+    expect(parseRoute('#/custom')).toEqual({ name: 'custom' });
+    expect(parseRoute('#/custom/extra')).toMatchObject({ name: 'notfound' });
+  });
+});

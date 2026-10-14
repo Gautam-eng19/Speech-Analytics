@@ -29,6 +29,16 @@ from app.schemas.contracts import BaselineStatsRecord
 from app.schemas.request import ID_PATTERN
 
 BASELINE_STATS_SUBDIR = Path("processed") / "baseline_stats"
+# Baselines made from a user's own passage and recordings (DEC-044). Their ids start with CUSTOM_ID_PREFIX and are only ever looked up here,
+# so a custom id can never shadow a project baseline (and the other way round).
+CUSTOM_BASELINE_SUBDIR = Path("custom") / "baseline_stats"
+CUSTOM_PASSAGES_FILE = Path("custom") / "passages.json"
+CUSTOM_ID_PREFIX = "custom-"
+
+
+def is_custom_id(identifier: str) -> bool:
+    """True for ids of custom baselines/passages (a project id never starts with the prefix)."""
+    return isinstance(identifier, str) and identifier.startswith(CUSTOM_ID_PREFIX)
 
 
 class BaselineError(Exception):
@@ -63,15 +73,28 @@ class BaselinePassageMismatchError(BaselineIntegrityError):
 class BaselineProvider:
     """Read-only provider of per-passage `BaselineStatsRecord` objects."""
 
-    def __init__(self, directory: Optional[Union[str, Path]] = None) -> None:
+    def __init__(self, directory: Optional[Union[str, Path]] = None, custom_directory: Optional[Union[str, Path]] = None) -> None:
+        """`directory` holds the project baselines; `custom_directory` the ones made from a user's own recordings (DEC-044).
+
+        When no `directory` is given both default to their places under ``settings.DATA_DIR``. A caller that names `directory` (tests,
+        tools) gets no custom baselines unless it names `custom_directory` too.
+        """
         self.directory = (
             Path(directory) if directory is not None else Path(settings.DATA_DIR) / BASELINE_STATS_SUBDIR
         )
+        if custom_directory is not None:
+            self.custom_directory: Optional[Path] = Path(custom_directory)
+        else:
+            self.custom_directory = Path(settings.DATA_DIR) / CUSTOM_BASELINE_SUBDIR if directory is None else None
 
     def path_for(self, passage_id: str) -> Path:
-        """Location of the stats file for `passage_id` (identifier validated first)."""
+        """Location of the stats file for `passage_id` (identifier validated first); custom ids resolve only in the custom directory."""
         if not isinstance(passage_id, str) or not re.match(ID_PATTERN, passage_id):
             raise BaselineNotFoundError(f"invalid passage_id {passage_id!r}")
+        if is_custom_id(passage_id):
+            if self.custom_directory is None:
+                raise BaselineNotFoundError(f"no custom baselines are available for {passage_id!r}")
+            return self.custom_directory / f"{passage_id}.json"
         return self.directory / f"{passage_id}.json"
 
     def exists(self, passage_id: str) -> bool:
@@ -82,11 +105,12 @@ class BaselineProvider:
 
     def list_passages(self) -> List[str]:
         """Passage ids that have a stats file, sorted (deterministic)."""
-        if not self.directory.is_dir():
-            return []
-        return sorted(
-            p.stem for p in self.directory.glob("*.json") if re.match(ID_PATTERN, p.stem)
-        )
+        found = []
+        if self.directory.is_dir():
+            found += [p.stem for p in self.directory.glob("*.json") if re.match(ID_PATTERN, p.stem) and not is_custom_id(p.stem)]
+        if self.custom_directory is not None and self.custom_directory.is_dir():
+            found += [p.stem for p in self.custom_directory.glob("*.json") if re.match(ID_PATTERN, p.stem) and is_custom_id(p.stem)]
+        return sorted(found)
 
     def list_baselines(self) -> List[str]:
         """Baseline ids (file stems) that have a stats file, sorted; the same list as `list_passages` (kept for DEC-015)."""
@@ -101,7 +125,7 @@ class BaselineProvider:
         """
         path = self.path_for(baseline_id)
         if not path.is_file():
-            raise BaselineNotFoundError(f"no baseline statistics '{baseline_id}' in {self.directory}")
+            raise BaselineNotFoundError(f"no baseline statistics '{baseline_id}' in {path.parent}")
 
         try:
             text = path.read_text(encoding="utf-8")

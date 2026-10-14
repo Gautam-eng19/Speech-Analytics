@@ -29,7 +29,7 @@ const ERROR_TITLE: Partial<Record<ApiErrorCode, string>> = {
   HTTP_ERROR: 'The server reported an error',
 };
 
-function Progress() {
+export function Progress() {
   const state = useAnalysis();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -151,7 +151,7 @@ export function AnalyzePage() {
                 <label className="field__label" htmlFor="baseline">Compare with</label>
                 <select id="baseline" className="select" value={selected.baseline_id} onChange={(e) => setBaselineId(e.target.value)} disabled={busy}>
                   {baselines.map((b) => (
-                    <option key={b.baseline_id} value={b.baseline_id}>{b.passage_title ?? b.baseline_id} · {plural(b.n_baseline_recordings, 'recording')}</option>
+                    <option key={b.baseline_id} value={b.baseline_id}>{b.passage_title ?? b.baseline_id} · {plural(b.n_baseline_recordings, 'recording')}{b.custom ? ' · custom' : ''}</option>
                   ))}
                 </select>
                 <p className="field__hint">The recording should be a reading of this passage. A baseline is the effective delivery of the same content, so the passage decides which comparison is fair.</p>

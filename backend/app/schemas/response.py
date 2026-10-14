@@ -35,6 +35,7 @@ __all__ = [
     "AudioInfo", "BaselineInfo", "AlignedWord", "FeatureSet", "BaselineStats",
     "Flaw", "DetectionRule", "ScoreSummary", "FeatureScore", "ProcessingMeta", "AnalysisNote",
     "BaselineSummary", "UnavailableBaseline", "BaselineListResponse",
+    "CustomTakeSummary", "CustomBaselineResult", "CustomBaselineDeleted",
 ]
 
 _Unit = Field(ge=0.0, le=1.0)
@@ -429,6 +430,8 @@ class BaselineSummary(ContractModel):
     passage_title: Optional[str] = None
     passage_text: Optional[str] = None
     passage_word_count: Optional[int] = Field(default=None, ge=0)
+    # True for a baseline made from a user's own passage and recordings (contract 1.3.0, DEC-044).
+    custom: bool = False
 
 
 class UnavailableBaseline(ContractModel):
@@ -443,6 +446,47 @@ class BaselineListResponse(ContractModel):
 
     baselines: list[BaselineSummary] = Field(default_factory=list)
     unavailable: list[UnavailableBaseline] = Field(default_factory=list)
+
+
+# --------------------------------------------------------------------------
+# Custom passages (contract 1.3.0, DEC-044)
+# --------------------------------------------------------------------------
+class CustomTakeSummary(ContractModel):
+    """What was measured on one baseline recording of a custom passage (nothing of the audio itself is kept)."""
+
+    filename: str = Field(min_length=1)
+    duration_s: float = Field(ge=0.0)
+    words_per_min: float = Field(ge=0.0)
+    # Share of the passage's words that were found and timed in the recording.
+    timed_word_share: float = Field(ge=0.0, le=1.0)
+    # Similarity of the recognised words to the passage text (null when the speech recogniser was not used).
+    content_match: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+
+
+class CustomBaselineResult(ContractModel):
+    """POST /api/v1/custom/baselines: the baseline that was made from the user's passage and recordings."""
+
+    baseline_id: str = Field(pattern=r"^custom-[0-9a-f]{12}$")
+    passage_id: str = Field(pattern=r"^custom-[0-9a-f]{12}$")
+    title: str = Field(min_length=1)
+    passage_text: str = Field(min_length=1)
+    passage_word_count: int = Field(ge=1)
+    n_recordings: int = Field(ge=1)
+    # True when the same passage and recordings had already been made into a baseline (nothing was recomputed; `takes` is then empty).
+    already_existed: bool
+    # Whether the word-by-word comparison (needs three recordings) and its pitch part were built; without them the analysis compares with the
+    # overall averages, which is less precise.
+    word_profile_built: bool
+    pitch_profile_built: bool
+    takes: list[CustomTakeSummary] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class CustomBaselineDeleted(ContractModel):
+    """DELETE /api/v1/custom/baselines/{baseline_id}"""
+
+    baseline_id: str
+    deleted: bool
 
 
 # --------------------------------------------------------------------------

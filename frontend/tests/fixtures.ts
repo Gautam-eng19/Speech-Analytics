@@ -39,7 +39,7 @@ export function flawOfType(result: AnalysisResult, type: string) {
 /** A small hand-made result for edge cases (no findings, short arrays) that is easy to reason about. */
 export function tinyResult(overrides: Partial<AnalysisResult> = {}): AnalysisResult {
   return {
-    api_contract_version: '1.2.0',
+    api_contract_version: '1.3.0',
     analysis_id: 'tiny-0001',
     config_version: '1.0.0',
     pipeline_version: '1.0.0',

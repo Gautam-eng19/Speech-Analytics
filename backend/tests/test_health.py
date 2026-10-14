@@ -65,7 +65,7 @@ def test_health_endpoint():
     assert health.status == "ok"
     assert health.config_version == "1.0.0"
     assert health.pipeline_version == "1.0.0"
-    assert health.api_contract_version == "1.2.0"
+    assert health.api_contract_version == "1.3.0"
 
 
 def test_validation_error_handler():

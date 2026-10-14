@@ -7,7 +7,7 @@ Updated by:
 Coding agent (registration tools, then rounds of accuracy work after the first tests on real recordings, then flat pitch; control files synchronised, delegated by the team leader)
 
 All statements below were checked against the repository and full test runs on 2026-10-13
-(1372 backend tests passed, 2 smoke tests deselected; 296 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
+(1389 backend tests passed, 2 smoke tests deselected; 322 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -61,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch is judged by the word profile's pitch part (DEC-042; synthetic speech only); pitch_instability is not detected
 
 Testing:
-🟢 1372 backend + 296 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 1389 backend + 322 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -190,6 +190,11 @@ The team leader decided speakers (2 dev + 2 test), equipment (USB headset) and l
   mixed sample is found, the voice keeps its loudness when stretched). In simulation: clean takes flagged 46 % -> 3 to 5 %, a 1.33 times faster sentence found 33 % -> 78 % with ranges 2 to 3 times too long -> 0.9 times, 5 dB louder or quieter
   sentences 0 % -> 89 to 91 %. Not verified on real recordings; baselines must be rebuilt (`prepare_recordings.py data/incoming --build-baseline`).
 
+2026-10-14 (latest): custom passages (TASK-136, DEC-044).
+- **A user can bring their own passage.** New dashboard page *Custom passage*: paste a text (30 to 400 words, two sentences or more), add two to six recordings of a good reading (upload or record in the browser), make the baseline, then analyse their own reading against it. Backend: `POST /api/v1/custom/baselines`, `DELETE /api/v1/custom/baselines/{id}`, API contract 1.3.0 (`BaselineSummary.custom`); the ordinary `/analyze` runs unchanged on the result.
+  The baseline is built by the same code as the dataset tool (moved to `app.services.baseline_builder`); three recordings give the word profile, two fall back to the overall averages and say so; a recording that is not a reading of the text or in which too few words can be timed is refused with a plain sentence. Only statistics and the text are stored (`data/custom/`, git-ignored), never the audio.
+- Checked: 17 integration tests (synthetic readings, stand-in aligner and recogniser, real everything else), a mutation check of the new code (28 injected bugs; two gaps found, covered, all caught), 26 new dashboard tests, axe without violations (both themes, phone width), and a real-browser run against the real server (passage typed, three recordings uploaded, baseline made, a reading with a fast sentence analysed and the finding shown, listed on New analysis, deleted).
+  **Not run:** the real WhisperX alignment and Whisper recognition on a person's own recordings, and how long they take per recording.
 2026-10-14 (later): flat pitch (TASK-133, DEC-042).
 - **Flat pitch is judged.** The word profile of the baseline also keeps how much the pitch moved on every word (the pitch part: expected movement per word in semitones squared from the reading's own median, a leave-one-out noise model, the spread of a speaker's overall expressiveness),
   and the word scan finds runs of at least 10 words (or the whole reading) that moved clearly less than the baseline readers did on the same words (one-sided; 35 % less movement and z below -4.5). The finding carries the movement in Hz against the baseline's, the z-score, the voiced share and the words; the explanation is

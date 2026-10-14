@@ -1378,6 +1378,36 @@ Impact: `backend/app/services/features/f0.py`, `backend/app/services/grounding/p
 Approved by: Team leader (delegated to coding agent)
 Date: 2026-10-14
 
+## DEC-044 — Custom Passages: a Baseline From the User's Own Text and Recordings
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Why: the team leader asked for a feature in which a user uploads their own passage, records two or three baseline readings of it, and then records themselves reading it, with a dashboard page for it. The analysis already compares a recording with the effective delivery of the SAME
+content, so the feature is a way to make the baseline, not a second pipeline (AGENTS.md section 2): the ordinary `POST /analyze` runs unchanged on the result.
+
+Decision:
+- **One implementation of baseline building.** The per-recording features and the pooling into a `BaselineStatsRecord` moved from `scripts/dataset/build_baseline_stats.py` to `backend/app/services/baseline_builder.py` (a move, no behaviour change; the script re-exports the names and its 44 tests pass
+  unchanged). The dataset tool and the new `app.services.custom` service therefore build baselines exactly alike (same preprocessing, alignment against the text as the transcript, features, word profile with its pitch part).
+- **Service and store** (`backend/app/services/custom.py`): the user's text (30 to 400 words, at least two sentences, because the baseline needs a pause between sentences) and 2 to 6 recordings; each recording is preprocessed, force-aligned to the text (the text IS the transcript), refused if fewer than 85 % of the words can be timed, and, when
+  the speech recogniser is available, refused if what was recognised matches the text by less than 0.5 (warned below 0.75). A baseline from two recordings works but has no word profile (the word-by-word comparison needs three) and the response and the analysis say so; one from three has it.
+  The id is `custom-<12 hex>`, derived from the normalised text and the recordings, so the same input is the same baseline (idempotent, nothing recomputed). Nothing of the audio is stored: only the record (`data/custom/baseline_stats/<id>.json`, hash-verified like any baseline) and the passage text (`data/custom/passages.json`), both git-ignored.
+- **Lookup** (`BaselineProvider`, `PassageCatalog`): ids starting with `custom-` are resolved only in the custom directory, all other ids only in the project directories, so neither can shadow the other and a path cannot be built from an id. A caller that names the project directory (tests, tools) gets no custom baselines.
+- **API contract 1.3.0**: `POST /custom/baselines`, `DELETE /custom/baselines/{baseline_id}`, three new models and `BaselineSummary.custom`; the analysis result is unchanged apart from the version string (demo samples regenerated).
+- **Dashboard**: a Custom passage page (sidebar, command palette, `g c`): passage and name with early hints, recordings by upload or in-browser recording, make the baseline (with progress and a plain refusal message), a table of what was measured per recording and the warnings, the user's own reading (upload or recording) analysed against it, a list of custom baselines with use and delete,
+  and custom baselines also appear on the New analysis page. The page only sends files and shows what the backend returns; the hints under the text box (word and sentence counts) mirror the server's limits for early feedback and the server checks again.
+
+Reason: it gives a user a way to use the system on their own content without registering a dataset, keeps analytical truth in the backend and the single baseline builder, and keeps personal recordings out of storage. The word profile requires three recordings; supporting two keeps the entry barrier low at the cost of a less precise comparison, which is stated openly.
+
+Impact:
+- Backend: `services/baseline_builder.py` (moved code, `default_config_snapshot`), `services/custom.py`, `api/routes/custom.py`, `api/deps.py`, `core/baseline.py`, `core/passages.py`, `core/config.py` (10 `CUSTOM_*` settings, `.env.example`), `schemas/response.py`, `schemas/common.py` (1.3.0), `main.py` (router, CORS `DELETE`), `.gitignore` (`data/custom/`).
+- Dashboard: `features/custom/CustomPage.tsx`, `state/custom.ts`, API client (`createCustomBaseline`, `deleteCustomBaseline`), types regenerated from the OpenAPI snapshot, router, sidebar, command palette, shortcuts, help, styles.
+- Tests: `tests/test_custom_passage.py` (17: baseline made from three and from two recordings, only statistics stored, idempotence, the analysis finds a fast sentence against it and not in a clean reading, every refusal, the cap, id isolation, the pace warning, the HTTP round trip with delete; a mutation check of the new code with 28 injected bugs first left two alive, both now covered and caught); dashboard `custom.test.tsx`, `custom-state.test.ts`, client and router additions
+  (26 new; 322 in all); axe on the page (both themes, phone width, recorder) finds no violations. Checked in a real browser against the real server with stand-ins for Whisper and WhisperX: passage typed, three recordings uploaded, baseline made, a reading with a fast sentence analysed (finding: too fast, 4.0 s), listed on New analysis, deleted.
+- Not verified: the real WhisperX alignment and Whisper recognition on a user's own recordings (they cannot run in the development sandbox); how long the real alignment takes per recording; a custom baseline from a person's own voice has not been compared with project baselines. Thresholds are the project's initial, uncalibrated values.
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-14
+
 ---
 
 ## PROPOSED DECISIONS (require team approval before implementation)
