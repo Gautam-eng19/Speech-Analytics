@@ -140,7 +140,7 @@ describe('recording on the New analysis page', () => {
     baselines: [{
       baseline_id: 'demo_talk', dataset_version: 'demo', n_baseline_recordings: 5, n_pauses_within_phrase: 40, n_rate_windows: 20,
       passage_id: 'demo_talk', passage_text: 'Good morning, everyone.', passage_title: 'Project talk', passage_word_count: 4,
-      sha256: 'a'.repeat(64), thin_pause_statistics: false, thin_rate_statistics: false,
+      sha256: 'a'.repeat(64), thin_pause_statistics: false, thin_rate_statistics: false, custom: false,
     }],
     unavailable: [],
   };

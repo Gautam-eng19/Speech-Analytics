@@ -12,7 +12,8 @@ Frontend TypeScript types must be derived from these models (never hand-extended
   `AudioInfo.trim_start_s` / `source_duration_s`, `AnalysisResult.notes` and `config_fingerprint` (all optional with
   defaults, so 1.0.0 payloads remain valid) and checks flaw bounds against the analysed audio in source time.
   **1.2.0** adds `GET /baselines` with `BaselineSummary`, `UnavailableBaseline` and `BaselineListResponse` (DEC-033); no existing
-  field changed.
+  field changed. **1.3.0** adds custom passages (DEC-044): `POST /custom/baselines`, `DELETE /custom/baselines/{baseline_id}`, the models
+  `CustomBaselineResult`, `CustomTakeSummary` and `CustomBaselineDeleted`, and `BaselineSummary.custom`; no existing field changed.
 - Independent of `config_version` (analytical parameters) and `pipeline_version` (pipeline structure).
 - All models use `extra="forbid"`.
 
@@ -21,6 +22,8 @@ Frontend TypeScript types must be derived from these models (never hand-extended
 |---|---|---|---|
 | GET | `/api/v1/health` | 200 `HealthResponse` | – |
 | GET | `/api/v1/baselines` | 200 `BaselineListResponse` | – |
+| POST | `/api/v1/custom/baselines` | 200 `CustomBaselineResult` (sync) | 400, 422, 500 `ErrorResponse` |
+| DELETE | `/api/v1/custom/baselines/{baseline_id}` | 200 `CustomBaselineDeleted` | 404, 422 `ErrorResponse` |
 | POST | `/api/v1/analyze` | 200 `AnalysisResult` (sync, DEC-016) | 400, 404, 422, 500 `ErrorResponse` |
 | GET | `/api/v1/status/{analysis_id}` | 200 `StatusResponse` (`done`/`not_found`) | – |
 | GET | `/api/v1/result/{analysis_id}` | 200 `AnalysisResult` | 404 `RESULT_NOT_FOUND` |
@@ -42,6 +45,25 @@ emitted at P0.
 - `unavailable[]`: baseline files that exist but cannot be used, as `{baseline_id, reason}` with `reason` one of `unreadable`,
   `invalid_file`, `integrity_check_failed`. Server paths and exception text are never included.
 - An empty list is a normal answer (no baseline has been built yet), not an error.
+
+### Custom passages (1.3.0, DEC-044)
+A user can bring their own passage: the text and 2 to 6 recordings of a good reading become a baseline that `POST /analyze` uses unchanged
+(`baseline_id` = `passage_id` = the returned `custom-<12 hex>` id), and that `GET /baselines` lists with `custom: true`.
+- `POST /custom/baselines` is `multipart/form-data`: `passage_text` (required), `title` (optional, at most 80 characters), and 2 to 6 file parts
+  `baseline_audio` (WAV or MP3, each within `MAX_UPLOAD_BYTES`). It runs synchronously (it aligns every recording to the text; about a minute
+  per recording on a CPU) and holds the same lock as the analysis because the speech models are shared.
+- **Checked** (`VALIDATION_ERROR` 422 with a sentence for the user, never internal text): the passage has `CUSTOM_MIN_PASSAGE_WORDS`..`CUSTOM_MAX_PASSAGE_WORDS`
+  words and at least two sentences; 2 to 6 distinct recordings; each recording is aligned to the text with at least `CUSTOM_MIN_TIMED_WORD_SHARE`
+  of its words timed; when the speech recogniser is available, what was recognised matches the passage (below `CUSTOM_MIN_CONTENT_MATCH` the recording
+  is refused, below `CUSTOM_WARN_CONTENT_MATCH` a warning is returned). Unsupported or oversized audio: 400 as for `/analyze`.
+- `CustomBaselineResult`: `baseline_id`/`passage_id` (the same `custom-<12 hex>` id, a function of the normalised text and the recordings, so the same
+  input is the same baseline and a repeat is answered with `already_existed: true` without recomputation), `title`, `passage_text`, `passage_word_count`,
+  `n_recordings`, `word_profile_built` (needs three recordings; without it the analysis compares with the overall averages and says so),
+  `pitch_profile_built`, `takes[]` (per recording: `filename`, `duration_s`, `words_per_min`, `timed_word_share`, `content_match` or null) and `warnings[]`.
+- Only the statistics (a `BaselineStatsRecord`) and the passage text are stored, under `data/custom/` (git-ignored); the recordings are not kept.
+  Custom ids start with `custom-` and are resolved only from that directory, so they can never shadow a project baseline.
+- `DELETE /custom/baselines/{baseline_id}` removes a custom baseline and its passage (404 `BASELINE_NOT_FOUND` if absent, 422 for an id that is not
+  a custom id: project baselines cannot be deleted). CORS now allows `DELETE`.
 
 ### Browsers and the dashboard (DEC-033)
 - **CORS:** only the origins in `CORS_ORIGINS` (default: the Vite dev server on port 5173) may read API responses from a browser; methods

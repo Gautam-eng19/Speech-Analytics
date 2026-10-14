@@ -12,6 +12,7 @@ from app.api.deps import get_pipeline
 from app.core.baseline import (
     BaselineError,
     BaselineIntegrityError,
+    is_custom_id,
     pause_statistics_thin,
     rate_statistics_thin,
 )
@@ -56,6 +57,7 @@ def list_baselines(pipeline: AnalysisPipeline = Depends(get_pipeline)) -> Baseli
                 passage_title=info.title if info else None,
                 passage_text=info.text if info else None,
                 passage_word_count=len(info.text.split()) if info else None,
+                custom=is_custom_id(baseline_id),
             )
         )
     usable.sort(key=lambda b: (b.passage_id, b.baseline_id))

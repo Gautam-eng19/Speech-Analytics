@@ -169,3 +169,63 @@ describe('demo sample files', () => {
     await expect(fetchSampleIndex()).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
   });
 });
+
+describe('createClient custom passages', () => {
+  const fetchMock = vi.fn();
+  beforeEach(() => vi.stubGlobal('XMLHttpRequest', FakeXhr));
+  afterEach(() => { vi.unstubAllGlobals(); FakeXhr.last = null; fetchMock.mockReset(); });
+  const take = (name: string) => new File([new Uint8Array(4)], name, { type: '' });
+
+  it('posts the passage, the name when there is one, and every recording', async () => {
+    const promise = createClient(() => 'http://api.test').createCustomBaseline({ passageText: 'Some text. More text.', title: '  My talk ', files: [take('one.wav'), take('two.mp3')] });
+    const xhr = FakeXhr.last!;
+    expect(xhr.method).toBe('POST');
+    expect(xhr.url).toBe('http://api.test/api/v1/custom/baselines');
+    expect(xhr.body!.get('passage_text')).toBe('Some text. More text.');
+    expect(xhr.body!.get('title')).toBe('My talk');
+    const sent = xhr.body!.getAll('baseline_audio') as File[];
+    expect(sent.map((f) => [f.name, f.type])).toEqual([['one.wav', 'audio/wav'], ['two.mp3', 'audio/mpeg']]);
+    xhr.finish(200, { baseline_id: 'custom-0123456789ab' });
+    await expect(promise).resolves.toMatchObject({ baseline_id: 'custom-0123456789ab' });
+  });
+  it('leaves the name out when it is blank', async () => {
+    const promise = createClient().createCustomBaseline({ passageText: 'Text.', title: '   ', files: [take('a.wav')] });
+    expect(FakeXhr.last!.body!.has('title')).toBe(false);
+    FakeXhr.last!.finish(200, {});
+    await promise;
+  });
+  it('maps a refusal, a broken answer, a network failure and a cancellation', async () => {
+    const refused = createClient().createCustomBaseline({ passageText: 'x', files: [take('a.wav')] });
+    FakeXhr.last!.finish(422, { error: 'VALIDATION_ERROR', detail: 'The passage has 3 words.' });
+    await expect(refused).rejects.toMatchObject({ code: 'VALIDATION_ERROR', detail: 'The passage has 3 words.', status: 422 });
+    const odd = createClient().createCustomBaseline({ passageText: 'x', files: [take('a.wav')] });
+    FakeXhr.last!.finish(500, 'oops');
+    await expect(odd).rejects.toMatchObject({ code: 'HTTP_ERROR' });
+    const down = createClient().createCustomBaseline({ passageText: 'x', files: [take('a.wav')] });
+    FakeXhr.last!.onerror?.();
+    await expect(down).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
+    const controller = new AbortController();
+    const cancelled = createClient().createCustomBaseline({ passageText: 'x', files: [take('a.wav')] }, { signal: controller.signal });
+    controller.abort();
+    await expect(cancelled).rejects.toMatchObject({ code: 'ABORTED' });
+  });
+  it('reports upload progress', async () => {
+    const seen: number[][] = [];
+    const promise = createClient().createCustomBaseline({ passageText: 'x', files: [take('a.wav')] }, { onUploadProgress: (l, t) => seen.push([l, t]) });
+    FakeXhr.last!.upload.onprogress?.({ lengthComputable: true, loaded: 1, total: 4 });
+    FakeXhr.last!.finish(200, {});
+    await promise;
+    expect(seen).toEqual([[1, 4]]);
+  });
+  it('deletes by id with the DELETE method and maps errors', async () => {
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockResolvedValueOnce(jsonResponse({ baseline_id: 'custom-0123456789ab', deleted: true }));
+    await expect(createClient(() => 'http://api.test').deleteCustomBaseline('custom-0123456789ab')).resolves.toEqual({ baseline_id: 'custom-0123456789ab', deleted: true });
+    expect(fetchMock.mock.calls[0]![0]).toBe('http://api.test/api/v1/custom/baselines/custom-0123456789ab');
+    expect(fetchMock.mock.calls[0]![1]).toMatchObject({ method: 'DELETE' });
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: 'BASELINE_NOT_FOUND', detail: 'No custom baseline exists.' }, 404));
+    await expect(createClient().deleteCustomBaseline('custom-0123456789ab')).rejects.toMatchObject({ code: 'BASELINE_NOT_FOUND', status: 404 });
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await expect(createClient().deleteCustomBaseline('x')).rejects.toMatchObject({ code: 'NETWORK_ERROR' });
+  });
+});

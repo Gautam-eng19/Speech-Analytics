@@ -47,7 +47,7 @@ export function GlobalKeys() {
       if (pendingG) {
         pendingG = false;
         window.clearTimeout(chord);
-        const target = { n: '/', l: '/library', s: '/settings', h: '/help' }[e.key.toLowerCase()];
+        const target = { n: '/', c: '/custom', l: '/library', s: '/settings', h: '/help' }[e.key.toLowerCase()];
         if (target) {
           e.preventDefault();
           navigate(target);

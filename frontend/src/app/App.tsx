@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import { EmptyState, Button } from '@/components/ui';
 import { AnalyzePage } from '@/features/analyze/AnalyzePage';
 import { BaselinePage } from '@/features/baseline/BaselinePage';
+import { CustomPage } from '@/features/custom/CustomPage';
 import { FlawsPage } from '@/features/flaws/FlawsPage';
 import { HelpPage } from '@/features/help/HelpPage';
 import { LibraryPage } from '@/features/library/LibraryPage';
@@ -63,6 +64,7 @@ function Pages() {
   switch (route.name) {
     case 'analyze': return <AnalyzePage />;
     case 'library': return <LibraryPage />;
+    case 'custom': return <CustomPage />;
     case 'settings': return <SettingsPage />;
     case 'help': return <HelpPage />;
     case 'analysis':
@@ -101,6 +103,7 @@ function useDocumentTitle(): void {
     let title = product;
     if (route.name === 'analyze') title = `New analysis · ${product}`;
     else if (route.name === 'library') title = `Library · ${product}`;
+    else if (route.name === 'custom') title = `Custom passage · ${product}`;
     else if (route.name === 'settings') title = `Settings · ${product}`;
     else if (route.name === 'help') title = `Help · ${product}`;
     else if (route.name === 'notfound') title = `Page not found · ${product}`;

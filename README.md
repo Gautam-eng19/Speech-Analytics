@@ -15,7 +15,7 @@ audio → preprocessing → transcription → forced alignment → feature extra
 
 ## Status (2026-10-13)
 
-Working and tested (1372 backend and 296 dashboard tests, on synthetic speech):
+Working and tested (1389 backend and 322 dashboard tests, on synthetic speech):
 
 - audio preprocessing with source-time provenance, Whisper transcription, WhisperX alignment and validation
 - features: pitch (pYIN), MFCC, energy (dBFS), rolling-window speech rate, pauses (energy VAD + alignment gaps)
@@ -37,6 +37,7 @@ Working and tested (1372 backend and 296 dashboard tests, on synthetic speech):
   word alignment with the passage text, proposed flaw annotations that a person confirms by ear, Audacity label files) and builds the baseline. Tested end to end with a stand-in for the
   alignment model; the real WhisperX run on real recordings is still to be done
 - the **evaluation tool** (`scripts/dataset/evaluate_takes.py`): replays registered takes through the real analysis without any speech model and measures, against the annotations, which flaws were found, how far off the start and end are, and how many false alarms a clean take gets; for a missed flaw it says how big the change really was and what the registration check said, tells a flag next to a planned flaw (a side effect of how it was performed) from one far away, lists what to listen to first and writes the detections as Audacity labels (`--labels`); `--sweep` compares several values of a setting in one table
+- **custom passages** (DEC-044): a page of the dashboard where a user pastes their own text, adds two or three recordings of a good reading to make a baseline, and then analyses their own reading against it (the audio is never stored, only statistics and the text; `POST /api/v1/custom/baselines`)
 - **word-by-word comparison** (DEC-040): the baseline keeps how the same passage words were read (expected duration and level of every word, and how much a reading varies), and pace and loudness findings are runs of words judged against it, so a
   finding starts and ends on word boundaries and the content of the words is not mistaken for delivery
 - **flat pitch** (DEC-042): the same word profile also keeps how much the pitch moved on every word, so a stretch or a whole reading that is more monotone than the baseline readers read the same words is reported with the movement in Hz,

@@ -135,6 +135,22 @@ class Settings:
         self.BASELINE_THIN_RATE_WINDOWS: int = int(os.getenv("BASELINE_THIN_RATE_WINDOWS", "5"))
         self.BASELINE_THIN_PAUSES: int = int(os.getenv("BASELINE_THIN_PAUSES", "3"))
 
+        # Custom passages (DEC-044): a user's own passage text and 2 to 6 of their own baseline recordings become a baseline under data/custom/.
+        # The passage needs enough words and at least two sentences (the baseline needs a pause between sentences to be measured); every
+        # baseline recording must be aligned to the passage (at least CUSTOM_MIN_TIMED_WORD_SHARE of its words timed) and, when the speech
+        # recogniser is available, must match the passage text (below CUSTOM_MIN_CONTENT_MATCH it is refused, below CUSTOM_WARN_CONTENT_MATCH
+        # a warning is given). Baseline recordings whose speaking pace differs by more than CUSTOM_TAKE_RATE_SPREAD_WARN get a warning.
+        self.CUSTOM_MIN_PASSAGE_WORDS: int = int(os.getenv("CUSTOM_MIN_PASSAGE_WORDS", "30"))
+        self.CUSTOM_MAX_PASSAGE_WORDS: int = int(os.getenv("CUSTOM_MAX_PASSAGE_WORDS", "400"))
+        self.CUSTOM_MIN_BASELINE_TAKES: int = int(os.getenv("CUSTOM_MIN_BASELINE_TAKES", "2"))
+        self.CUSTOM_MAX_BASELINE_TAKES: int = int(os.getenv("CUSTOM_MAX_BASELINE_TAKES", "6"))
+        self.CUSTOM_MAX_BASELINES: int = int(os.getenv("CUSTOM_MAX_BASELINES", "50"))
+        self.CUSTOM_MIN_TIMED_WORD_SHARE: float = float(os.getenv("CUSTOM_MIN_TIMED_WORD_SHARE", "0.85"))
+        self.CUSTOM_CHECK_CONTENT: bool = os.getenv("CUSTOM_CHECK_CONTENT", "true").strip().lower() in ("1", "true", "yes", "on")
+        self.CUSTOM_MIN_CONTENT_MATCH: float = float(os.getenv("CUSTOM_MIN_CONTENT_MATCH", "0.5"))
+        self.CUSTOM_WARN_CONTENT_MATCH: float = float(os.getenv("CUSTOM_WARN_CONTENT_MATCH", "0.75"))
+        self.CUSTOM_TAKE_RATE_SPREAD_WARN: float = float(os.getenv("CUSTOM_TAKE_RATE_SPREAD_WARN", "0.35"))
+
         # Scoring (DEC-014 as amended by DEC-030; weights DEC-P007). PROPOSED, uncalibrated.
         self.BASE_PENALTY: float = float(os.getenv("BASE_PENALTY", "30.0"))
         self.SCORE_WEIGHT_SPEECH_RATE: float = float(os.getenv("SCORE_WEIGHT_SPEECH_RATE", "0.30"))

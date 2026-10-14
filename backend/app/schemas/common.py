@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict
 # History: 1.0.0 initial contract (TASK-002); 1.1.0 adds Flaw.rule / affected_words / warnings,
 #          AudioInfo.trim_start_s / source_duration_s, AnalysisResult.notes / config_fingerprint;
 #          1.2.0 adds GET /baselines (BaselineSummary, BaselineListResponse) for the dashboard.
-API_CONTRACT_VERSION = "1.2.0"
+API_CONTRACT_VERSION = "1.3.0"
 
 
 class ContractModel(BaseModel):

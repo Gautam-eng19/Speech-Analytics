@@ -9,6 +9,7 @@ export type AnalysisView = 'overview' | 'timeline' | 'flaws' | 'signals' | 'tran
 export type Route =
   | { name: 'analyze' }
   | { name: 'library' }
+  | { name: 'custom' }
   | { name: 'settings' }
   | { name: 'help' }
   | { name: 'analysis'; id: string; view: AnalysisView; flawId: string | null }
@@ -26,6 +27,7 @@ export function parseRoute(hash: string): Route {
   if (parts.length === 0) return { name: 'analyze' };
   const [head, second, third, fourth] = parts;
   if (head === 'library' && parts.length === 1) return { name: 'library' };
+  if (head === 'custom' && parts.length === 1) return { name: 'custom' };
   if (head === 'settings' && parts.length === 1) return { name: 'settings' };
   if (head === 'help' && parts.length === 1) return { name: 'help' };
   if (head === 'a' && second) {

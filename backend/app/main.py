@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import analyze, catalog, health, results
+from app.api.routes import analyze, catalog, custom, health, results
 from app.core.config import settings
 from app.schemas.common import API_CONTRACT_VERSION, ErrorCode, ERROR_HTTP_STATUS
 from app.schemas.response import ErrorResponse
@@ -35,7 +35,7 @@ def create_app(frontend_dist: Optional[Path] = None) -> FastAPI:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=settings.CORS_ORIGINS,
-            allow_methods=["GET", "POST", "OPTIONS"],
+            allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
             allow_headers=["Content-Type", "Accept"],
             allow_credentials=False,
             max_age=600,
@@ -59,6 +59,7 @@ def create_app(frontend_dist: Optional[Path] = None) -> FastAPI:
     app.include_router(analyze.router, prefix="/api/v1", tags=["Analysis"])
     app.include_router(results.router, prefix="/api/v1", tags=["Analysis"])
     app.include_router(catalog.router, prefix="/api/v1", tags=["Catalogue"])
+    app.include_router(custom.router, prefix="/api/v1", tags=["Custom passages"])
 
     # The dashboard comes last so that every API route (and /docs, /openapi.json) takes precedence over it.
     dist = Path(frontend_dist) if frontend_dist is not None else Path(settings.FRONTEND_DIST_DIR)

@@ -1069,6 +1069,12 @@ mean squared deviation (semitones squared) of its voiced frames, each deviation 
 root-mean-square movement (leave-one-out, same `drift`/`word` form), and the spread of a reading's OVERALL movement between baseline recordings (speakers differ in how expressive they are). A profile without the
 pitch part keeps its hash.
 
+### 14.7 Custom passages (DEC-044)
+
+A baseline can also be made from a user's own passage text and 2 to 6 of their own recordings of a good reading, instead of from the project dataset. This is a way to *make* a baseline, not a second pipeline: `app.services.custom` aligns every recording to the text (the text is the transcript),
+refuses a recording in which too few words can be timed or that does not read the passage, and pools the recordings with the same code the dataset tool uses (`app.services.baseline_builder`, including the word profile and its pitch part; three recordings are needed for the word profile, with two the analysis falls back to the overall
+averages and says so). Only the resulting `BaselineStatsRecord` and the passage text are stored (`data/custom/`, never committed, never the audio), under ids `custom-<12 hex>` that `BaselineProvider` and `PassageCatalog` resolve only from the custom directory. `POST /analyze` then runs unchanged on such a baseline.
+
 ## 15. Normalization Architecture
 
 Normalization is owned by `services/grounding/` (first stage).
@@ -1442,8 +1448,15 @@ GET /api/v1/result/{analysis_id}
 GET /api/v1/status/{analysis_id}
   Response: { "status": "done" | "not_found" }
 
-GET /api/v1/baselines                      (API contract 1.2.0, DEC-033)
+GET /api/v1/baselines                      (API contract 1.2.0, DEC-033; `custom` flag in 1.3.0)
   Response: usable baselines with their passage, plus unusable baseline files with a reason code
+
+POST /api/v1/custom/baselines              (API contract 1.3.0, DEC-044)
+  Multipart: passage_text, optional title, 2 to 6 recordings `baseline_audio`
+  Response: CustomBaselineResult (the custom-<id> to use as baseline_id and passage_id in /analyze)
+
+DELETE /api/v1/custom/baselines/{id}       (API contract 1.3.0, DEC-044)
+  Response: { "baseline_id", "deleted" }; project baselines cannot be deleted
 ```
 
 ### Synchronous vs asynchronous

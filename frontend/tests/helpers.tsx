@@ -42,7 +42,7 @@ export function stubFetch(extra: Record<string, () => Response> = {}) {
     if (url.endsWith('/samples/index.json')) return json(sampleIndex);
     const sample = Object.keys(RESULTS).find((name) => url.endsWith(`/samples/${name}`));
     if (sample) return json(RESULTS[sample]);
-    if (url.endsWith('/api/v1/health')) return json({ status: 'ok', api_contract_version: '1.2.0', config_version: '1.0.0', pipeline_version: '1.0.0' });
+    if (url.endsWith('/api/v1/health')) return json({ status: 'ok', api_contract_version: '1.3.0', config_version: '1.0.0', pipeline_version: '1.0.0' });
     if (url.endsWith('/api/v1/baselines')) return json({ baselines: [], unavailable: [] });
     return json({ error: 'RESULT_NOT_FOUND', detail: 'not found' }, 404);
   });

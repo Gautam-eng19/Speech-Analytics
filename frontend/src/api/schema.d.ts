@@ -44,6 +44,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/custom/baselines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a baseline from your own passage and recordings
+         * @description Accepts the passage text (`passage_text`, optional `title`) and 2 to 6 recordings of a good reading of it (`baseline_audio`, WAV or MP3), aligns each recording to the text, checks that it reads the passage, and stores a baseline under a `custom-…` id. Use that id as `baseline_id` and `passage_id` in `POST /analyze`. Only statistics are stored, never the audio. The same text and recordings give the same id.
+         */
+        post: operations["create_custom_baseline_api_v1_custom_baselines_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom/baselines/{baseline_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a custom baseline
+         * @description Removes a baseline made from a user's own passage and recordings, and its passage text. Project baselines cannot be deleted.
+         */
+        delete: operations["delete_custom_baseline_api_v1_custom_baselines__baseline_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -150,7 +190,7 @@ export interface components {
             analysis_id: string;
             /**
              * Api Contract Version
-             * @default 1.2.0
+             * @default 1.3.0
              */
             api_contract_version: string;
             audio: components["schemas"]["AudioInfo"];
@@ -277,6 +317,11 @@ export interface components {
         BaselineSummary: {
             /** Baseline Id */
             baseline_id: string;
+            /**
+             * Custom
+             * @default false
+             */
+            custom: boolean;
             /** Dataset Version */
             dataset_version: string;
             /** N Baseline Recordings */
@@ -318,6 +363,15 @@ export interface components {
             /** Speaker Gender */
             speaker_gender?: string | null;
         };
+        /** Body_create_custom_baseline_api_v1_custom_baselines_post */
+        Body_create_custom_baseline_api_v1_custom_baselines_post: {
+            /** Baseline Audio */
+            baseline_audio?: string[] | null;
+            /** Passage Text */
+            passage_text?: string | null;
+            /** Title */
+            title?: string | null;
+        };
         /** ClarityEvidence */
         ClarityEvidence: {
             /** Hf Ratio Baseline Mean */
@@ -338,6 +392,60 @@ export interface components {
             hf_ratio: number[];
             /** Times S */
             times_s: number[];
+        };
+        /**
+         * CustomBaselineDeleted
+         * @description DELETE /api/v1/custom/baselines/{baseline_id}
+         */
+        CustomBaselineDeleted: {
+            /** Baseline Id */
+            baseline_id: string;
+            /** Deleted */
+            deleted: boolean;
+        };
+        /**
+         * CustomBaselineResult
+         * @description POST /api/v1/custom/baselines: the baseline that was made from the user's passage and recordings.
+         */
+        CustomBaselineResult: {
+            /** Already Existed */
+            already_existed: boolean;
+            /** Baseline Id */
+            baseline_id: string;
+            /** N Recordings */
+            n_recordings: number;
+            /** Passage Id */
+            passage_id: string;
+            /** Passage Text */
+            passage_text: string;
+            /** Passage Word Count */
+            passage_word_count: number;
+            /** Pitch Profile Built */
+            pitch_profile_built: boolean;
+            /** Takes */
+            takes?: components["schemas"]["CustomTakeSummary"][];
+            /** Title */
+            title: string;
+            /** Warnings */
+            warnings?: string[];
+            /** Word Profile Built */
+            word_profile_built: boolean;
+        };
+        /**
+         * CustomTakeSummary
+         * @description What was measured on one baseline recording of a custom passage (nothing of the audio itself is kept).
+         */
+        CustomTakeSummary: {
+            /** Content Match */
+            content_match?: number | null;
+            /** Duration S */
+            duration_s: number;
+            /** Filename */
+            filename: string;
+            /** Timed Word Share */
+            timed_word_share: number;
+            /** Words Per Min */
+            words_per_min: number;
         };
         /**
          * DetectionRule
@@ -505,7 +613,7 @@ export interface components {
         HealthResponse: {
             /**
              * Api Contract Version
-             * @default 1.2.0
+             * @default 1.3.0
              */
             api_contract_version: string;
             /** Config Version */
@@ -749,6 +857,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BaselineListResponse"];
+                };
+            };
+        };
+    };
+    create_custom_baseline_api_v1_custom_baselines_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_custom_baseline_api_v1_custom_baselines_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomBaselineResult"];
+                };
+            };
+            /** @description Unsupported or oversized audio */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The passage or a recording is not usable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Processing error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_custom_baseline_api_v1_custom_baselines__baseline_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                baseline_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomBaselineDeleted"];
+                };
+            };
+            /** @description No such custom baseline */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not a custom id */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };

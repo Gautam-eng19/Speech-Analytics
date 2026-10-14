@@ -996,6 +996,17 @@ Priority: P0
 Notes:
 Two monotone takes per dev speaker and passage (one planned sentence, one whole passage; recording protocol 5.2 and 6), registered and replayed with `evaluate_takes.py` like the other kinds. Check: is the monotone stretch found (and where), do the clean takes stay quiet, how large was the change (`flat_pitch` is explained like the others). If clean takes are flagged, listen to the stretch and look at the pitch in Praat: the likely causes are tracker errors (octave jumps, voicing flicker), and the remedy is a setting (`Z_RUN_PITCH`, `MIN_FLAT_PITCH_CHANGE_PCT`) chosen with `--sweep`, not a new rule. Then freeze together with TASK-131.
 
+\## TASK-136 — Custom Passage Analysis
+
+Status: REVIEW
+
+Priority: P1
+
+Delivered (2026-10-14, DEC-044), at the team leader's request: a user brings their own passage text and 2 to 6 recordings of a good reading of it, the system makes a baseline from them, and the user then analyses their own reading against it. Backend: `POST /api/v1/custom/baselines` and `DELETE /api/v1/custom/baselines/{id}` (API contract 1.3.0), `app.services.custom` (checks, alignment against the text, content check when the recogniser is available, idempotent `custom-<12 hex>` ids, storage of statistics and text only under `data/custom/`), `app.services.baseline_builder` (the dataset tool's builder, moved, one implementation), `custom-` ids resolved only from the custom directory. Dashboard: the Custom passage page (sidebar, command palette, `g c`, help), custom baselines also on the New analysis page. 17 integration tests (28 injected bugs all caught), 26 dashboard tests, axe without violations, one real-browser run against the real server with stand-ins for the two speech models.
+
+Known limitation:
+The real WhisperX and Whisper models have not been run on a user's own recordings (not possible in the development sandbox), so the time per recording and the behaviour on real speech are unmeasured; the first real use may need changes. Two recordings give no word-by-word comparison (stated in the response and in the analysis notes). No accounts: custom baselines are shared by everyone who uses the server (limit `CUSTOM_MAX_BASELINES`); decide before any multi-user deployment. Thresholds remain the project's uncalibrated starting values.
+
 \---
 
 

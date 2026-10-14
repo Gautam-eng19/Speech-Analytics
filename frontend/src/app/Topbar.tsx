@@ -16,6 +16,7 @@ export function Topbar() {
   let eyebrow = 'Workspace';
   let title = 'New analysis';
   if (route.name === 'library') title = 'Library';
+  else if (route.name === 'custom') title = 'Custom passage';
   else if (route.name === 'settings') { eyebrow = 'System'; title = 'Settings'; }
   else if (route.name === 'help') { eyebrow = 'System'; title = 'Help & shortcuts'; }
   else if (route.name === 'notfound') { eyebrow = 'Error'; title = 'Page not found'; }

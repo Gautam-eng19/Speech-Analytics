@@ -470,3 +470,28 @@
   .rec__device { margin-left: 0; min-width: 0; flex: 1; }
   .rec__controls { flex-wrap: wrap; }
 }
+
+/* ---- custom passage ---------------------------------------------------------------------------------------------------------------- */
+.custom-text { font-family: var(--font-display); font-optical-sizing: auto; font-size: 1.0625rem; line-height: 1.7; min-height: 190px; }
+.custom-hint { display: block; }
+.custom-lead { margin: 0 0 12px; line-height: 1.55; }
+.custom-lead strong { color: var(--ink); font-weight: 650; }
+.custom-add { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+.take-list { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.take-list__item { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; background: var(--surface-2); border: var(--hair) solid var(--rule-faint); border-radius: var(--r-sm); }
+.take-list__head { display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
+.take-list__name { flex: 1; min-width: 0; font-weight: 600; color: var(--ink); }
+.custom-count { margin: 12px 0 14px; font-size: var(--fs-small); }
+.custom-result { margin-top: 16px; padding-top: 14px; border-top: var(--hair) solid var(--rule-faint); display: flex; flex-direction: column; gap: 12px; }
+.custom-result__chips { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+.custom-result__table { width: 100%; }
+.custom-warnings { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-dense); line-height: 1.5; color: var(--ink-2); }
+.custom-warnings li { display: flex; gap: 8px; align-items: flex-start; }
+.custom-warnings svg { flex-shrink: 0; margin-top: 2px; color: var(--warn); }
+.custom-list { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.custom-list__item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: var(--hair) solid var(--rule-faint); border-radius: var(--r-sm); background: var(--surface-2); }
+.custom-list__item.is-active { border-color: var(--brand); background: var(--brand-faint); }
+.custom-list__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.custom-list__title { font-weight: 600; color: var(--ink); }
+.custom-list__meta { font-size: var(--fs-small); }
+.custom-notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: var(--fs-dense); line-height: 1.55; color: var(--ink-2); }

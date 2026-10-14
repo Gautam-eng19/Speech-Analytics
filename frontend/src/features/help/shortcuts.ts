@@ -13,6 +13,7 @@ export const SHORTCUTS: ShortcutGroup[] = [
       { keys: ['B'], label: 'Collapse or expand the sidebar' },
       { keys: ['T'], label: 'Switch between light and dark' },
       { keys: ['g', 'n'], label: 'Go to New analysis' },
+      { keys: ['g', 'c'], label: 'Go to Custom passage' },
       { keys: ['g', 'l'], label: 'Go to Library' },
       { keys: ['g', 's'], label: 'Go to Settings' },
       { keys: ['g', 'h'], label: 'Go to Help' },

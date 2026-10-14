@@ -1,5 +1,5 @@
 import type {
-  AnalysisResult, BaselineListResponse, ErrorCode, ErrorResponse, HealthResponse, SampleIndex, StatusResponse,
+  AnalysisResult, BaselineListResponse, CustomBaselineDeleted, CustomBaselineResult, ErrorCode, ErrorResponse, HealthResponse, SampleIndex, StatusResponse,
 } from './types';
 
 /** Everything that can go wrong talking to the API, in one shape the UI can show. */
@@ -33,12 +33,22 @@ export interface AnalyzeOptions {
   onUploadProgress?: (loaded: number, total: number) => void;
 }
 
+export interface CustomBaselineParams {
+  passageText: string;
+  title?: string;
+  /** 2 to 6 recordings of a good reading of the passage. */
+  files: File[];
+}
+
 export interface ApiClient {
   health(signal?: AbortSignal): Promise<HealthResponse>;
   baselines(signal?: AbortSignal): Promise<BaselineListResponse>;
   result(analysisId: string, signal?: AbortSignal): Promise<AnalysisResult>;
   status(analysisId: string, signal?: AbortSignal): Promise<StatusResponse>;
   analyze(file: File, params: AnalyzeParams, options?: AnalyzeOptions): Promise<AnalysisResult>;
+  /** Make a baseline from the user's own passage and recordings (API contract 1.3.0). Slow: every recording is aligned to the text. */
+  createCustomBaseline(params: CustomBaselineParams, options?: AnalyzeOptions): Promise<CustomBaselineResult>;
+  deleteCustomBaseline(baselineId: string, signal?: AbortSignal): Promise<CustomBaselineDeleted>;
 }
 
 const API_PREFIX = '/api/v1';
@@ -93,6 +103,62 @@ export function createClient(getBase: () => string = () => ''): ApiClient {
     baselines: (signal) => getJson<BaselineListResponse>('/baselines', signal),
     result: (id, signal) => getJson<AnalysisResult>(`/result/${encodeURIComponent(id)}`, signal),
     status: (id, signal) => getJson<StatusResponse>(`/status/${encodeURIComponent(id)}`, signal),
+
+    async deleteCustomBaseline(baselineId, signal) {
+      let response: Response;
+      try {
+        response = await fetch(url(`/custom/baselines/${encodeURIComponent(baselineId)}`), { method: 'DELETE', headers: { Accept: 'application/json' }, signal });
+      } catch {
+        if (signal?.aborted) throw new ApiError('ABORTED', 'The request was cancelled.');
+        throw new ApiError('NETWORK_ERROR', 'The API could not be reached. Is the backend running?');
+      }
+      if (!response.ok) throw await readError(response);
+      try {
+        return (await response.json()) as CustomBaselineDeleted;
+      } catch {
+        throw new ApiError('BAD_RESPONSE', 'The API answered with something that is not JSON.', response.status);
+      }
+    },
+
+    createCustomBaseline(params, options = {}) {
+      return new Promise<CustomBaselineResult>((resolve, reject) => {
+        const form = new FormData();
+        form.append('passage_text', params.passageText);
+        if (params.title?.trim()) form.append('title', params.title.trim());
+        for (const file of params.files) form.append('baseline_audio', normalizeAudioFile(file), file.name);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url('/custom/baselines'));
+        xhr.responseType = 'text';
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) options.onUploadProgress?.(event.loaded, event.total);
+        };
+        xhr.onerror = () => reject(new ApiError('NETWORK_ERROR', 'The API could not be reached. Is the backend running?'));
+        xhr.onabort = () => reject(new ApiError('ABORTED', 'The baseline was not made: the request was cancelled.'));
+        xhr.onload = () => {
+          let body: unknown = null;
+          try {
+            body = JSON.parse(xhr.responseText);
+          } catch {
+            /* handled below */
+          }
+          if (xhr.status >= 200 && xhr.status < 300 && body && typeof body === 'object') {
+            resolve(body as CustomBaselineResult);
+          } else if (body && typeof body === 'object' && 'error' in body && 'detail' in body) {
+            const e = body as ErrorResponse;
+            reject(new ApiError(e.error, e.detail, xhr.status, e.analysis_id ?? null));
+          } else {
+            reject(new ApiError('HTTP_ERROR', `The server answered ${xhr.status}.`, xhr.status));
+          }
+        };
+        if (options.signal) {
+          if (options.signal.aborted) return reject(new ApiError('ABORTED', 'The baseline was not made: the request was cancelled.'));
+          options.signal.addEventListener('abort', () => xhr.abort(), { once: true });
+        }
+        xhr.send(form);
+      });
+    },
 
     analyze(file, params, options = {}) {
       return new Promise<AnalysisResult>((resolve, reject) => {

@@ -68,6 +68,8 @@ yarn-error.log*
 data/raw/*
 !data/raw/.gitkeep
 data/incoming/
+# Custom passages and their baselines come from users' own recordings and text (DEC-044): never committed.
+data/custom/
 # Personal copies of the recording plan (for example made with --done after the pilot) are not committed.
 data/plan/local/
 # Audacity label files made by prepare_recordings.py (derived from the alignments; regenerate them any time).
