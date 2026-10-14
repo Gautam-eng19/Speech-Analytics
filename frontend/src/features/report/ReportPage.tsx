@@ -40,9 +40,9 @@ export function ReportPage({ analysis }: { analysis: LoadedAnalysis }) {
         </div>
       </div>
 
-      <article className="report" aria-label="Delivery analysis report">
+      <article className="report paper" aria-label="Delivery analysis report">
         <header className="report__head">
-          <div className="eyebrow">Speech Analytics · Delivery report</div>
+          <div className="eyebrow">VAANI · Delivery report</div>
           <h2 className="report__title">{analysis.title}</h2>
           <p className="report__meta">
             {fmtDuration(duration)} recording · analysed {tc.range(span.start, span.end)} · baseline <span className="num">{result.baseline.baseline_id}</span> · printed {printedOn}

@@ -14,16 +14,16 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
   icon?: IconName;
   iconRight?: IconName;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   busy?: boolean;
 }
 
 export function Button({ variant = 'secondary', icon, iconRight, size = 'md', busy, className = '', children, disabled, ...rest }: ButtonProps) {
   return (
     <button type="button" className={`btn btn--${variant} btn--${size} ${className}`} disabled={disabled || busy} aria-busy={busy || undefined} {...rest}>
-      {busy ? <span className="spinner" aria-hidden="true" /> : icon ? <Icon name={icon} size={size === 'sm' ? 15 : 16} /> : null}
+      {busy ? <span className="spinner" aria-hidden="true" /> : icon ? <Icon name={icon} size={size === 'sm' ? 15 : size === 'lg' ? 18 : 16} /> : null}
       {children ? <span className="btn__label">{children}</span> : null}
-      {iconRight ? <Icon name={iconRight} size={15} /> : null}
+      {iconRight ? <Icon name={iconRight} size={size === 'lg' ? 17 : 15} /> : null}
     </button>
   );
 }

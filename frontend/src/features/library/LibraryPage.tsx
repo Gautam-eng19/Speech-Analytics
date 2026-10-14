@@ -6,6 +6,7 @@ import { PageHead, SourceChip } from '@/components/page';
 import { Button, Dialog, EmptyState, IconButton, Meter, Panel, ScrollRegion } from '@/components/ui';
 import { fmtDuration, fmtNum, fmtRelative, plural } from '@/lib/format';
 import { analysisPath, navigate } from '@/app/router';
+import { openNewAnalysis } from '@/features/landing/LandingNav';
 import { loadSamples } from '@/state/analysis';
 import { clearHistory, removeHistory, useHistory } from '@/state/history';
 import { SampleCard } from '../analyze/SampleCard';
@@ -69,7 +70,7 @@ export function LibraryPage() {
         eyebrow="Library"
         title="Samples and your analyses"
         meta={<span>Demo samples ship with the dashboard. Analyses you open are listed here, in this browser only; the results themselves stay on the server.</span>}
-        actions={<Button variant="primary" icon="plus" onClick={() => navigate('/')}>New analysis</Button>}
+        actions={<Button variant="primary" icon="plus" onClick={openNewAnalysis}>New analysis</Button>}
       />
 
       <div className="lib__bar">
@@ -93,7 +94,7 @@ export function LibraryPage() {
 
       <Panel eyebrow="This browser" title={history.length === 0 ? 'Your analyses' : `Your analyses (${shownHistory.length}${shownHistory.length !== history.length ? ` of ${history.length}` : ''})`} actions={history.length > 0 ? <Button size="sm" variant="ghost" icon="trash" onClick={() => setConfirm(true)}>Clear list</Button> : null} flush>
         {history.length === 0 ? (
-          <EmptyState icon="layers" title="Nothing here yet" action={<Button variant="primary" onClick={() => navigate('/')}>Analyse a recording</Button>}>
+          <EmptyState icon="layers" title="Nothing here yet" action={<Button variant="primary" onClick={openNewAnalysis}>Analyse a recording</Button>}>
             Recordings you analyse, and samples you open, appear here so you can come back to them.
           </EmptyState>
         ) : shownHistory.length === 0 ? <p className="lib__empty muted">Nothing in your list matches “{query}”.</p> : <HistoryTable entries={shownHistory} />}

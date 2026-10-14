@@ -1,4 +1,4 @@
-# Demo video script — Speech Analytics (about 9 minutes)
+# Demo video script — VAANI (about 9 minutes)
 
 **How to use this page.** Everything after a `>` is what you say, word for word. Everything under **On screen** is what the viewer sees at that moment.
 Read it aloud once before recording; wherever a sentence feels stiff in your mouth, change it to how you would say it to a friend. The facts and numbers
@@ -29,7 +29,7 @@ so time yourself once; if you are over 9:45, the cuts are listed in section 10.
 
 ## 1. Hook — 0:00 to 0:50
 
-**On screen:** Black, then the title *Speech Analytics — where exactly did the delivery drift, and by how much?* Cut to a recording's waveform playing; at the end of the section
+**On screen:** Black, then the title *VAANI — where exactly did the delivery drift, and by how much?* Cut to a recording's waveform playing; at the end of the section
 a single finding card slides in over the waveform (use the "too fast" card from section 7).
 
 > Imagine you rehearse a talk, and someone tells you: "You need to speak more clearly."
@@ -41,7 +41,7 @@ a single finding card slides in over the waveform (use the "too fast" card from 
 > We built something different. Our system listens to how you delivered a passage, compares it with a good delivery of the *same words*, and tells you things like:
 > "Between twenty-three and twenty-six seconds, you were speaking at two hundred and ninety-six words a minute. Your baseline is one hundred and seventy-five."
 >
-> A time. A measurement. A reason. And what to do about it. I'm **[your name]**, and this is Speech Analytics, our entry for Track C.
+> A time. A measurement. A reason. And what to do about it. I'm **[your name]**, and this is VAANI, our entry for Track C.
 
 ---
 
@@ -119,12 +119,14 @@ between the boxes* — read them out; that is exactly what the judges asked to u
 
 ## 4. The site — upload and first look — 5:00 to 5:40
 
-**On screen:** Terminal for three seconds showing the server running (`uvicorn ... Application startup complete`), then the browser on **New analysis**. Pick the baseline, drop in the "too fast" take,
-press **Analyse recording**. Show the progress text, then cut to the finished result.
+**On screen:** Terminal for three seconds showing the server running (`uvicorn ... Application startup complete`), then the browser on the VAANI **home page**. Let the headline and the instrument sit for two seconds, move the pointer slowly along the trace (the readout under it changes),
+click the first finding's label so the clip plays. Then press **Analyse a recording** (the page scrolls to the analysis flow), pick the baseline, drop in the "too fast" take, press **Analyse recording**. Show the progress text, then cut to the finished result.
 
 > This is the real system running on my machine.
 >
-> On the New analysis page, I choose the baseline — here, a passage we recorded readings of — and upload a recording. The audio is analysed in memory and isn't saved; only the result is.
+> The first thing you see is a real analysis of one of our demo recordings, a synthetic voice. Under the pointer, every number is read from the result — the pace, the loudness, the pitch at that exact moment — and the copper marks are the places the system found a deviation. Click one and you hear it.
+>
+> Now my own recording. I choose the baseline — here, a passage we recorded readings of — and upload it. The audio is analysed in memory and isn't saved; only the result is.
 >
 > The server transcribes, aligns, measures and compares. I've run these in advance, so let's jump to the result.
 
@@ -139,7 +141,7 @@ evidence panel open.
 >
 > *[play about 8 seconds of the flagged stretch; let the viewer hear the speed]*
 >
-> You can hear it — it rushes. Now the evidence. Twenty-three point four to twenty-six point six seconds. The speaker averaged **two hundred and ninety-six words a minute**. For these same words, the baseline readers averaged **one hundred and seventy-five**.
+> You can hear it — it rushes. (Scroll the Overview for five seconds: the **score profile** shows each dimension against the reference ring, with what the finding cost in copper.) Now the evidence. Twenty-three point four to twenty-six point six seconds. The speaker averaged **two hundred and ninety-six words a minute**. For these same words, the baseline readers averaged **one hundred and seventy-five**.
 > That is ten point nine standard deviations away — far outside normal variation. And the page says why that counts as a delivery flaw, and what to try: slow down in this stretch, aim for about one hundred and seventy-five words a minute, and keep the pauses between phrases.
 >
 > We planted this flaw at twenty-three point four to twenty-six point nine. The system found it from twenty-three point four to twenty-six point six. That is the whole idea: a place, a measurement, a reason.
@@ -205,9 +207,9 @@ baseline live on camera; it takes about a minute per recording. Show a finished 
 
 **On screen:** Back to Visual C (the evidence chain), then the title card with the repository address and your names.
 
-> So that is Speech Analytics. Audio goes in. Every word is timed. Delivery is compared with the same words read well. And what comes out is not a score, but a time, a measurement, a reason and a suggestion — all computed by deterministic code, with the evidence checked before any explanation is written.
+> So that is VAANI. Audio goes in. Every word is timed. Delivery is compared with the same words read well. And what comes out is not a score, but a time, a measurement, a reason and a suggestion — all computed by deterministic code, with the evidence checked before any explanation is written.
 >
-> There are nearly fourteen hundred backend tests and over three hundred dashboard tests behind it, and every claim here can be re-run from our repository.
+> There are nearly fourteen hundred backend tests and nearly four hundred dashboard tests behind it, and every claim here can be re-run from our repository.
 >
 > Thank you for watching. The code, the setup instructions and the documentation are in the repository linked below.
 

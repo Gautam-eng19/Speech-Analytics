@@ -11,6 +11,7 @@ import './styles/components.css';
 import './styles/shell.css';
 import './styles/pages.css';
 import './styles/timeline.css';
+import './styles/landing.css';
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

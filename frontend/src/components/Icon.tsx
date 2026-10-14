@@ -122,14 +122,17 @@ export function Icon({ name, size = 18, stroke: strokeWidth = 1.6, className, st
   );
 }
 
-/** The product mark: a baseline waveform crossed by a playhead; the right half deviates. */
+/**
+ * The VAANI mark: a V made of two strokes that leave one point together. The left one is the reference, the right one is the delivery,
+ * which drifts away and ends in the copper marker where the two have separated the most. (The favicon in index.html is the same drawing.)
+ */
 export function LogoMark({ size = 30 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <rect width="32" height="32" rx="8" fill="var(--brand)" />
-      <path d="M5.5 16h3l2.2-5.4 3 10.8 2.4-8.4 2 3h1.2" fill="none" stroke="var(--on-brand)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M20.4 16.6l1.8-4.6 1.9 9.4 1.6-5.4h1.3" fill="none" stroke="var(--on-brand)" strokeOpacity="0.55" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M17.6 6.5v19" stroke="var(--on-brand)" strokeWidth="1.4" strokeLinecap="round" opacity="0.9" />
+      <rect x="0.5" y="0.5" width="31" height="31" rx="8" fill="var(--surface-3)" stroke="var(--rule-strong)" />
+      <path d="M16 25.5L7.6 7" fill="none" stroke="var(--ink)" strokeWidth="2.5" strokeLinecap="round" />
+      <path d="M16 25.5C17.4 19 21.4 12.6 25.4 8" fill="none" stroke="var(--brand)" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="25.6" cy="7.6" r="2.3" fill="var(--copper)" />
     </svg>
   );
 }

@@ -67,23 +67,24 @@ frontend/
   public/samples/        demo recordings, their results and index.json (DEC-034)
   scripts/screenshots.mjs  visual QA: every page, light and dark, desktop / tall / phone
   scripts/a11y.mjs         axe-core audit of every page and interactive state, both themes
-  scripts/smoke.mjs        end-to-end checks in a real Chromium (29 of them), incl. a take from the fake microphone
+  scripts/smoke.mjs        end-to-end checks in a real Chromium (42 of them), incl. the landing page and a take from the fake microphone
   src/
     api/                 client.ts (fetch + upload with progress), types.ts (names for generated types), schema.d.ts (generated)
     app/                 App (routes), Shell, Sidebar, Topbar, Ribbon, Transport, CommandPalette, GlobalKeys, router
-    charts/              TimelineStack (shared plot), lanes.tsx, overlays.tsx, geometry.ts, useWidth.ts, ScoreRadar.tsx (the score profile on the Overview page)
+    charts/              TimelineStack (shared plot), lanes.tsx, overlays.tsx, geometry.ts, useWidth.ts, ScoreRadar.tsx (the score profile on the Overview page), useTweened.ts
     components/          Icon (custom set), ui.tsx (buttons, chips, meters, dialog, toasts), page.tsx, EvidenceView.tsx
-    features/            one folder per page: analyze, library, overview, timeline, flaws, signals, transcript, baseline, report, settings, help
-    lib/                 pure helpers: format, time, decimate, result, lookup, evidence, flawMeta, notesMeta, settings, store, csv
+    features/            one folder per page: analyze, library, overview, timeline, flaws, signals, transcript, baseline, report, settings, help;
+                         landing/ is the home page (the instrument, its geometry, the sections, the landing navigation), shown by the analyze route
+    lib/                 pure helpers: format, time, decimate, result, lookup, evidence, flawMeta, notesMeta, settings, store, csv, useMotion
     recording/           recorder (microphone to samples), resample (to 16 kHz), wav (16-bit PCM file)
     state/               stores: analysis, player, history, connection, ui, actions
-    styles/              tokens, base, components, shell, pages, timeline (plain CSS, custom properties)
+    styles/              tokens, base, components, shell, pages, timeline, landing (plain CSS, custom properties)
   tests/                 Vitest suites (see section 8)
 ```
 
 ### Routes
 
-`#/` new analysis · `#/library` · `#/settings` · `#/help` · `#/a/<analysis id>/<view>[/<finding id>]` with `view` one of
+`#/` the landing page, which contains the new-analysis flow · `#/library` · `#/custom` · `#/settings` · `#/help` · `#/a/<analysis id>/<view>[/<finding id>]` with `view` one of
 `overview`, `timeline`, `flaws`, `signals`, `transcript`, `baseline`, `report`. A demo sample is opened by its analysis id like any
 other analysis; an id the samples do not know is fetched from the API.
 
@@ -94,23 +95,28 @@ playhead (a separate store, updated every animation frame while playing, so only
 selection, hover time, settings and history (localStorage), connection health and the baseline catalogue. A request that has been
 replaced by a newer one can no longer change the state (`superseded` in `state/analysis.ts`).
 
-Settings (`sa.settings.v1`): theme, density, motion, time format, sidebar, API address, timeline lanes, follow-playhead, ground truth.
+Settings (`sa.settings.v1`): theme (dark unless the user chose otherwise), density, motion, time format, sidebar, API address, timeline lanes, follow-playhead, ground truth.
 History (`sa.history.v1`): id, title, score, counts of the last 40 opened analyses. Audio and results are never stored in the browser.
 
 ## 4. Design system
 
-Identity: an **instrument panel crossed with a printed report**. Warm paper (light) or graphite (dark) surfaces, one-pixel rules,
-small radii, a single teal brand colour, a serif for page titles and the score numeral, tabular monospace for every number, an
-oscilloscope-like plot area. Colour is reserved for meaning: finding types and alerts. There is no traffic-light colouring of the score.
+Identity (DEC-045): **VAANI, a precision acoustic instrument.** Obsidian and graphite surfaces, hairline rules, ivory type, and two colours that carry meaning
+and nothing else: **cyan is signal** (the delivery, live audio, anything interactive) and **copper is deviation** (only where the pipeline reported one); steel is the quiet voice
+(the reference, secondary text). Dark is the primary theme; the light theme is the same system on ivory. Large serif titles, monospace for every measurement and
+technical label, thin dividers and open layouts instead of a card around everything, two very faint pools of light and a fine grain on the large dark fields.
 
-- **Tokens** (`styles/tokens.css`): colour, type scale, spacing (4 px grid), radii, motion, layout sizes; both themes are defined there
-  and nowhere else. `html[data-theme]`, `data-density` and `data-motion` select them.
-- **Type**: IBM Plex Sans (interface), IBM Plex Mono (numbers), Newsreader (titles, score numeral, passage and transcript text);
-  all self-hosted, SIL OFL 1.1.
-- **Finding colours**: eight hues, each also a glyph (`g-fast`, `g-slow`, `g-pause`, ...), so colour is never the only signal. Finding text
-  is mixed toward the ink so it reads on its own tint.
-- **Contrast**: `tests/tokens.test.ts` asserts WCAG 2.1 AA for the pairs the stylesheets use, in both themes.
-- **Icons**: one custom set on a 24-unit grid with one stroke weight (`components/Icon.tsx`).
+- **Tokens** (`styles/tokens.css`): palette primitives, colour roles, type scale (`--fs-title` for page titles, `--fs-display` for the landing headline), spacing (4 px grid), radii, motion,
+  layout sizes, texture; both themes are defined there and nowhere else. `html[data-theme]`, `data-density` and `data-motion` select them; `.paper` re-applies the light values
+  (the printable report is paper in either theme).
+- **Type**: IBM Plex Sans (interface), IBM Plex Mono (numbers, timestamps, labels), Newsreader (titles, the score numeral, passage and transcript text); all self-hosted, SIL OFL 1.1.
+- **Finding colours**: eight hues, each also a glyph (`g-fast`, `g-slow`, `g-pause`, ...) and a name, so colour is never the only signal. Copper (`--dev`) is the generic deviation colour for places that
+  do not need the type (severity bars, the landing instrument, the radar). Finding text is mixed toward the ink so it reads on its own tint.
+- **Contrast**: `tests/tokens.test.ts` asserts WCAG 2.1 AA for the pairs the stylesheets use, in both themes; axe covers the rest (section 8).
+- **Icons and mark**: one custom icon set on a 24-unit grid with one stroke weight (`components/Icon.tsx`); the VAANI mark is two strokes that leave one point together, the delivery drifting away and ending in the copper marker.
+- **Motion**: transforms and opacity, one calm entrance per page, nothing that loops without meaning. Decorative motion (the drifting grid, the travelling marker) pauses when it is off screen and
+  is off when reduced motion is asked for (system setting or Settings); then every picture is complete at once. Pointer response lives on the landing instrument only (section 6) and is off for coarse pointers.
+- **Reusable pieces**: `PageHead` (eyebrow, title, meta, actions), `Panel`, `Figure`, `Fact`, `Chip`, `FlawTag`, `Meter`, `Segmented`, `Button` (sm, md, lg), `Tip`, `Kbd`,
+  `ScoreRadar` with its legend, `TimelineStack` and its overlays, the landing's `SectionHead`.
 
 ## 5. The plot system (`src/charts/`)
 
@@ -131,15 +137,21 @@ Interaction (timeline): wheel zooms around the pointer, Shift + wheel or drag pa
 the playhead, the crosshair and the readout follow the pointer, "Follow" pages the view along during playback. The delivery ribbon above
 every analysis page shows the whole recording, its findings and the visible window, and can be dragged.
 
-Overlays (playhead, crosshair, finding columns, selection, trimmed silence, active word) subscribe to their stores themselves, so zooming
-or hovering does not redraw the lanes more than once per change.
+Overlays (playhead, crosshair, finding columns, selection, trimmed silence, active word, the part already played, the finding being played) subscribe to their stores themselves, so zooming
+or hovering does not redraw the lanes more than once per change. While the audio runs, the played part is washed (in the plots and in the ribbon) and the finding being played breathes;
+traces are drawn in from the left when a plot first appears (once; not in print).
 
 ## 6. Pages
 
-- **New analysis**: upload (drag and drop, WAV or MP3, preview) or record in the browser (section 6a), baseline and passage from `GET /api/v1/baselines` (with thin-statistics
+- **Landing page** (the home route, `features/landing/`): a hero with the headline and two calls to action (analyse a recording: scroll to the flow and focus it; explore a demo analysis: open it on the timeline),
+  the **instrument** under it, then method, evidence and journey sections, the analysis flow, a footer. The instrument draws the demo sample `mixed-flaws`, a synthetic voice analysed by the real pipeline: the speech-rate trace over the reference corridor,
+  the loudness envelope, a labelled interval per finding with the backend's evidence line. Geometry is `heroModel.ts` (pure, tested). Hovering reads the measurement at that moment from the result (`lib/lookup.ts`); clicking plays that moment;
+  a finding's label plays its interval; the pointer lights the bars under it and shifts only the atmosphere behind the data. Without the sample it is a drawing labelled "Illustration". The landing navigation replaces the top bar on this route (no sign-in: the product has no accounts),
+  and the sidebar is the drawer at every width.
+- **New analysis (the flow inside the landing)**: upload (drag and drop, WAV or MP3, preview) or record in the browser (section 6a), baseline and passage from `GET /api/v1/baselines` (with thin-statistics
   warnings and the passage to read), optional manual transcript, honest progress (upload bytes, then "analysing" with elapsed time and a
   cancel; the API reports nothing finer), API errors with their own detail, demo samples, recent analyses.
-- **Overview**: score instrument, readout, figure of the whole recording, findings strongest first, score by dimension, notes, provenance.
+- **Overview**: score instrument, readout, figure of the whole recording, findings strongest first, the score profile (the radar: the reference ring, this recording, copper where findings cost points, legend, tooltip, grows into its values), notes, provenance.
 - **Timeline**: the scope, with an inspector (values at the cursor, selected finding, legend).
 - **Flaws**: list with filter and sort; for one finding: close-up, evidence gauge and table, explanation, recommendation, rule, warnings,
   affected words; `j` `k` move, Enter plays; "Export CSV" downloads every finding as a table (section 6b).
@@ -183,7 +195,7 @@ and says so. Rate findings are window-resolution, pitch is context only, and thr
 
 ## 8. Tests and visual QA
 
-`npm test` runs 290 tests: formatting, time windows, decimation, routing, settings, stores, the API client (with `fetch` and
+`npm test` runs 386 tests: the landing page and its geometry, the radar and its animation, formatting, time windows, decimation, routing, settings, stores, the API client (with `fetch` and
 `XMLHttpRequest` stand-ins), lookups, evidence formatting, the plot interactions (wheel, drag, click, select), every page with real result
 fixtures (the shipped samples), the store (including overlapping requests), the application (routing, keyboard, palette), the colour tokens,
 the recorder (against a scripted audio graph: permission and device errors, voice-processing flags, limit, cancel, byte-exact WAV), the
@@ -192,11 +204,12 @@ The suite was checked with injected bugs (27 mutations of the helpers, plots, st
 writer and CSV writer); every one made a test fail. One recorder mutation first survived (the length of the converted take when the last
 output sample is incomplete); a test now covers it.
 
-`npm run a11y` runs axe-core (WCAG 2.1 A and AA) on every page and on the interactive states (command palette, shortcuts dialog, selected finding, zoomed timeline, collapsed sidebar, phone navigation drawer, phone layouts) in both themes; on 2026-10-10 all 50 combinations pass (the recorder states included), after the audit had found and the fixes had removed: small text in the decorative grey, a white-on-orange playhead label, an unlabeled file input, scroll regions without keyboard access, unnamed icon links in the collapsed sidebar and low-confidence words that were faded below readable contrast (they are now tinted instead).
+`npm run a11y` runs axe-core (WCAG 2.1 A and AA) on every page and on the interactive states (command palette, shortcuts dialog, selected finding, zoomed timeline, collapsed sidebar, phone navigation drawer, phone layouts, and six landing states: settled, pointer on the instrument, a finding playing, drawer open, phone) in both themes; on 2026-10-14 all 70 combinations pass (the recorder states included). The audit once found and the fixes removed: small text in the decorative grey, a white-on-orange playhead label, an unlabeled file input, scroll regions without keyboard access, unnamed icon links in the collapsed sidebar, low-confidence words that were faded below readable contrast (they are now tinted instead), and, with the landing page, the interval text of a highlighted label on the instrument. A closed navigation drawer is hidden, not only moved off screen, so its links are not in the tab order.
 
 `npm run shots` writes PNGs of every page in light and dark at desktop, tall and phone sizes for review. Interaction was also driven in a real
-Chromium (zoom, pan, selection, shortcuts, palette, theme, playback, upload with a mocked API); `npm run smoke` repeats those checks (29
-of them) and also records a take from Chromium's fake microphone and inspects the uploaded WAV header.
+Chromium (zoom, pan, selection, shortcuts, palette, theme, playback, upload with a mocked API, the landing instrument); `npm run smoke` repeats those checks (42
+of them) and also records a take from Chromium's fake microphone and inspects the uploaded WAV header. A layout audit (every page at eight widths from 320 to 2560 px, both themes) found no horizontal overflow
+after two fixes (a table in the report on the narrowest screen, hit areas of the radar's labels).
 
 ## 9. Not done yet
 

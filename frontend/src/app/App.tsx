@@ -99,9 +99,9 @@ function useDocumentTitle(): void {
   const route = useRoute();
   const current = useCurrent();
   useEffect(() => {
-    const product = 'Speech Analytics';
+    const product = 'VAANI';
     let title = product;
-    if (route.name === 'analyze') title = `New analysis · ${product}`;
+    if (route.name === 'analyze') title = `${product} · Contrastive speech analytics`;
     else if (route.name === 'library') title = `Library · ${product}`;
     else if (route.name === 'custom') title = `Custom passage · ${product}`;
     else if (route.name === 'settings') title = `Settings · ${product}`;

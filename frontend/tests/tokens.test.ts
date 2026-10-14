@@ -16,7 +16,7 @@ function block(selector: string): Record<string, string> {
   const body = tokens.slice(tokens.indexOf('{', start) + 1, tokens.indexOf('\n}', start));
   return Object.fromEntries([...body.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((m) => [m[1]!, m[2]!.trim()]));
 }
-const light = block(':root {');
+const light = block(':root,\n.paper {');
 const dark = { ...light, ...block(":root[data-theme='dark']") };
 
 type Rgb = [number, number, number];

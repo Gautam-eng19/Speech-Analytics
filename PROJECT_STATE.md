@@ -4,10 +4,10 @@ Last updated:
 2026-10-14
 
 Updated by:
-Coding agent (registration tools, then rounds of accuracy work after the first tests on real recordings, then flat pitch; control files synchronised, delegated by the team leader)
+Coding agent (registration tools, rounds of accuracy work, flat pitch, custom passages, then the VAANI visual identity; control files synchronised, delegated by the team leader)
 
 All statements below were checked against the repository and full test runs on 2026-10-13
-(1389 backend tests passed, 2 smoke tests deselected; 333 dashboard tests passed, 29 smoke and 50 accessibility checks passed; see section 9).
+(1389 backend tests passed, 2 smoke tests deselected; 386 dashboard tests passed, 42 smoke and 70 accessibility checks passed; see section 9).
 The real Whisper and WhisperX models were NOT run (see section 11).
 
 ---
@@ -61,7 +61,7 @@ Analysis pipeline:
 🟢 12 of 12 stages implemented; flat_pitch is judged by the word profile's pitch part (DEC-042; synthetic speech only); pitch_instability is not detected
 
 Testing:
-🟢 1389 backend + 333 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
+🟢 1389 backend + 386 dashboard tests pass. Real-model smoke tests (`-m smoke`: Whisper base, WhisperX) have not been run.
 
 Demo:
 🟡 Dashboard with four labelled synthetic samples works end to end; a real demo needs recordings and a baseline (TASK-122)
@@ -191,7 +191,14 @@ The team leader decided speakers (2 dev + 2 test), equipment (USB headset) and l
   sentences 0 % -> 89 to 91 %. Not verified on real recordings; baselines must be rebuilt (`prepare_recordings.py data/incoming --build-baseline`).
 
 2026-10-14 (after): score profile chart. The Overview page shows the score of each dimension as an interactive radar (`charts/ScoreRadar.tsx`): the outer ring is 100 (no deviation from the baseline), the shaded shape is where the delivery stands, and the stretch between a corner and the ring (what the dimension lost) lights up on hover or focus; a spoke opens the dimension's strongest finding (click, Enter or Space; arrow keys move between spokes); a dimension the backend did not score keeps a dashed spoke and no corner and is never drawn as perfect; the list beside it carries the same numbers as text and highlights in step. Presentation only: every value is the backend's. 11 new dashboard tests, axe without violations, keyboard and pointer checked in a real browser.
-2026-10-14 (latest): custom passages (TASK-136, DEC-044).
+2026-10-14 (latest): VAANI visual identity and landing page (TASK-137, DEC-045). Presentation only: no route, page, feature, API field or backend file changed, no dependency added.
+- **One visual system across the dashboard under the name VAANI**: obsidian and graphite surfaces, ivory type, cyan for signal and everything interactive, copper for deviation, steel for the reference and quiet text; dark by default (System and Light in Settings); page titles 21 to 26 % larger on one scale; the mark is two strokes that leave one point together, the delivery drifting away and ending in a copper marker.
+- **The home route is a landing page**: the headline "Hear the difference. Understand the why.", a live instrument that draws the real demo analysis (`mixed-flaws`: rate trace over the reference corridor, loudness envelope, a labelled interval per finding with the backend's own evidence line; hover reads the measurement at that moment from the result, click plays it, a pointer-reactive light and depth shift only behind the data), method, evidence and journey sections,
+  the analysis flow unchanged, footer. Without the sample it is a drawing labelled "Illustration". No sign-in anywhere (the product has no accounts). Everything that moves pauses off screen and is off for reduced motion and coarse pointers.
+- **Also**: a redesigned score radar (reference ring, legend, copper for what findings cost, grows into its values, tooltip), playback-linked plots (played wash, the finding being played, trace reveal, ribbon wash), a printable report that is paper in either theme, a closed navigation drawer that is hidden from the keyboard and returns focus, "New analysis" from inside the app going to the flow.
+- Checked: 53 new dashboard tests (386 in all; ten injected bugs, one first survived, now covered), axe on 70 page and state combinations without a violation (six new landing states), a layout audit of 12 pages at eight widths (320 to 2560 px) in both themes (no horizontal overflow), browser smoke test 42 of 42, screenshots reviewed at phone, tablet, laptop, desktop and wide sizes in both themes.
+  **Not run:** browsers other than Chromium; the hero is always the synthetic demo sample, never a user's analysis; the API's own title is still "Speech Analytics API" (changing it changes the OpenAPI snapshot for no visual reason).
+2026-10-14 (afterwards): custom passages (TASK-136, DEC-044).
 - **A user can bring their own passage.** New dashboard page *Custom passage*: paste a text (30 to 400 words, two sentences or more), add two to six recordings of a good reading (upload or record in the browser), make the baseline, then analyse their own reading against it. Backend: `POST /api/v1/custom/baselines`, `DELETE /api/v1/custom/baselines/{id}`, API contract 1.3.0 (`BaselineSummary.custom`); the ordinary `/analyze` runs unchanged on the result.
   The baseline is built by the same code as the dataset tool (moved to `app.services.baseline_builder`); three recordings give the word profile, two fall back to the overall averages and say so; a recording that is not a reading of the text or in which too few words can be timed is refused with a plain sentence. Only statistics and the text are stored (`data/custom/`, git-ignored), never the audio.
 - Checked: 17 integration tests (synthetic readings, stand-in aligner and recogniser, real everything else), a mutation check of the new code (28 injected bugs; two gaps found, covered, all caught), 26 new dashboard tests, axe without violations (both themes, phone width), and a real-browser run against the real server (passage typed, three recordings uploaded, baseline made, a reading with a fast sentence analysed and the finding shown, listed on New analysis, deleted).

@@ -22,7 +22,7 @@ body {
   overflow: hidden; /* the app shell scrolls its own regions */
 }
 
-::selection { background: var(--selection); }
+::selection { background: var(--selection); color: var(--ink); }
 
 h1, h2, h3, h4, p, ul, ol, dl, dd, figure { margin: 0; }
 ul, ol { padding: 0; list-style: none; }
@@ -30,7 +30,7 @@ ul, ol { padding: 0; list-style: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; padding: 0; }
 button:disabled { cursor: not-allowed; }
-a { color: var(--brand); text-decoration: none; }
+a { color: var(--brand); text-decoration: none; transition: color var(--t-fast) var(--ease); }
 a:hover { text-decoration: underline; text-underline-offset: 3px; }
 img, svg { display: block; max-width: 100%; }
 table { border-collapse: collapse; width: 100%; }
@@ -50,11 +50,13 @@ table { border-collapse: collapse; width: 100%; }
 *::-webkit-scrollbar-track { background: transparent; }
 
 /* ---- type helpers ---- */
-.display { font-family: var(--font-display); font-weight: 400; letter-spacing: -0.01em; font-optical-sizing: auto; }
+.display { font-family: var(--font-display); font-weight: 340; letter-spacing: -0.02em; font-optical-sizing: auto; }
+/* A technical label: monospace, small, uppercase. Used where it names something (a section, a unit, a stage), not above every heading. */
 .eyebrow {
-  font-size: var(--fs-micro);
-  font-weight: 600;
-  letter-spacing: 0.09em;
+  font-family: var(--font-mono);
+  font-size: 0.65625rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
@@ -75,6 +77,10 @@ table { border-collapse: collapse; width: 100%; }
   transition: top var(--t-fast) var(--ease);
 }
 .skip-link:focus { top: var(--sp-3); }
+
+/* One calm entrance for a page's content when the page changes (the content is usable immediately: nothing waits on it). */
+@keyframes page-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.page { animation: page-in var(--t-enter) var(--ease-out) both; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }

@@ -1,8 +1,8 @@
-# Speech-Analytics
+# VAANI
 
 **Contrastive Speech Analytics & Temporal Flaw Grounding** — IIT Mandi Multimodal AI Hackathon 2026, Track C.
 
-Speech-Analytics compares a participant's delivery of a passage with an effective baseline delivery of the
+VAANI compares a participant's delivery of a passage with an effective baseline delivery of the
 **same passage**, finds where the delivery deviates (pace, pauses, loudness, …), measures how much, and pins each
 finding to a time interval with the numbers that support it. It evaluates **delivery**, not content, and it is not a
 generic speech-quality score or an LLM giving advice: every number comes from deterministic backend code.
@@ -15,7 +15,7 @@ audio → preprocessing → transcription → forced alignment → feature extra
 
 ## Status (2026-10-14)
 
-Working and tested (1389 backend and 333 dashboard tests, on synthetic speech):
+Working and tested (1389 backend and 386 dashboard tests, on synthetic speech):
 
 - audio preprocessing with source-time provenance, Whisper transcription, WhisperX alignment and validation
 - features: pitch (pYIN), MFCC, energy (dBFS), rolling-window speech rate, pauses (energy VAD + alignment gaps)
@@ -26,7 +26,7 @@ Working and tested (1389 backend and 333 dashboard tests, on synthetic speech):
 - `POST /api/v1/analyze` runs the whole pipeline; `GET /api/v1/status/{id}` and `GET /api/v1/result/{id}` return stored results
   (deterministic ids, file cache), with a `notes` list that states everything not evaluated or uncalibrated; `GET /api/v1/baselines`
   lists the baselines that can be used
-- the **dashboard** (`frontend/`, light and dark): upload or in-browser recording and baseline choice, overview with the score and its
+- the **dashboard** (`frontend/`, dark by default, light on request; the VAANI identity of DEC-045: a home page with a live instrument that draws a real analysis of a demo recording, hover to read any moment, click a finding to hear it): upload or in-browser recording and baseline choice, overview with the score and its
   dimensions, a timeline with every signal on one time axis, findings with their evidence, explanation and recommendation (exportable as
   CSV), signals, transcript, baseline and method, a printable report, a library, settings and a command palette. It renders backend output only and ships four demo samples
   (synthetic voice, deliberate flaws, analysed by the real pipeline) that open without a baseline

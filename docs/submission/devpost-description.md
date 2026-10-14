@@ -6,7 +6,7 @@ Paste each block into the matching Devpost field. Replace the **[brackets]**. Ke
 
 ## Project name
 
-Speech Analytics
+VAANI
 
 ## Tagline (one line)
 
@@ -23,12 +23,12 @@ Not a score: the exact seconds where your delivery drifted from a good reading o
 
 ### What it does
 
-Speech Analytics compares a recording of a passage with a **baseline made of good readings of the same passage**, finds where the delivery deviates, measures how much, and pins each finding to a time interval with the numbers that support it.
+VAANI compares a recording of a passage with a **baseline made of good readings of the same passage**, finds where the delivery deviates, measures how much, and pins each finding to a time interval with the numbers that support it.
 
 For every finding you get: **when** (start and end in seconds, on word boundaries), **what was measured** (for example *296 words/min against 175 for the same words*), **the flaw type** (too fast, too slow, excessive pause, low energy, high energy, flat pitch), **why it counts as a flaw**, and **what to try**.
 It evaluates delivery only: not content, wording or quality of the speech.
 
-A web dashboard shows the result on a timeline with the audio, pitch, loudness, speed and pauses on one time axis, with playback, the evidence for each finding, the transcript, the baseline and a printable report.
+A web dashboard shows the result on a timeline with the audio, pitch, loudness, speed and pauses on one time axis, with playback, the evidence for each finding, the transcript, the baseline, a score profile (a radar of the dimensions against the reference) and a printable report. Its home page is an instrument that draws a real analysis of a demo recording: hover to read any moment from the result, click a finding to hear it.
 Anyone can also **bring their own passage**: paste a text, add two or three recordings of a good reading to make a personal baseline, then analyse their own reading against it.
 
 ### How it works
@@ -55,7 +55,7 @@ These are development speakers and the planned flaws are not yet all confirmed b
 ### How we built it
 
 Python (FastAPI) backend with Whisper, WhisperX, librosa (pYIN pitch, MFCC, energy) and NumPy/SciPy; a React + TypeScript + Vite dashboard with no charting or UI library (the timeline is drawn by us);
-a dataset toolkit (recording plan, on-screen prompter, quality checker, registration and evaluation tools). Nearly 1,400 backend tests and over 300 dashboard tests, a mutation check of the newest code, and accessibility audits (axe) of every page.
+a dataset toolkit (recording plan, on-screen prompter, quality checker, registration and evaluation tools). Nearly 1,400 backend tests and nearly 400 dashboard tests, a mutation check of the newest code, and accessibility audits (axe) of every page.
 
 ### Challenges
 

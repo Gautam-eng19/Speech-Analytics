@@ -1,6 +1,6 @@
 import type { Flaw } from '@/api/types';
 import { flawColor } from '@/lib/flawMeta';
-import { analysedSpan, wordIndexAt } from '@/lib/result';
+import { analysedSpan, flawsAt, wordIndexAt } from '@/lib/result';
 import { useTimecode } from '@/lib/settings';
 import { useStore } from '@/lib/store';
 import { playerStore, usePlayhead } from '@/state/player';
@@ -24,6 +24,28 @@ export function Playhead({ ctx }: { ctx: LaneCtx }) {
       <span className="ov__flag num" style={{ transform: `translateX(${shift}%)` }}>{tc.at(t)}</span>
     </div>
   );
+}
+
+/** The part of the recording already played, as a faint wash behind the traces (only while there is audio, and once it has moved). */
+export function PlayedShade({ ctx }: { ctx: LaneCtx }) {
+  const t = usePlayhead();
+  const hasAudio = useStore(playerStore, (s) => s.src !== null);
+  if (!hasAudio || t <= 0 || t <= ctx.t0) return null;
+  const share = Math.min(1, Math.max(0, ctx.x(Math.min(t, ctx.t1)) / Math.max(1, ctx.width)));
+  return <div className="ov ov--played" style={{ transform: `scaleX(${share.toFixed(4)})` }} aria-hidden="true" />;
+}
+
+/** While the audio plays, the finding being played breathes, so the ear and the eye are on the same moment. */
+export function LiveFlaw({ ctx, flaws }: { ctx: LaneCtx; flaws: readonly Flaw[] }) {
+  const t = usePlayhead();
+  const playing = useStore(playerStore, (s) => s.playing);
+  if (!playing) return null;
+  const flaw = flawsAt(flaws, t)[0];
+  if (!flaw) return null;
+  const left = ctx.x(flaw.start_s);
+  const width = Math.max(2, ctx.x(flaw.end_s) - left);
+  if (left + width < 0 || left > ctx.width) return null;
+  return <div className="ov ov--live" style={{ left, width, ...cssVar('--c', flawColor(flaw.type)) }} aria-hidden="true" />;
 }
 
 export function Crosshair({ ctx }: { ctx: LaneCtx }) {
