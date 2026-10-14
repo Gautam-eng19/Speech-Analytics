@@ -1357,6 +1357,27 @@ Impact:
 Approved by: Team leader (delegated to coding agent)
 Date: 2026-10-14
 
+## DEC-043 — Flat Pitch Needs a More Permissive Voicing Decision Than the Global Pitch Statistics (Found on the First Real Recordings)
+
+Status: ACCEPTED (agent decision under delegated authority; leader may revise)
+
+Why: the team ran `prepare_recordings.py --build-baseline` with DEC-042 on its 60 real dev takes and both baselines reported `pitch profile: NOT built`. With five real takes of the team leader (3 baseline, 2 clean, passage p001) the cause was reproduced: the pitch tracker (pYIN) marks a frame as voiced only if its
+confidence is at least 0.85, and on real speech only about 5 % of all frames pass (188 to 268 frames in 41 to 45 s), so most words had fewer than the 5 voiced frames the movement of a word needs. Synthetic test voices are clean, so every earlier test passed.
+
+Decision:
+- `F0Config.track_prob_threshold` (0.4) and two optional fields of `F0ExtractionResult` (`track_values_hz`, `track_voiced`): a second voicing decision from the same single pYIN run (no extra run, no extra time). At 0.4 about 30 % of all frames (about half of the speech frames) pass, median pitch and the 5th to 95th percentile stay in the
+  same range as at 0.85 (about 195 Hz, 157 to 258 Hz). The strict `voiced` / `values_hz` that the global pitch statistics and every existing baseline use are unchanged, so no baseline or score changes except through the pitch part.
+- `profile._pitch_movement` uses the permissive track when the extractor provides it (otherwise `voiced`/`values_hz`, as before).
+- A reading that is flat as a whole is now reported as one finding over the recording, without also reporting pieces of it: with the permissive track a synthetic monotone reading got the whole-reading finding plus two short runs left standing by tracker noise.
+
+Result on the five real takes (rough word timing spread by word length over the speech, because the real aligner cannot run here): the pitch part builds from 3 baseline takes (80 to 90 of 123 words usable per take, about 10 voiced frames per word, noise per word 0.49, spread of the overall expressiveness 0.26), and the two held-out clean takes
+get no flat-pitch finding (and no pace or loudness finding). Still not checked: any real monotone take (TASK-135), the second speaker and passage p002.
+
+Impact: `backend/app/services/features/f0.py`, `backend/app/services/grounding/profile.py`, `backend/app/services/grounding/profile_detection.py`; demo samples regenerated (clean probe 0 of 10); three new tests. Baselines must be rebuilt again (`prepare_recordings.py data\incoming --build-baseline`).
+
+Approved by: Team leader (delegated to coding agent)
+Date: 2026-10-14
+
 ---
 
 ## PROPOSED DECISIONS (require team approval before implementation)

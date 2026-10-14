@@ -260,6 +260,9 @@ def _pitch_findings(
                 word_indices=tuple(int(i) for i in pos), voiced_fraction=voiced_fraction(pos),
             ))
 
+    if out:
+        return out          # the whole reading is flat: one finding over it, not also pieces of it that tracker noise leaves standing
+
     adjusted = e * math.exp(2.0 * tau)
     co = np.concatenate(([0.0], np.cumsum(o)))
     ca = np.concatenate(([0.0], np.cumsum(adjusted)))

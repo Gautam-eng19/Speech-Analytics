@@ -15,7 +15,7 @@ audio → preprocessing → transcription → forced alignment → feature extra
 
 ## Status (2026-10-13)
 
-Working and tested (1369 backend and 296 dashboard tests, on synthetic speech):
+Working and tested (1372 backend and 296 dashboard tests, on synthetic speech):
 
 - audio preprocessing with source-time provenance, Whisper transcription, WhisperX alignment and validation
 - features: pitch (pYIN), MFCC, energy (dBFS), rolling-window speech rate, pauses (energy VAD + alignment gaps)
