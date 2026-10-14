@@ -1,0 +1,37 @@
+{
+  "recording_id": "rec_p001_spk_test_01_flaw_loud_01",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p001_spk_test_01_flaw_loud_01_01",
+      "flaw_type": "high_energy",
+      "start_s": 19.787,
+      "end_s": 27.65,
+      "severity_label": "medium",
+      "target_words": [
+        "For",
+        "instance",
+        "you",
+        "might",
+        "speak",
+        "too",
+        "quickly",
+        "during",
+        "a",
+        "key",
+        "point",
+        "or",
+        "pause",
+        "for",
+        "too",
+        "long",
+        "before",
+        "an",
+        "answer"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S4; words 51 to 69), placed by forced alignment. Not yet confirmed by ear."
+    }
+  ]
+}

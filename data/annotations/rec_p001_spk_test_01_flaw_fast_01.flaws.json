@@ -1,0 +1,40 @@
+{
+  "recording_id": "rec_p001_spk_test_01_flaw_fast_01",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p001_spk_test_01_flaw_fast_01_01",
+      "flaw_type": "too_fast",
+      "start_s": 11.684,
+      "end_s": 17.527,
+      "severity_label": "medium",
+      "target_words": [
+        "It",
+        "listens",
+        "to",
+        "a",
+        "recording",
+        "compares",
+        "it",
+        "with",
+        "a",
+        "clear",
+        "example",
+        "of",
+        "the",
+        "same",
+        "message",
+        "and",
+        "shows",
+        "exactly",
+        "where",
+        "the",
+        "delivery",
+        "changed"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S3; words 29 to 50), placed by forced alignment. Not yet confirmed by ear."
+    }
+  ]
+}

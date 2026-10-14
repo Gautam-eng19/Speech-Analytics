@@ -1,0 +1,33 @@
+{
+  "recording_id": "rec_p002_spk_dev_02_flaw_loud_01",
+  "passage_id": "p002",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p002_spk_dev_02_flaw_loud_01_01",
+      "flaw_type": "high_energy",
+      "start_s": 19.868,
+      "end_s": 25.351,
+      "severity_label": "medium",
+      "target_words": [
+        "My",
+        "grandmother",
+        "taught",
+        "me",
+        "that",
+        "a",
+        "good",
+        "conversation",
+        "needs",
+        "patience",
+        "curiosity",
+        "and",
+        "a",
+        "little",
+        "humor"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S4; words 48 to 62), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch was +5.6 dB against the rest of the take, compared with the baseline takes (the plan asked for about +8 dB)."
+    }
+  ]
+}

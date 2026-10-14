@@ -1,0 +1,35 @@
+{
+  "recording_id": "rec_p001_spk_test_01_flaw_fast_02",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p001_spk_test_01_flaw_fast_02_01",
+      "flaw_type": "too_fast",
+      "start_s": 26.231,
+      "end_s": 30.393,
+      "severity_label": "high",
+      "target_words": [
+        "The",
+        "tool",
+        "marks",
+        "those",
+        "moments",
+        "on",
+        "a",
+        "timeline",
+        "explains",
+        "what",
+        "it",
+        "measured",
+        "and",
+        "suggests",
+        "one",
+        "simple",
+        "change"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S5; words 70 to 86), placed by forced alignment. Not yet confirmed by ear."
+    }
+  ]
+}

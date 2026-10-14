@@ -1,0 +1,35 @@
+{
+  "recording_id": "rec_p001_spk_dev_02_flaw_loud_02",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p001_spk_dev_02_flaw_loud_02_01",
+      "flaw_type": "high_energy",
+      "start_s": 30.874,
+      "end_s": 36.937,
+      "severity_label": "high",
+      "target_words": [
+        "We",
+        "tested",
+        "it",
+        "with",
+        "students",
+        "teachers",
+        "and",
+        "engineers",
+        "and",
+        "most",
+        "of",
+        "them",
+        "improved",
+        "within",
+        "a",
+        "single",
+        "week"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S6; words 87 to 103), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch was +10.2 dB against the rest of the take, compared with the baseline takes (the plan asked for about +14 dB)."
+    }
+  ]
+}

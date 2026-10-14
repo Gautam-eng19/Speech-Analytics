@@ -1,0 +1,34 @@
+{
+  "recording_id": "rec_p002_spk_dev_01_flaw_slow_02",
+  "passage_id": "p002",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p002_spk_dev_01_flaw_slow_02_01",
+      "flaw_type": "too_slow",
+      "start_s": 13.805,
+      "end_s": 25.289,
+      "severity_label": "high",
+      "target_words": [
+        "By",
+        "seven",
+        "o'clock",
+        "the",
+        "noise",
+        "is",
+        "overwhelming",
+        "yet",
+        "everyone",
+        "somehow",
+        "manages",
+        "to",
+        "hear",
+        "a",
+        "friendly",
+        "greeting"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S3; words 32 to 47), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch took 1.92 times as long as in the speaker's baseline takes (the plan asked for about 1.80)."
+    }
+  ]
+}

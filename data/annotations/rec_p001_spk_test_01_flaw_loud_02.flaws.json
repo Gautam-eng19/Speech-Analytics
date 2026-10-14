@@ -1,0 +1,35 @@
+{
+  "recording_id": "rec_p001_spk_test_01_flaw_loud_02",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p001_spk_test_01_flaw_loud_02_01",
+      "flaw_type": "high_energy",
+      "start_s": 34.094,
+      "end_s": 40.816,
+      "severity_label": "high",
+      "target_words": [
+        "We",
+        "tested",
+        "it",
+        "with",
+        "students",
+        "teachers",
+        "and",
+        "engineers",
+        "and",
+        "most",
+        "of",
+        "them",
+        "improved",
+        "within",
+        "a",
+        "single",
+        "week"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S6; words 87 to 103), placed by forced alignment. Not yet confirmed by ear."
+    }
+  ]
+}

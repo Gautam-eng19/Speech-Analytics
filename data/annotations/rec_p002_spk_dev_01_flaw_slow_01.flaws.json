@@ -1,0 +1,33 @@
+{
+  "recording_id": "rec_p002_spk_dev_01_flaw_slow_01",
+  "passage_id": "p002",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p002_spk_dev_01_flaw_slow_01_01",
+      "flaw_type": "too_slow",
+      "start_s": 19.589,
+      "end_s": 27.773,
+      "severity_label": "medium",
+      "target_words": [
+        "My",
+        "grandmother",
+        "taught",
+        "me",
+        "that",
+        "a",
+        "good",
+        "conversation",
+        "needs",
+        "patience",
+        "curiosity",
+        "and",
+        "a",
+        "little",
+        "humor"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S4; words 48 to 62), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch took 1.47 times as long as in the speaker's baseline takes (the plan asked for about 1.35)."
+    }
+  ]
+}

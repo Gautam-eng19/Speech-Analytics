@@ -1,0 +1,36 @@
+{
+  "recording_id": "rec_p002_spk_dev_01_flaw_fast_02",
+  "passage_id": "p002",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p002_spk_dev_01_flaw_fast_02_01",
+      "flaw_type": "too_fast",
+      "start_s": 24.592,
+      "end_s": 28.514,
+      "severity_label": "high",
+      "target_words": [
+        "She",
+        "would",
+        "listen",
+        "carefully",
+        "wait",
+        "for",
+        "the",
+        "right",
+        "moment",
+        "and",
+        "then",
+        "speak",
+        "slowly",
+        "so",
+        "that",
+        "each",
+        "word",
+        "mattered"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S5; words 63 to 80), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch took 0.66 times as long as in the speaker's baseline takes (the plan asked for about 0.55)."
+    }
+  ]
+}

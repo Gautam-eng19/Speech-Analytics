@@ -1,0 +1,35 @@
+{
+  "recording_id": "rec_p001_spk_dev_02_flaw_fast_02",
+  "passage_id": "p001",
+  "dataset_version": "1.0.0",
+  "annotation_status": "proposed",
+  "flaws": [
+    {
+      "flaw_id": "ann_rec_p001_spk_dev_02_flaw_fast_02_01",
+      "flaw_type": "too_fast",
+      "start_s": 24.591,
+      "end_s": 29.013,
+      "severity_label": "high",
+      "target_words": [
+        "The",
+        "tool",
+        "marks",
+        "those",
+        "moments",
+        "on",
+        "a",
+        "timeline",
+        "explains",
+        "what",
+        "it",
+        "measured",
+        "and",
+        "suggests",
+        "one",
+        "simple",
+        "change"
+      ],
+      "annotator_notes": "Proposed from the recording plan (S5; words 70 to 86), placed by forced alignment. Not yet confirmed by ear. Take check: the stretch took 0.74 times as long as in the speaker's baseline takes (the plan asked for about 0.55)."
+    }
+  ]
+}

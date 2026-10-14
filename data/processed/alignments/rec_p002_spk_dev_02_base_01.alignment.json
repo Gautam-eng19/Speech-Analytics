@@ -1,0 +1,715 @@
+{
+  "alignment_method": "whisperx",
+  "text": "Every morning, the market in our town opens before sunrise. Farmers arrive with baskets of fresh vegetables, bakers carry warm bread across the square, and children follow behind, still half asleep. By seven o'clock the noise is overwhelming, yet everyone somehow manages to hear a friendly greeting. My grandmother taught me that a good conversation needs patience, curiosity, and a little humor. She would listen carefully, wait for the right moment, and then speak slowly so that each word mattered. I have never forgotten those lessons. When I stand in front of a crowd now, I remember her voice and I try to speak the same way, calmly and clearly. That is how a message becomes a memory.",
+  "total_coverage_pct": 0.6859,
+  "words": [
+    {
+      "confidence": 0.813,
+      "end_s": 0.32,
+      "start_s": 0.1,
+      "word": "Every"
+    },
+    {
+      "confidence": 0.867,
+      "end_s": 0.74,
+      "start_s": 0.36,
+      "word": "morning,"
+    },
+    {
+      "confidence": 0.964,
+      "end_s": 1.0,
+      "start_s": 0.88,
+      "word": "the"
+    },
+    {
+      "confidence": 0.988,
+      "end_s": 1.461,
+      "start_s": 1.06,
+      "word": "market"
+    },
+    {
+      "confidence": 0.988,
+      "end_s": 1.621,
+      "start_s": 1.541,
+      "word": "in"
+    },
+    {
+      "confidence": 0.565,
+      "end_s": 1.761,
+      "start_s": 1.681,
+      "word": "our"
+    },
+    {
+      "confidence": 0.886,
+      "end_s": 2.141,
+      "start_s": 1.821,
+      "word": "town"
+    },
+    {
+      "confidence": 0.871,
+      "end_s": 2.701,
+      "start_s": 2.301,
+      "word": "opens"
+    },
+    {
+      "confidence": 0.953,
+      "end_s": 3.081,
+      "start_s": 2.781,
+      "word": "before"
+    },
+    {
+      "confidence": 0.709,
+      "end_s": 3.602,
+      "start_s": 3.121,
+      "word": "sunrise."
+    },
+    {
+      "confidence": 0.886,
+      "end_s": 4.662,
+      "start_s": 4.182,
+      "word": "Farmers"
+    },
+    {
+      "confidence": 0.938,
+      "end_s": 5.162,
+      "start_s": 4.802,
+      "word": "arrive"
+    },
+    {
+      "confidence": 0.901,
+      "end_s": 5.342,
+      "start_s": 5.202,
+      "word": "with"
+    },
+    {
+      "confidence": 0.962,
+      "end_s": 5.883,
+      "start_s": 5.402,
+      "word": "baskets"
+    },
+    {
+      "confidence": 0.846,
+      "end_s": 6.083,
+      "start_s": 5.983,
+      "word": "of"
+    },
+    {
+      "confidence": 0.909,
+      "end_s": 6.403,
+      "start_s": 6.143,
+      "word": "fresh"
+    },
+    {
+      "confidence": 0.919,
+      "end_s": 7.103,
+      "start_s": 6.483,
+      "word": "vegetables,"
+    },
+    {
+      "confidence": 0.79,
+      "end_s": 7.883,
+      "start_s": 7.503,
+      "word": "bakers"
+    },
+    {
+      "confidence": 0.923,
+      "end_s": 8.264,
+      "start_s": 7.963,
+      "word": "carry"
+    },
+    {
+      "confidence": 0.883,
+      "end_s": 8.564,
+      "start_s": 8.304,
+      "word": "warm"
+    },
+    {
+      "confidence": 0.792,
+      "end_s": 8.844,
+      "start_s": 8.604,
+      "word": "bread"
+    },
+    {
+      "confidence": 0.901,
+      "end_s": 9.224,
+      "start_s": 8.924,
+      "word": "across"
+    },
+    {
+      "confidence": 0.835,
+      "end_s": 9.384,
+      "start_s": 9.244,
+      "word": "the"
+    },
+    {
+      "confidence": 0.871,
+      "end_s": 9.724,
+      "start_s": 9.404,
+      "word": "square,"
+    },
+    {
+      "confidence": 0.676,
+      "end_s": 10.284,
+      "start_s": 10.204,
+      "word": "and"
+    },
+    {
+      "confidence": 0.777,
+      "end_s": 10.745,
+      "start_s": 10.325,
+      "word": "children"
+    },
+    {
+      "confidence": 0.957,
+      "end_s": 11.125,
+      "start_s": 10.805,
+      "word": "follow"
+    },
+    {
+      "confidence": 0.914,
+      "end_s": 11.485,
+      "start_s": 11.165,
+      "word": "behind,"
+    },
+    {
+      "confidence": 0.664,
+      "end_s": 12.125,
+      "start_s": 11.845,
+      "word": "still"
+    },
+    {
+      "confidence": 0.897,
+      "end_s": 12.425,
+      "start_s": 12.165,
+      "word": "half"
+    },
+    {
+      "confidence": 0.494,
+      "end_s": 12.726,
+      "start_s": 12.445,
+      "word": "asleep."
+    },
+    {
+      "confidence": 0.894,
+      "end_s": 13.366,
+      "start_s": 13.206,
+      "word": "By"
+    },
+    {
+      "confidence": 0.94,
+      "end_s": 13.726,
+      "start_s": 13.426,
+      "word": "seven"
+    },
+    {
+      "confidence": 0.882,
+      "end_s": 14.166,
+      "start_s": 13.786,
+      "word": "o'clock"
+    },
+    {
+      "confidence": 0.953,
+      "end_s": 14.366,
+      "start_s": 14.266,
+      "word": "the"
+    },
+    {
+      "confidence": 0.957,
+      "end_s": 14.726,
+      "start_s": 14.426,
+      "word": "noise"
+    },
+    {
+      "confidence": 0.68,
+      "end_s": 14.907,
+      "start_s": 14.826,
+      "word": "is"
+    },
+    {
+      "confidence": 0.69,
+      "end_s": 15.667,
+      "start_s": 15.027,
+      "word": "overwhelming,"
+    },
+    {
+      "confidence": 0.957,
+      "end_s": 16.067,
+      "start_s": 15.887,
+      "word": "yet"
+    },
+    {
+      "confidence": 0.934,
+      "end_s": 16.727,
+      "start_s": 16.267,
+      "word": "everyone"
+    },
+    {
+      "confidence": 0.9,
+      "end_s": 17.147,
+      "start_s": 16.767,
+      "word": "somehow"
+    },
+    {
+      "confidence": 0.874,
+      "end_s": 17.688,
+      "start_s": 17.228,
+      "word": "manages"
+    },
+    {
+      "confidence": 0.832,
+      "end_s": 17.868,
+      "start_s": 17.748,
+      "word": "to"
+    },
+    {
+      "confidence": 0.686,
+      "end_s": 18.168,
+      "start_s": 17.928,
+      "word": "hear"
+    },
+    {
+      "confidence": 0.995,
+      "end_s": 18.288,
+      "start_s": 18.248,
+      "word": "a"
+    },
+    {
+      "confidence": 0.752,
+      "end_s": 18.748,
+      "start_s": 18.368,
+      "word": "friendly"
+    },
+    {
+      "confidence": 0.949,
+      "end_s": 19.148,
+      "start_s": 18.788,
+      "word": "greeting."
+    },
+    {
+      "confidence": 0.734,
+      "end_s": 19.809,
+      "start_s": 19.669,
+      "word": "My"
+    },
+    {
+      "confidence": 0.876,
+      "end_s": 20.349,
+      "start_s": 19.849,
+      "word": "grandmother"
+    },
+    {
+      "confidence": 0.636,
+      "end_s": 20.669,
+      "start_s": 20.409,
+      "word": "taught"
+    },
+    {
+      "confidence": 0.834,
+      "end_s": 20.929,
+      "start_s": 20.749,
+      "word": "me"
+    },
+    {
+      "confidence": 0.825,
+      "end_s": 21.209,
+      "start_s": 21.049,
+      "word": "that"
+    },
+    {
+      "confidence": 0.983,
+      "end_s": 21.349,
+      "start_s": 21.309,
+      "word": "a"
+    },
+    {
+      "confidence": 0.803,
+      "end_s": 21.609,
+      "start_s": 21.409,
+      "word": "good"
+    },
+    {
+      "confidence": 0.652,
+      "end_s": 22.33,
+      "start_s": 21.629,
+      "word": "conversation"
+    },
+    {
+      "confidence": 0.917,
+      "end_s": 22.67,
+      "start_s": 22.39,
+      "word": "needs"
+    },
+    {
+      "confidence": 0.871,
+      "end_s": 23.39,
+      "start_s": 22.81,
+      "word": "patience,"
+    },
+    {
+      "confidence": 0.952,
+      "end_s": 24.291,
+      "start_s": 23.57,
+      "word": "curiosity,"
+    },
+    {
+      "confidence": 0.827,
+      "end_s": 24.531,
+      "start_s": 24.431,
+      "word": "and"
+    },
+    {
+      "confidence": 0.995,
+      "end_s": 24.651,
+      "start_s": 24.631,
+      "word": "a"
+    },
+    {
+      "confidence": 0.842,
+      "end_s": 24.931,
+      "start_s": 24.691,
+      "word": "little"
+    },
+    {
+      "confidence": 0.851,
+      "end_s": 25.331,
+      "start_s": 24.971,
+      "word": "humor."
+    },
+    {
+      "confidence": 0.746,
+      "end_s": 25.991,
+      "start_s": 25.851,
+      "word": "She"
+    },
+    {
+      "confidence": 0.818,
+      "end_s": 26.211,
+      "start_s": 26.031,
+      "word": "would"
+    },
+    {
+      "confidence": 0.879,
+      "end_s": 26.532,
+      "start_s": 26.231,
+      "word": "listen"
+    },
+    {
+      "confidence": 0.839,
+      "end_s": 27.212,
+      "start_s": 26.592,
+      "word": "carefully,"
+    },
+    {
+      "confidence": 0.844,
+      "end_s": 27.752,
+      "start_s": 27.532,
+      "word": "wait"
+    },
+    {
+      "confidence": 0.994,
+      "end_s": 27.952,
+      "start_s": 27.812,
+      "word": "for"
+    },
+    {
+      "confidence": 0.983,
+      "end_s": 28.112,
+      "start_s": 28.012,
+      "word": "the"
+    },
+    {
+      "confidence": 0.858,
+      "end_s": 28.352,
+      "start_s": 28.152,
+      "word": "right"
+    },
+    {
+      "confidence": 0.818,
+      "end_s": 28.853,
+      "start_s": 28.432,
+      "word": "moment,"
+    },
+    {
+      "confidence": 0.89,
+      "end_s": 29.193,
+      "start_s": 29.093,
+      "word": "and"
+    },
+    {
+      "confidence": 0.882,
+      "end_s": 29.433,
+      "start_s": 29.233,
+      "word": "then"
+    },
+    {
+      "confidence": 0.909,
+      "end_s": 29.753,
+      "start_s": 29.473,
+      "word": "speak"
+    },
+    {
+      "confidence": 0.875,
+      "end_s": 30.213,
+      "start_s": 29.793,
+      "word": "slowly"
+    },
+    {
+      "confidence": 0.804,
+      "end_s": 30.613,
+      "start_s": 30.453,
+      "word": "so"
+    },
+    {
+      "confidence": 0.891,
+      "end_s": 30.853,
+      "start_s": 30.653,
+      "word": "that"
+    },
+    {
+      "confidence": 0.911,
+      "end_s": 31.234,
+      "start_s": 31.054,
+      "word": "each"
+    },
+    {
+      "confidence": 0.981,
+      "end_s": 31.534,
+      "start_s": 31.314,
+      "word": "word"
+    },
+    {
+      "confidence": 0.716,
+      "end_s": 31.994,
+      "start_s": 31.614,
+      "word": "mattered."
+    },
+    {
+      "confidence": 0.967,
+      "end_s": 32.694,
+      "start_s": 32.594,
+      "word": "I"
+    },
+    {
+      "confidence": 0.921,
+      "end_s": 32.934,
+      "start_s": 32.754,
+      "word": "have"
+    },
+    {
+      "confidence": 0.913,
+      "end_s": 33.234,
+      "start_s": 32.994,
+      "word": "never"
+    },
+    {
+      "confidence": 0.766,
+      "end_s": 33.855,
+      "start_s": 33.315,
+      "word": "forgotten"
+    },
+    {
+      "confidence": 0.893,
+      "end_s": 34.195,
+      "start_s": 33.915,
+      "word": "those"
+    },
+    {
+      "confidence": 0.892,
+      "end_s": 34.755,
+      "start_s": 34.255,
+      "word": "lessons."
+    },
+    {
+      "confidence": 0.986,
+      "end_s": 35.335,
+      "start_s": 35.175,
+      "word": "When"
+    },
+    {
+      "confidence": 0.957,
+      "end_s": 35.495,
+      "start_s": 35.395,
+      "word": "I"
+    },
+    {
+      "confidence": 0.872,
+      "end_s": 35.856,
+      "start_s": 35.535,
+      "word": "stand"
+    },
+    {
+      "confidence": 0.883,
+      "end_s": 36.016,
+      "start_s": 35.936,
+      "word": "in"
+    },
+    {
+      "confidence": 0.806,
+      "end_s": 36.316,
+      "start_s": 36.076,
+      "word": "front"
+    },
+    {
+      "confidence": 0.94,
+      "end_s": 36.456,
+      "start_s": 36.396,
+      "word": "of"
+    },
+    {
+      "confidence": 0.001,
+      "end_s": 36.496,
+      "start_s": 36.476,
+      "word": "a"
+    },
+    {
+      "confidence": 0.906,
+      "end_s": 36.836,
+      "start_s": 36.556,
+      "word": "crowd"
+    },
+    {
+      "confidence": 0.956,
+      "end_s": 37.176,
+      "start_s": 36.916,
+      "word": "now,"
+    },
+    {
+      "confidence": 0.982,
+      "end_s": 37.676,
+      "start_s": 37.596,
+      "word": "I"
+    },
+    {
+      "confidence": 0.882,
+      "end_s": 38.217,
+      "start_s": 37.736,
+      "word": "remember"
+    },
+    {
+      "confidence": 0.769,
+      "end_s": 38.437,
+      "start_s": 38.297,
+      "word": "her"
+    },
+    {
+      "confidence": 0.704,
+      "end_s": 38.797,
+      "start_s": 38.517,
+      "word": "voice"
+    },
+    {
+      "confidence": 0.646,
+      "end_s": 39.317,
+      "start_s": 39.197,
+      "word": "and"
+    },
+    {
+      "confidence": 0.919,
+      "end_s": 39.497,
+      "start_s": 39.377,
+      "word": "I"
+    },
+    {
+      "confidence": 0.846,
+      "end_s": 39.897,
+      "start_s": 39.557,
+      "word": "try"
+    },
+    {
+      "confidence": 0.998,
+      "end_s": 40.037,
+      "start_s": 39.937,
+      "word": "to"
+    },
+    {
+      "confidence": 0.747,
+      "end_s": 40.378,
+      "start_s": 40.097,
+      "word": "speak"
+    },
+    {
+      "confidence": 0.834,
+      "end_s": 40.498,
+      "start_s": 40.398,
+      "word": "the"
+    },
+    {
+      "confidence": 0.8,
+      "end_s": 40.738,
+      "start_s": 40.538,
+      "word": "same"
+    },
+    {
+      "confidence": 0.629,
+      "end_s": 40.978,
+      "start_s": 40.798,
+      "word": "way,"
+    },
+    {
+      "confidence": 0.908,
+      "end_s": 41.718,
+      "start_s": 41.238,
+      "word": "calmly"
+    },
+    {
+      "confidence": 0.825,
+      "end_s": 41.958,
+      "start_s": 41.858,
+      "word": "and"
+    },
+    {
+      "confidence": 0.796,
+      "end_s": 42.459,
+      "start_s": 42.038,
+      "word": "clearly."
+    },
+    {
+      "confidence": 0.829,
+      "end_s": 43.259,
+      "start_s": 43.059,
+      "word": "That"
+    },
+    {
+      "confidence": 0.624,
+      "end_s": 43.479,
+      "start_s": 43.359,
+      "word": "is"
+    },
+    {
+      "confidence": 0.967,
+      "end_s": 43.779,
+      "start_s": 43.539,
+      "word": "how"
+    },
+    {
+      "confidence": 0.463,
+      "end_s": 43.999,
+      "start_s": 43.919,
+      "word": "a"
+    },
+    {
+      "confidence": 0.953,
+      "end_s": 44.499,
+      "start_s": 44.039,
+      "word": "message"
+    },
+    {
+      "confidence": 0.962,
+      "end_s": 45.12,
+      "start_s": 44.619,
+      "word": "becomes"
+    },
+    {
+      "confidence": 0.982,
+      "end_s": 45.42,
+      "start_s": 45.38,
+      "word": "a"
+    },
+    {
+      "confidence": 0.909,
+      "end_s": 45.84,
+      "start_s": 45.46,
+      "word": "memory."
+    }
+  ]
+}
