@@ -1,4 +1,4 @@
-"""Check that this computer can run the VAANI project (TASK-126).
+"""Check that this computer can run the VAANI project.
 
     python scripts/check_environment.py                    # what is installed, in plain words
     python scripts/check_environment.py --download-models  # also fetch the speech models once (large downloads)

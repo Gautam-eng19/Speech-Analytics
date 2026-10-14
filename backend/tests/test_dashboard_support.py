@@ -1,4 +1,4 @@
-"""Backend support for the dashboard (DEC-033): baseline catalogue, CORS, serving the built UI, OpenAPI snapshot."""
+"""Backend support for the dashboard: baseline catalogue, CORS, serving the built UI, OpenAPI snapshot."""
 from __future__ import annotations
 
 import asyncio

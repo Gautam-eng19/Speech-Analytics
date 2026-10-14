@@ -1,8 +1,7 @@
-"""Fundamental Frequency (Pitch/F0) Feature Extraction Service (TASK-030).
+"""Fundamental Frequency (Pitch/F0) Feature Extraction Service.
 
 Single canonical implementation of Pitch/F0 feature extraction under
-`backend/app/services/features/` (ARCHITECTURE.md §7.4, §9.4, §13.1;
-DECISIONS.md DEC-010, DEC-P004).
+`backend/app/services/features/`.
 
 Algorithm:
     Probabilistic YIN (pYIN) via `librosa.pyin` (Mauch & Dixon, 2014).
@@ -34,15 +33,14 @@ import numpy as np
 class F0Config:
     """Explicit configuration parameters for Pitch/F0 extraction.
 
-    Values and defaults are aligned with ARCHITECTURE.md §13.1:
-    - TARGET_SAMPLE_RATE: 16 000 Hz
+    Values and defaults are aligned with - TARGET_SAMPLE_RATE: 16 000 Hz
     - F0_HOP_LENGTH: 160 samples (10.0 ms frame hop at 16 kHz)
     - Frame length: 2048 samples (128.0 ms window at 16 kHz)
     - F0_FMIN_HZ: 75.0 Hz (covers deep adult male pitch registers)
     - F0_FMAX_HZ: 500.0 Hz (covers high female / expressive pitch registers)
     - F0_VOICED_PROB_THRESHOLD: 0.85 (probabilistic threshold for voicing confidence)
     - track_prob_threshold: 0.4. A second, more permissive voicing decision that only feeds the word-by-word
-      pitch-movement comparison (DEC-042). On real speech pYIN's confidence rarely reaches 0.85 (about 5 % of frames
+      pitch-movement comparison. On real speech pYIN's confidence rarely reaches 0.85 (about 5 % of frames
       pass, too few per word); at 0.4 about 30 % of all frames (roughly half of the speech frames) pass. The
       stricter `voiced` / `values_hz` that the global F0 statistics use are unchanged.
     """
@@ -133,7 +131,7 @@ class F0ExtractionResult:
         return self.values_hz[self.voiced]
 
     def to_timeline_dict(self) -> Dict[str, List[Any]]:
-        """Serialize to dictionary matching API response schema `F0Timeline` (ARCHITECTURE.md §6.3, §23).
+        """Serialize to dictionary matching API response schema `F0Timeline`.
 
         Unvoiced frames are mapped to Python `None` (valid JSON null), preventing
         invalid NaN tokens in HTTP responses while maintaining strict index alignment.
@@ -149,7 +147,7 @@ class F0ExtractionResult:
         }
 
     def to_feature_bundle_dict(self) -> Dict[str, np.ndarray]:
-        """Export fields matching internal intermediate `FeatureBundle` (ARCHITECTURE.md §9.4)."""
+        """Export fields matching internal intermediate `FeatureBundle`."""
         return {
             "f0_times_s": self.times_s.copy(),
             "f0_values_hz": self.values_hz.copy(),

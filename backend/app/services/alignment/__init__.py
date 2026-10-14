@@ -1,4 +1,4 @@
-"""Forced alignment service package (TASK-022, ARCHITECTURE.md §7.3, §12).
+"""Forced alignment service package.
 
 Public surface:
     WhisperXAligner         — core service class

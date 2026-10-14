@@ -1,8 +1,7 @@
-"""Mel-Frequency Cepstral Coefficient (MFCC) Feature Extraction Service (TASK-031).
+"""Mel-Frequency Cepstral Coefficient (MFCC) Feature Extraction Service.
 
 Single canonical implementation of MFCC feature extraction under
-`backend/app/services/features/` (ARCHITECTURE.md §7.4, §9.4, §13.2;
-DECISIONS.md DEC-P004).
+`backend/app/services/features/`.
 
 Algorithm:
     `librosa.feature.mfcc` computes MFCCs from the short-time Fourier transform (STFT)
@@ -17,7 +16,7 @@ Algorithm:
     Librosa returns coefficients × frames (C, T).  This module EXPLICITLY transposes
     to frames × coefficients (T, C) before returning, so that downstream temporal
     analysis iterates over frames as rows — consistent with the FeatureBundle contract
-    `mfcc_matrix: np.ndarray — shape (n_frames, 13)` (ARCHITECTURE.md §9.4).
+    `mfcc_matrix: np.ndarray — shape (n_frames, 13)`.
 
 Determinism guarantee:
     Same audio array + same MFCCConfig → bit-identical MFCCExtractionResult.
@@ -34,7 +33,7 @@ Analytical contract:
 
 Primary use at P0:
     Summary statistics (`mfcc_summary` in the API response: mean and std per
-    coefficient across the whole recording).  See ARCHITECTURE.md §13.2.
+    coefficient across the whole recording).  See
 
 Primary use at P1:
     Word-segment cosine distance for Reduced Clarity evidence, which requires the
@@ -57,7 +56,7 @@ import numpy as np
 class MFCCConfig:
     """Explicit, centralized configuration for MFCC extraction.
 
-    All defaults are aligned with ARCHITECTURE.md §13.2 and the project's
+    All defaults are aligned with.2 and the project's
     16 kHz speech target.
 
     Attributes:
@@ -156,7 +155,7 @@ class MFCCConfig:
 class MFCCExtractionResult:
     """Output bundle of timestamped MFCC frame matrix.
 
-    Matrix orientation (ARCHITECTURE.md §9.4):
+    Matrix orientation:
         `mfcc_matrix` is stored as **frames × coefficients** — shape (T, C) —
         where T is the number of analysis frames and C = `config.n_mfcc`.
 
@@ -207,7 +206,7 @@ class MFCCExtractionResult:
         return self.mfcc_matrix.std(axis=0).astype(np.float64)
 
     def to_summary_dict(self) -> Dict[str, List[float]]:
-        """Return summary statistics matching the API `mfcc_summary` field (ARCHITECTURE.md §6.3).
+        """Return summary statistics matching the API `mfcc_summary` field.
 
         Returns:
             dict with keys:
@@ -220,7 +219,7 @@ class MFCCExtractionResult:
         }
 
     def to_feature_bundle_dict(self) -> Dict[str, Any]:
-        """Export fields matching internal ``FeatureBundle`` contract (ARCHITECTURE.md §9.4)."""
+        """Export fields matching internal ``FeatureBundle`` contract."""
         return {
             "mfcc_times_s": self.times_s.copy(),
             "mfcc_matrix":  self.mfcc_matrix.copy(),
@@ -356,7 +355,7 @@ class MFCCExtractor:
         #
         # librosa.feature.mfcc returns shape (n_mfcc, n_frames) — coefficients × frames.
         # We EXPLICITLY TRANSPOSE to (n_frames, n_mfcc) — frames × coefficients —
-        # before storing, as documented in MFCCExtractionResult and ARCHITECTURE.md §9.4.
+        # before storing, as documented in MFCCExtractionResult and
         # ------------------------------------------------------------------
         raw_mfcc: np.ndarray = librosa.feature.mfcc(
             y=arr,

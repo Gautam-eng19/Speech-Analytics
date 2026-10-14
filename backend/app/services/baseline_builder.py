@@ -1,4 +1,4 @@
-"""Baseline statistics from baseline recordings: per-recording features and their pooling (TASK-040; ARCHITECTURE.md §14, §9.5; DEC-010, DEC-015, DEC-044).
+"""Baseline statistics from baseline recordings: per-recording features and their pooling.
 
 The one implementation of how baseline recordings become a `BaselineStatsRecord`. It is used by the offline dataset tool
 (`scripts/dataset/build_baseline_stats.py`, which re-exports these names) and by the custom-passage service
@@ -12,7 +12,7 @@ Pipeline per baseline recording (the SAME services the participant pipeline uses
 
 Conventions (all stored in the output file): F0 mean/std/p05/p95 over voiced frames; energy mean/std over active frames; rate mean/std over rolling
 windows; pause duration mean/std per boundary type; sample standard deviation (ddof=1); floats rounded to 6 decimals so the file and its sha256 do
-not depend on last-bit differences between machines; the optional word profile (DEC-040, DEC-042) when the passage text is known and at least three
+not depend on last-bit differences between machines; the optional word profile when the passage text is known and at least three
 recordings match it. Nothing is invented: a statistic that cannot be computed fails with `BaselineBuildError`.
 """
 from __future__ import annotations
@@ -77,7 +77,7 @@ class RecordingFeatures:
     energy_db: np.ndarray
     rate_wpm: np.ndarray
     pauses: Sequence[PauseEvent]
-    words: Optional[WordObservations] = None      # per-word slot and level (DEC-040); None: this recording adds nothing to the word profile
+    words: Optional[WordObservations] = None      # per-word slot and level; None: this recording adds nothing to the word profile
 
 
 # --------------------------------------------------------------------------- aggregation
@@ -111,7 +111,7 @@ def aggregate_baseline_stats(
     """Pool per-recording features into one hashed `BaselineStatsRecord` (pure, deterministic).
 
     Recordings are processed in sorted `recording_id` order, so input order never matters. With `passage_text` and the per-word measurements of at
-    least three recordings that match it, the record also carries the word profile (DEC-040); otherwise `word_profile` is None.
+    least three recordings that match it, the record also carries the word profile; otherwise `word_profile` is None.
 
     Raises:
         BaselineBuildError: no recordings, duplicate ids, non-finite data, or a required

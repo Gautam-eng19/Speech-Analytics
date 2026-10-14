@@ -1,4 +1,4 @@
-"""Tests for scripts/dataset/build_baseline_stats.py (TASK-040).
+"""Tests for scripts/dataset/build_baseline_stats.py.
 
 Covers:
 - Aggregation maths against hand-computed values (pooling, ddof=1, percentiles, rounding)
@@ -277,7 +277,7 @@ def test_end_to_end_build_from_synthetic_dataset(two_recording_dataset):
     assert rec.dataset_version == "1.0.0"
     assert 145.0 < rec.f0_voiced_hz_mean < 155.0            # a 150 Hz tone
     assert rec.f0_voiced_hz_p05 <= rec.f0_voiced_hz_mean <= rec.f0_voiced_hz_p95
-    # Preprocessing scales the typical speech level to -26 dBFS (DEC-036), which for a steady sine is its frame level;
+    # Preprocessing scales the typical speech level to -26 dBFS, which for a steady sine is its frame level;
     # partially filled frames at word edges pull the active-frame mean slightly below that.
     assert -27.5 < rec.energy_db_mean < -25.9
     assert rec.n_rate_windows >= 2 and rec.rate_wpm_mean > 0
@@ -406,7 +406,7 @@ def test_empty_manifest_is_not_buildable(tmp_path):
         bbs.build_for_passage(data_dir, "p001", ["dev"])
 
 
-# ================================================================ word profile (DEC-040)
+# ================================================================ word profile
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend" / "tests"))
 
 from profile_helpers import baseline_readings, make_tokens  # noqa: E402
@@ -514,7 +514,7 @@ def test_building_from_a_dataset_reads_the_passage_text_and_builds_the_profile(t
     assert profile is not None and profile.n_takes == 3 and profile.words == make_tokens(40)
     assert profile.max_gap_s == 0.25 and profile.active_threshold_dbfs == -50.0
     assert all(slot is not None and 0.25 < slot < 0.8 for slot in profile.slot_s)           # a word plus the silence after it, capped
-    assert all(level is not None and -35.0 < level < -20.0 for level in profile.level_db)   # scaled to a speech level of -26 dBFS (DEC-036)
+    assert all(level is not None and -35.0 < level < -20.0 for level in profile.level_db)   # scaled to a speech level of -26 dBFS
     assert record.verify_sha256() and bbs.build_for_passage(data, "p001", ["dev"]).sha256 == record.sha256
 
 

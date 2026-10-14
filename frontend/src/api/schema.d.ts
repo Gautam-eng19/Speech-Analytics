@@ -147,7 +147,7 @@ export interface components {
     schemas: {
         /**
          * AlignedWord
-         * @description Word timing (AlignedTranscript.words, §9.3).
+         * @description Word timing (AlignedTranscript.words).
          */
         AlignedWord: {
             /** Confidence */
@@ -161,7 +161,7 @@ export interface components {
         };
         /**
          * AlignmentMethod
-         * @description DEC-009.
+         * @description Forced-alignment method.
          * @enum {string}
          */
         AlignmentMethod: "whisperx" | "whisper_word_timestamps" | "manual";
@@ -218,15 +218,15 @@ export interface components {
          * AnalysisStatus
          * @description GET /status values.
          *
-         *     P0 (synchronous, DEC-016) only ever emits DONE and NOT_FOUND.
-         *     PROCESSING and FAILED are reserved for the DEC-016 async upgrade path and
-         *     are not emitted unless that upgrade is approved and implemented.
+         *     P0 (synchronous) only ever emits DONE and NOT_FOUND.
+         *     PROCESSING and FAILED are reserved for a future asynchronous mode and
+         *     are not emitted today.
          * @enum {string}
          */
         AnalysisStatus: "done" | "not_found" | "processing" | "failed";
         /**
          * AudioInfo
-         * @description Participant audio after preprocessing (PreprocessedAudio, §9.1).
+         * @description Participant audio after preprocessing (PreprocessedAudio).
          *
          *     `duration_s` is the duration of the ANALYSED audio (leading/trailing silence removed). Every time in
          *     the result (alignment, feature timelines, pauses, flaws) is expressed in SOURCE time, i.e. on the
@@ -254,7 +254,7 @@ export interface components {
         };
         /**
          * BaselineInfo
-         * @description Baseline used for comparison (BaselineStats identity, §9.5, §26.3).
+         * @description Baseline used for comparison (BaselineStats identity).
          */
         BaselineInfo: {
             /** Baseline Id */
@@ -278,7 +278,7 @@ export interface components {
         };
         /**
          * BaselineStats
-         * @description Baseline statistics used for normalization (§9.5).
+         * @description Baseline statistics used for normalization.
          */
         BaselineStats: {
             /** Energy Db Mean */
@@ -385,7 +385,7 @@ export interface components {
         };
         /**
          * ClarityTimeline
-         * @description P1 acoustic clarity proxy (DEC-012), not an intelligibility score.
+         * @description P1 acoustic clarity proxy, not an intelligibility score.
          */
         ClarityTimeline: {
             /** Hf Ratio */
@@ -449,11 +449,11 @@ export interface components {
         };
         /**
          * DetectionRule
-         * @description The rule that flagged a finding (§17), so each flaw states WHY it was flagged.
+         * @description The rule that flagged a finding, so each flaw states WHY it was flagged.
          *
          *     The finding was flagged where the named normalized signal was `above` (z > threshold_z) or `below`
          *     (z < threshold_z) the threshold for at least `min_duration_s` of flagged time. The thresholds are
-         *     initial, uncalibrated values (DEC-P005).
+         *     initial, uncalibrated values.
          */
         DetectionRule: {
             /**
@@ -492,13 +492,13 @@ export interface components {
         };
         /**
          * ErrorCode
-         * @description Machine-readable error codes (ARCHITECTURE.md §23 error format).
+         * @description Machine-readable error codes (error format).
          * @enum {string}
          */
         ErrorCode: "VALIDATION_ERROR" | "UNSUPPORTED_AUDIO_FORMAT" | "FILE_TOO_LARGE" | "AUDIO_TOO_LONG" | "CONFIG_VERSION_MISMATCH" | "BASELINE_NOT_FOUND" | "RESULT_NOT_FOUND" | "PROCESSING_ERROR";
         /**
          * ErrorResponse
-         * @description Body of every non-2xx response (ARCHITECTURE.md §23 error format).
+         * @description Body of every non-2xx response (error format).
          */
         ErrorResponse: {
             /** Analysis Id */
@@ -509,7 +509,7 @@ export interface components {
         };
         /**
          * ExplanationMethod
-         * @description DEC-018 / §22.
+         * @description How an explanation was produced.
          * @enum {string}
          */
         ExplanationMethod: "template" | "gemini";
@@ -524,7 +524,7 @@ export interface components {
         };
         /**
          * FeatureName
-         * @description Feature score dimensions (ARCHITECTURE.md §20). mfcc/clarity are P1.
+         * @description Feature score dimensions. mfcc/clarity are P1.
          * @enum {string}
          */
         FeatureName: "speech_rate" | "pitch" | "pauses" | "energy" | "mfcc" | "clarity";
@@ -564,7 +564,7 @@ export interface components {
         };
         /**
          * Flaw
-         * @description GroundedFlaw (§9.9) + explanation fields (§9.11).
+         * @description GroundedFlaw + explanation fields.
          */
         Flaw: {
             /** Affected Words */
@@ -597,7 +597,7 @@ export interface components {
         };
         /**
          * FlawType
-         * @description ARCHITECTURE.md §17/§21. P0 = first six; P1 = last two (DEC-013).
+         * @description Flaw categories. The first six are detected; the last two are defined for later detection.
          * @enum {string}
          */
         FlawType: "too_fast" | "too_slow" | "excessive_pause" | "flat_pitch" | "low_energy" | "high_energy" | "pitch_instability" | "reduced_clarity";
@@ -635,13 +635,13 @@ export interface components {
         };
         /**
          * PauseBoundaryType
-         * @description DEC-011 / §9.4.
+         * @description Where in the text a pause occurs.
          * @enum {string}
          */
         PauseBoundaryType: "within_phrase" | "cross_sentence" | "unknown";
         /**
          * PauseDetectionSource
-         * @description DEC-011.
+         * @description Which detector found a pause.
          * @enum {string}
          */
         PauseDetectionSource: "vad" | "alignment" | "both";
@@ -742,7 +742,7 @@ export interface components {
         };
         /**
          * TranscriptSource
-         * @description ARCHITECTURE.md §9.2.
+         * @description Where a transcript came from.
          * @enum {string}
          */
         TranscriptSource: "asr" | "manual";

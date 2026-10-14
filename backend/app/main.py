@@ -1,4 +1,4 @@
-"""FastAPI main application entry point (ARCHITECTURE.md §5, §23; DEC-003, DEC-033)."""
+"""FastAPI main application entry point."""
 from __future__ import annotations
 
 from pathlib import Path

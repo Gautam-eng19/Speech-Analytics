@@ -1,4 +1,4 @@
-"""Number-grounding guard for explanation text (TASK-072; ARCHITECTURE.md §22; DEC-021).
+"""Number-grounding guard for explanation text.
 
 Rule: every number a user reads must originate from the analytical pipeline. An explanation (written by a
 template today, possibly by an LLM later) may only repeat numbers that appear in its FACT SHEET, the

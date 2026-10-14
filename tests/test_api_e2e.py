@@ -1,4 +1,4 @@
-"""A real HTTP round trip through the app (DEC-016, DEC-032): upload -> orchestrated pipeline -> cache -> /status and /result.
+"""A real HTTP round trip through the app: upload -> orchestrated pipeline -> cache -> /status and /result.
 
 The app, the multipart parsing, the real `AnalysisPipeline`, the real response serialisation and the file cache are all in play;
 only Whisper and WhisperX are replaced by exact-timing stand-ins (they cannot be downloaded in CI). The point is what the

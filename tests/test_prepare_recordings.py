@@ -1,4 +1,4 @@
-"""Tests for scripts/dataset/prepare_recordings.py (TASK-126).
+"""Tests for scripts/dataset/prepare_recordings.py.
 
 Synthetic takes with known word times (tests/dataset_takes.py) are registered with a stand-in aligner that finds the word bursts in the
 audio it receives. That exercises the real preprocessing (decode, resample, trim, loudness scaling), the real quality check, the real

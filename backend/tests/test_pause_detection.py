@@ -1,4 +1,4 @@
-"""Unit and contract tests for pause detection (TASK-034, DEC-011).
+"""Unit and contract tests for pause detection.
 
 Covers:
 - VAD-only, alignment-only and "both" events, with exact intervals

@@ -1,4 +1,4 @@
-"""Build per-passage baseline statistics (TASK-040; ARCHITECTURE.md §14, §9.5; DEC-010, DEC-015).
+"""Build per-passage baseline statistics.
 
 Offline utility: turns the ``baseline_effective`` recordings of a passage into one
 `BaselineStatsRecord` JSON file under ``data/processed/baseline_stats/<passage_id>.json``,
@@ -24,7 +24,7 @@ Statistics (documented conventions; all pooled across the passage's baseline rec
     * floats are rounded to 6 decimals so the stored file (and its sha256) does not depend on
       last-bit floating-point differences between machines.
 
-    * word profile (DEC-040): when the passage text is known and at least three recordings match it, how the SAME words were read in the
+    * word profile: when the passage text is known and at least three recordings match it, how the SAME words were read in the
               baseline recordings, word by word (expected slot and level of every passage word, and the spread of a run of words measured
               leave-one-out). Pace and loudness are then judged against it instead of against the overall statistics above, which
               stay in the file for the fallback and for display. See `app.services.grounding.profile`.
@@ -64,7 +64,7 @@ from app.services.features.f0 import F0Config  # noqa: E402
 from app.services.features.pause import PauseConfig  # noqa: E402
 from app.services.features.rate import RateConfig  # noqa: E402
 
-# The implementation lives in the backend (DEC-044) so that the custom-passage service builds baselines exactly the way this tool does.
+# The implementation lives in the backend so that the custom-passage service builds baselines exactly the way this tool does.
 from app.services.baseline_builder import (  # noqa: E402,F401
     ENERGY_FRAME_SELECTIONS, PLACEHOLDER_SHA256, BaselineBuildConfig, BaselineBuildError, RecordingFeatures,
     _config_snapshot, aggregate_baseline_stats, extract_recording_features,
@@ -177,7 +177,7 @@ def write_stats(record: BaselineStatsRecord, output_dir: Path, overwrite: bool =
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Build per-passage baseline statistics (TASK-040).")
+    parser = argparse.ArgumentParser(description="Build per-passage baseline statistics.")
     parser.add_argument("--data-dir", type=Path, default=Path("data"), help="data/ root (default: data)")
     parser.add_argument("--passage-id", nargs="+", required=True, help="passage id(s) to build")
     parser.add_argument(

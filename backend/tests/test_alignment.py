@@ -1,4 +1,4 @@
-"""Unit and contract tests for Forced Alignment service (TASK-022).
+"""Unit and contract tests for Forced Alignment service.
 
 Covers:
 1. Valid alignment using mocked/stubbed WhisperX behavior

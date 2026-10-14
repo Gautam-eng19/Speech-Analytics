@@ -1,4 +1,4 @@
-"""Alignment Validation Service (TASK-023, ARCHITECTURE.md §12).
+"""Alignment Validation Service.
 
 Validates that an AlignedTranscript is structurally and temporally valid before
 downstream feature extraction and temporal grounding services consume it.
@@ -23,7 +23,7 @@ Validations:
 5. Coverage validation:
    - total_coverage_pct must be a finite fraction in the canonical range [0.0, 1.0].
    - If coverage is below MIN_COVERAGE_PCT, a deterministic warning is recorded
-     without failing validation (ARCHITECTURE.md §12).
+     without failing validation.
 6. Text/word sanity:
    - Empty transcript with empty word list is valid.
    - Non-empty transcript with zero aligned words produces a validation failure.

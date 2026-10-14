@@ -1,4 +1,4 @@
-"""API tests for the orchestrated endpoints: POST /analyze, GET /status/{id}, GET /result/{id} (DEC-016, DEC-032).
+"""API tests for the orchestrated endpoints: POST /analyze, GET /status/{id}, GET /result/{id}.
 
 The pipeline is replaced by a fake, so these tests cover the HTTP layer: error mapping, what reaches the pipeline, that
 internal error text never leaks, threading, and result retrieval from the cache.

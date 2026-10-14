@@ -1,10 +1,10 @@
-"""Whisper transcription service (TASK-021, ARCHITECTURE.md §7.2, §11).
+"""Whisper transcription service.
 
 Responsibility:
     PreprocessedAudio  →  Transcript
 
 This service answers "What was said?"  It does NOT perform forced alignment
-(that belongs to TASK-022/services/alignment/) and does NOT extract acoustic
+(that belongs to /services/alignment/) and does NOT extract acoustic
 features (services/features/).
 
 Design notes
@@ -19,7 +19,7 @@ Design notes
   to avoid importing torch at import time.
 - All configuration is explicit and deterministic (model name, language, task,
   word_timestamps, temperature).
-- Word timestamps are enabled so TASK-022 has Whisper's approximate timings
+- Word timestamps are enabled so the aligner has Whisper's approximate timings
   as a starting point for forced alignment.
 """
 from __future__ import annotations
@@ -66,7 +66,7 @@ class WhisperTranscriber:
         Decoding temperature.  0.0 = greedy / fully deterministic.
     word_timestamps:
         Enable Whisper's word-level timestamp output.  Must be ``True`` so
-        TASK-022 receives approximate timings.
+        the aligner receives approximate timings.
     """
 
     def __init__(

@@ -1,10 +1,9 @@
-"""Pause detection Feature Extraction Service (TASK-034).
+"""Pause detection Feature Extraction Service.
 
 Single canonical implementation of pause detection under
-`backend/app/services/features/` (ARCHITECTURE.md §7.4, §9.4, §13.5;
-DECISIONS.md DEC-011, DEC-P004).
+`backend/app/services/features/`.
 
-Two independent signals (DEC-011), either of which alone is sufficient:
+Two independent signals, either of which alone is sufficient:
 
     Signal A — energy VAD:
         frame is "unvoiced" if ``energy_db < vad_energy_threshold_dbfs``; a candidate is a
@@ -17,8 +16,7 @@ Combination:
     * candidates that AGREE are merged into one event with ``detection_source="both"``;
     * a candidate with no agreeing partner becomes a ``"vad"`` or ``"alignment"`` event.
 
-Implementation choices where DEC-011 / §13.5 are silent (documented here, to be
-confirmed by the team leader):
+Implementation choices (documented here):
     * "Agree (overlap > 50 %)" is measured against the SHORTER of the two intervals:
       ``overlap > agreement_overlap_fraction * min(len_vad, len_gap)`` (strict).
     * A merged ("both") event spans the UNION of the agreeing intervals. Agreement is
@@ -66,7 +64,7 @@ _SENTENCE_END_RE = re.compile(r"[.?!]+[\"'”’)\]}]*$")
 class PauseConfig:
     """Explicit configuration for pause detection.
 
-    Defaults (PROPOSED values of ARCHITECTURE.md §13.5, not calibrated):
+    Defaults (PROPOSED values of, not calibrated):
     - vad_energy_threshold_dbfs: ``settings.VAD_ENERGY_THRESHOLD_DBFS`` (-50 dBFS)
     - vad_min_pause_s: 0.2
     - align_min_gap_s: 0.15
@@ -114,7 +112,7 @@ class PauseDetectionResult:
     config: PauseConfig
 
     def to_event_dicts(self) -> List[Dict[str, Any]]:
-        """JSON-ready list matching the API `pause_events` shape (ARCHITECTURE.md §6.3)."""
+        """JSON-ready list matching the API `pause_events` shape."""
         return [e.model_dump(mode="json") for e in self.events]
 
 
@@ -210,7 +208,7 @@ def _classify_boundary(interval: Interval, timed: List[Tuple[str, float, float]]
 
 
 class PauseDetector:
-    """Deterministic pause detector combining energy VAD and alignment gaps (DEC-011)."""
+    """Deterministic pause detector combining energy VAD and alignment gaps."""
 
     def __init__(self, config: Optional[PauseConfig] = None) -> None:
         self.config = config or PauseConfig()

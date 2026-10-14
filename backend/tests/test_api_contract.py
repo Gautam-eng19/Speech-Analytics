@@ -1,4 +1,4 @@
-"""Contract tests for TASK-002 (request, response, errors, determinism)."""
+"""Contract tests (request, response, errors, determinism)."""
 import copy
 import json
 

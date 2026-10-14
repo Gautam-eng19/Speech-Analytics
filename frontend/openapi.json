@@ -3,7 +3,7 @@
     "schemas": {
       "AlignedWord": {
         "additionalProperties": false,
-        "description": "Word timing (AlignedTranscript.words, §9.3).",
+        "description": "Word timing (AlignedTranscript.words).",
         "properties": {
           "confidence": {
             "maximum": 1.0,
@@ -36,7 +36,7 @@
         "type": "object"
       },
       "AlignmentMethod": {
-        "description": "DEC-009.",
+        "description": "Forced-alignment method.",
         "enum": [
           "whisperx",
           "whisper_word_timestamps",
@@ -178,7 +178,7 @@
         "type": "object"
       },
       "AnalysisStatus": {
-        "description": "GET /status values.\n\nP0 (synchronous, DEC-016) only ever emits DONE and NOT_FOUND.\nPROCESSING and FAILED are reserved for the DEC-016 async upgrade path and\nare not emitted unless that upgrade is approved and implemented.",
+        "description": "GET /status values.\n\nP0 (synchronous) only ever emits DONE and NOT_FOUND.\nPROCESSING and FAILED are reserved for a future asynchronous mode and\nare not emitted today.",
         "enum": [
           "done",
           "not_found",
@@ -190,7 +190,7 @@
       },
       "AudioInfo": {
         "additionalProperties": false,
-        "description": "Participant audio after preprocessing (PreprocessedAudio, §9.1).\n\n`duration_s` is the duration of the ANALYSED audio (leading/trailing silence removed). Every time in\nthe result (alignment, feature timelines, pauses, flaws) is expressed in SOURCE time, i.e. on the\ntimeline of the uploaded recording: `trim_start_s` is the leading silence that was removed before\nanalysis, and the analysed audio therefore spans [trim_start_s, trim_start_s + duration_s].",
+        "description": "Participant audio after preprocessing (PreprocessedAudio).\n\n`duration_s` is the duration of the ANALYSED audio (leading/trailing silence removed). Every time in\nthe result (alignment, feature timelines, pauses, flaws) is expressed in SOURCE time, i.e. on the\ntimeline of the uploaded recording: `trim_start_s` is the leading silence that was removed before\nanalysis, and the analysed audio therefore spans [trim_start_s, trim_start_s + duration_s].",
         "properties": {
           "channels": {
             "minimum": 1.0,
@@ -247,7 +247,7 @@
       },
       "BaselineInfo": {
         "additionalProperties": false,
-        "description": "Baseline used for comparison (BaselineStats identity, §9.5, §26.3).",
+        "description": "Baseline used for comparison (BaselineStats identity).",
         "properties": {
           "baseline_id": {
             "title": "Baseline Id",
@@ -300,7 +300,7 @@
       },
       "BaselineStats": {
         "additionalProperties": false,
-        "description": "Baseline statistics used for normalization (§9.5).",
+        "description": "Baseline statistics used for normalization.",
         "properties": {
           "energy_db_mean": {
             "title": "Energy Db Mean",
@@ -665,7 +665,7 @@
       },
       "ClarityTimeline": {
         "additionalProperties": false,
-        "description": "P1 acoustic clarity proxy (DEC-012), not an intelligibility score.",
+        "description": "P1 acoustic clarity proxy, not an intelligibility score.",
         "properties": {
           "hf_ratio": {
             "items": {
@@ -834,7 +834,7 @@
       },
       "DetectionRule": {
         "additionalProperties": false,
-        "description": "The rule that flagged a finding (§17), so each flaw states WHY it was flagged.\n\nThe finding was flagged where the named normalized signal was `above` (z > threshold_z) or `below`\n(z < threshold_z) the threshold for at least `min_duration_s` of flagged time. The thresholds are\ninitial, uncalibrated values (DEC-P005).",
+        "description": "The rule that flagged a finding, so each flaw states WHY it was flagged.\n\nThe finding was flagged where the named normalized signal was `above` (z > threshold_z) or `below`\n(z < threshold_z) the threshold for at least `min_duration_s` of flagged time. The thresholds are\ninitial, uncalibrated values.",
         "properties": {
           "direction": {
             "enum": [
@@ -934,7 +934,7 @@
         "type": "object"
       },
       "ErrorCode": {
-        "description": "Machine-readable error codes (ARCHITECTURE.md §23 error format).",
+        "description": "Machine-readable error codes (error format).",
         "enum": [
           "VALIDATION_ERROR",
           "UNSUPPORTED_AUDIO_FORMAT",
@@ -950,7 +950,7 @@
       },
       "ErrorResponse": {
         "additionalProperties": false,
-        "description": "Body of every non-2xx response (ARCHITECTURE.md §23 error format).",
+        "description": "Body of every non-2xx response (error format).",
         "properties": {
           "analysis_id": {
             "anyOf": [
@@ -980,7 +980,7 @@
         "type": "object"
       },
       "ExplanationMethod": {
-        "description": "DEC-018 / §22.",
+        "description": "How an explanation was produced.",
         "enum": [
           "template",
           "gemini"
@@ -1029,7 +1029,7 @@
         "type": "object"
       },
       "FeatureName": {
-        "description": "Feature score dimensions (ARCHITECTURE.md §20). mfcc/clarity are P1.",
+        "description": "Feature score dimensions. mfcc/clarity are P1.",
         "enum": [
           "speech_rate",
           "pitch",
@@ -1164,7 +1164,7 @@
       },
       "Flaw": {
         "additionalProperties": false,
-        "description": "GroundedFlaw (§9.9) + explanation fields (§9.11).",
+        "description": "GroundedFlaw + explanation fields.",
         "properties": {
           "affected_words": {
             "items": {
@@ -1284,7 +1284,7 @@
         "type": "object"
       },
       "FlawType": {
-        "description": "ARCHITECTURE.md §17/§21. P0 = first six; P1 = last two (DEC-013).",
+        "description": "Flaw categories. The first six are detected; the last two are defined for later detection.",
         "enum": [
           "too_fast",
           "too_slow",
@@ -1373,7 +1373,7 @@
         "type": "object"
       },
       "PauseBoundaryType": {
-        "description": "DEC-011 / §9.4.",
+        "description": "Where in the text a pause occurs.",
         "enum": [
           "within_phrase",
           "cross_sentence",
@@ -1383,7 +1383,7 @@
         "type": "string"
       },
       "PauseDetectionSource": {
-        "description": "DEC-011.",
+        "description": "Which detector found a pause.",
         "enum": [
           "vad",
           "alignment",
@@ -1668,7 +1668,7 @@
         "type": "object"
       },
       "TranscriptSource": {
-        "description": "ARCHITECTURE.md §9.2.",
+        "description": "Where a transcript came from.",
         "enum": [
           "asr",
           "manual"

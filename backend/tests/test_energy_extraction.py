@@ -1,4 +1,4 @@
-"""Unit and contract tests for energy / loudness feature extraction (TASK-032).
+"""Unit and contract tests for energy / loudness feature extraction.
 
 Covers:
 - Known-amplitude signals (RMS -> dBFS accuracy, relative level differences)

@@ -1,5 +1,4 @@
-"""Evidence attachment and the final grounded flaw (TASK-053, TASK-054;
-ARCHITECTURE.md §9.9, §17 step 7, §21; DEC-028).
+"""Evidence attachment and the final grounded flaw (§17 step 7).
 
 Turns detector candidates into `GroundedFlaw`s: a stable id, a time interval, a severity, and a FULLY
 populated evidence object built from the measured features and the baseline statistics. Nothing here
@@ -12,21 +11,20 @@ serialized results do not depend on last-bit floating-point differences):
     too_fast / too_slow -> RateEvidence    rate (words per minute) of the interval, baseline mean/std, delta,
                                            delta in percent of the baseline mean, mean and peak z, span,
                                            words that start inside the interval. For an interval narrowed to the
-                                           words that deviate (DEC-039) the rate is that of the narrowed stretch
+                                           words that deviate the rate is that of the narrowed stretch
                                            (words / span) and z compares it with the baseline's window spread scaled
                                            for the shorter stretch (candidates.refine_rate_candidates);
                                            otherwise it is the mean of the flagged windows
     low / high_energy   -> EnergyEvidence  mean dBFS of the flagged frames, baseline mean/std, delta, mean z, span
     excessive_pause     -> PauseEvidence   pause duration, the type-specific baseline mean/std, delta, z,
                                            boundary type and detection source
-    flat_pitch          -> FlatPitchEvidence  the pitch movement of the run in Hz (root-mean-square distance from the reading's median pitch,
-                                           DEC-042) against what the baseline readings had for the same words, the z-score (negative: the voice
+    flat_pitch          -> FlatPitchEvidence  the pitch movement of the run in Hz (root-mean-square distance from the reading's median pitch) against what the baseline readings had for the same words, the z-score (negative: the voice
                                            moved less), the share of the run's frames that were voiced, span
 
 Because z is linear in the measurement, the reported mean z equals (reported mean - baseline mean) /
 baseline std: the evidence is internally consistent and re-derivable by a reader.
 
-For a run of words judged against the baseline's reading of the same words (DEC-040) the "baseline mean" is what the baseline readings did with
+For a run of words judged against the baseline's reading of the same words the "baseline mean" is what the baseline readings did with
 those words (for the pace, allowing for the speaker's overall pace; for the loudness, plus the recording's overall level offset), and the
 "baseline std" is the spread that makes the reported z-score true: |participant - baseline| / |z|, so the same identity holds.
 
@@ -35,7 +33,7 @@ duration, taken from the `DetectionConfig` that PRODUCED the candidates), the al
 plain-language limitations (`warnings`). For rate and energy findings the covered words are those whose
 midpoint lies inside the interval; for a pause they are the word(s) the pause follows and precedes.
 
-Reliability is the constant 1.0 at P0 (§19) and `low_confidence` is False; neither is a measured confidence.
+Reliability is the constant 1.0 at P0 and `low_confidence` is False; neither is a measured confidence.
 
 Times are processed-audio time. Conversion to source time happens once, at response assembly, with
 `GroundedFlaw.shifted(trim_start_s)`.
@@ -114,7 +112,7 @@ class EvidenceError(ValueError):
 
 @dataclass(frozen=True)
 class GroundedFlaw:
-    """A detected flaw with its interval, severity and complete evidence (ARCHITECTURE.md §9.9).
+    """A detected flaw with its interval, severity and complete evidence.
 
     `evidence` is one of the typed evidence models; `rule` states why it was flagged; `affected_words`
     and `warnings` are described in the module docstring. Times are in the timeline of whoever built it
@@ -167,7 +165,7 @@ def _indices(c: FlawCandidate, length: int, what: str) -> List[int]:
 def _rate_evidence(
     c: FlawCandidate, nb: NormalizedFeatureBundle, baseline: BaselineStatsRecord, rate: Any, aligned: Any
 ) -> RateEvidence:
-    if c.run is not None:      # a run of words against the baseline's reading of the same words (DEC-040)
+    if c.run is not None:      # a run of words against the baseline's reading of the same words
         run = c.run
         if not (run.expected > 0.0 and math.isfinite(run.expected) and math.isfinite(run.observed)):
             raise EvidenceError("rate evidence needs finite observed and expected rates")
@@ -219,7 +217,7 @@ def _rate_evidence(
 def _energy_evidence(
     c: FlawCandidate, nb: NormalizedFeatureBundle, baseline: BaselineStatsRecord, energy: Any
 ) -> EnergyEvidence:
-    if c.run is not None:      # a run of words against the baseline's level for the same words (DEC-040)
+    if c.run is not None:      # a run of words against the baseline's level for the same words
         run = c.run
         if not (math.isfinite(run.expected) and math.isfinite(run.observed)):
             raise EvidenceError("energy evidence needs finite observed and expected levels")

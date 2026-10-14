@@ -1,4 +1,4 @@
-"""Custom passages: a baseline made from the user's own passage text and 2 to 6 of their own baseline recordings (DEC-044).
+"""Custom passages: a baseline made from the user's own passage text and 2 to 6 of their own baseline recordings.
 
 The analysis compares a recording with the effective delivery of the SAME content. The project ships baselines for its own passages; this
 service lets a user bring their own passage: they give the text and a few recordings of a good reading, and the service makes a baseline in

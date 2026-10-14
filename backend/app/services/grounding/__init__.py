@@ -1,4 +1,4 @@
-"""Grounding service package (ARCHITECTURE.md §7.5): normalization, comparison, flaw detection."""
+"""Grounding service package: normalization, comparison, flaw detection."""
 from .candidates import (
     CandidateDetectionResult,
     DetectionConfig,

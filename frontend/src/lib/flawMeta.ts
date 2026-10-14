@@ -3,8 +3,8 @@ import type { IconName } from '@/components/Icon';
 
 /**
  * Static glossary of flaw types: labels, icons and plain-language definitions.
- * Mirrors ARCHITECTURE.md section 13/17 and DEC-026. `available` is false for flaw types the backend cannot detect yet
- * (the P1 types are not implemented; flat pitch has been detected word by word since DEC-042).
+ * Mirrors the backend's flaw vocabulary. `available` is false for flaw types the backend cannot detect yet
+ * (the P1 types are not implemented; flat pitch has been detected word by word since).
  */
 export type FlawFamily = 'rate' | 'pause' | 'energy' | 'pitch' | 'clarity';
 

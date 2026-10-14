@@ -1,4 +1,4 @@
-"""Recording plan generator (TASK-122, docs/methodology/recording-protocol.md sections 5 and 7).
+"""Recording plan generator (docs/methodology/recording-protocol.md sections 5 and 7).
 
 Turns "who records which passage" into the exact list of takes to record, in the order to record them, with the instruction for each
 flawed take and a ready-to-use on-screen prompter per speaker. Everything is deterministic: the same arguments (and seed) always give

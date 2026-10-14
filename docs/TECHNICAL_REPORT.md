@@ -430,8 +430,6 @@ The four demo analyses also open from the dashboard alone (`cd frontend && npm c
 | Document | Content |
 |---|---|
 | [`README.md`](../README.md) | Overview, quick start, API summary |
-| [`ARCHITECTURE.md`](../ARCHITECTURE.md) | Canonical design |
-| [`DECISIONS.md`](../DECISIONS.md) | Design decisions with their reasons |
 | [`docs/architecture/api-contract.md`](architecture/api-contract.md) | API contract |
 | [`docs/architecture/frontend.md`](architecture/frontend.md) | Dashboard architecture |
 | [`docs/setup.md`](setup.md) | Environment setup |

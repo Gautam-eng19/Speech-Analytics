@@ -1,4 +1,4 @@
-"""Unit tests for baseline-relative feature normalization (TASK-041, DEC-010).
+"""Unit tests for baseline-relative feature normalization.
 
 Covers:
 - Exact z-scores for F0, energy, speech rate and pauses (direction and units)

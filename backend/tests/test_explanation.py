@@ -1,4 +1,4 @@
-"""Tests for evidence-backed explanations, the fact sheet and the number-grounding guard (TASK-070/071/072).
+"""Tests for evidence-backed explanations, the fact sheet and the number-grounding guard.
 
 Covers:
 - Golden texts for every supported flaw type (wording is part of the specification)
@@ -90,7 +90,7 @@ def _pause(kind=W, words=("w19", "w20"), start=10.7, end=12.2, threshold=2.0):
 
 
 def _run(base, feature, direction, threshold):
-    """The same evidence with the rule of a word-by-word finding (DEC-040): the 'baseline' is what the baseline readings did with these words."""
+    """The same evidence with the rule of a word-by-word finding: the 'baseline' is what the baseline readings did with these words."""
     return base.__class__(**{**base.__dict__, "rule": DetectionRule(feature=feature, direction=direction, threshold_z=threshold, min_duration_s=0.5)})
 
 

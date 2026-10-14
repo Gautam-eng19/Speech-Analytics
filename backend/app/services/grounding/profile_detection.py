@@ -1,4 +1,4 @@
-"""Rate and loudness findings from the baseline's word profile (DEC-040; ARCHITECTURE.md §17 steps 1-3).
+"""Rate and loudness findings from the baseline's word profile (steps 1-3).
 
 The participant's words are matched to the passage words, and every word is compared with what the baseline readings did with THE SAME WORD:
 
@@ -20,10 +20,10 @@ Overall pace and level are removed first:
       generally quicker or slower than the baseline readers is judged against their own pace, and only local departures stand out. A reading
       that is off as a whole is judged on its own, as one finding over the whole reading, only if it differs from the baseline by more than
       `global_tempo_change_pct` AND by more than the spread of the overall pace between baseline readings (`WordProfile.tempo_sd`).
-    * loudness: the reading's median difference from the profile is removed. Recordings are scaled to a common speech level (DEC-036), so
+    * loudness: the reading's median difference from the profile is removed. Recordings are scaled to a common speech level, so
       only louder and quieter stretches WITHIN a reading are meaningful.
 
-Pitch (DEC-042): the pitch movement of the words (root-mean-square distance, in semitones, from the reading's own median pitch) is compared the same
+Pitch: the pitch movement of the words (root-mean-square distance, in semitones, from the reading's own median pitch) is compared the same
 way. Only a run that moves LESS than the baseline's did on the same words is a finding (flat pitch); more movement is not a flaw here. The
 statistic is the natural-log ratio of the root-mean-square movement, the reading's overall movement is removed first (a reserved speaker is judged
 against their own range), a reading that is flat as a whole is reported as one finding if it is flatter than `global_pitch_change_pct` AND than

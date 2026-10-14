@@ -1,4 +1,4 @@
-"""Audio preprocessing service (ARCHITECTURE.md §7.1, §9.1, §10; DEC-P003).
+"""Audio preprocessing service.
 
 Converts raw audio bytes or files into the canonical PreprocessedAudio contract:
 - Validates audio format (WAV PCM / IEEE float; MP3 requires ffmpeg/av backend)
@@ -7,7 +7,7 @@ Converts raw audio bytes or files into the canonical PreprocessedAudio contract:
 - Trims leading and trailing silence using energy VAD with configurable threshold;
   the start offset and pre-trim duration are recorded (trim_start_s, source_duration_s)
 - Scales the recording so that the median loudness of its speaking frames is TARGET_SPEECH_LEVEL_DBFS (default -26 dBFS), with the
-  gain capped so the loudest sample stays at or below MAX_PEAK_DBFS (DEC-036; replaces peak normalization to -3 dBFS)
+  gain capped so the loudest sample stays at or below MAX_PEAK_DBFS (replaces peak normalization to -3 dBFS)
 - Computes SHA-256 over normalized float32 PCM bytes for reproducible provenance
 """
 from __future__ import annotations
@@ -261,7 +261,7 @@ def speech_level_normalize(
     window_db: float = 30.0,
     max_peak_dbfs: float = -1.0,
 ) -> Tuple[np.ndarray, float]:
-    """Scale `audio` so that its typical speech level is `target_speech_level_dbfs` (DEC-036).
+    """Scale `audio` so that its typical speech level is `target_speech_level_dbfs`.
 
     One gain for the whole signal, so differences inside the recording (a quiet or a loud stretch) are kept exactly. The gain is
     capped so that the loudest sample does not exceed `max_peak_dbfs` (a safety limit; it is rarely reached by speech).
@@ -288,7 +288,7 @@ def compute_audio_sha256(audio: np.ndarray) -> str:
 
 
 class AudioPreprocessor:
-    """Service class encapsulating canonical audio preprocessing (ARCHITECTURE.md §7.1, §10)."""
+    """Service class encapsulating canonical audio preprocessing."""
 
     def __init__(
         self,
@@ -314,7 +314,7 @@ class AudioPreprocessor:
         2. Convert multi-channel to mono
         3. Resample to target_sample_rate (16000 Hz)
         4. Trim leading/trailing silence using VAD (offset recorded as trim_start_s)
-        5. Scale so the median speech level is target_speech_level_dbfs (-26 dBFS), peak capped (DEC-036)
+        5. Scale so the median speech level is target_speech_level_dbfs (-26 dBFS), peak capped
         6. Validate duration against max_duration_s
         7. Compute SHA-256 over float32 PCM bytes
         8. Return PreprocessedAudio contract
@@ -359,7 +359,7 @@ class AudioPreprocessor:
             final_audio = np.empty(0, dtype=np.float32)
             peak_dbfs = -100.0
         else:
-            # 5. Scale by the typical speech level (not by the loudest sample: DEC-036)
+            # 5. Scale by the typical speech level (not by the loudest sample:)
             final_audio, peak_dbfs = speech_level_normalize(
                 trimmed_audio,
                 self.target_sample_rate,

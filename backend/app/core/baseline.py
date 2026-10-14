@@ -1,4 +1,4 @@
-"""Baseline statistics serving (ARCHITECTURE.md §14.5, DEC-015; TASK-040).
+"""Baseline statistics serving.
 
 `BaselineProvider.get(passage_id)` is the single entry point through which pipeline stages
 obtain baseline statistics. Callers never learn how many baseline recordings contributed.
@@ -29,7 +29,7 @@ from app.schemas.contracts import BaselineStatsRecord
 from app.schemas.request import ID_PATTERN
 
 BASELINE_STATS_SUBDIR = Path("processed") / "baseline_stats"
-# Baselines made from a user's own passage and recordings (DEC-044). Their ids start with CUSTOM_ID_PREFIX and are only ever looked up here,
+# Baselines made from a user's own passage and recordings. Their ids start with CUSTOM_ID_PREFIX and are only ever looked up here,
 # so a custom id can never shadow a project baseline (and the other way round).
 CUSTOM_BASELINE_SUBDIR = Path("custom") / "baseline_stats"
 CUSTOM_PASSAGES_FILE = Path("custom") / "passages.json"
@@ -74,7 +74,7 @@ class BaselineProvider:
     """Read-only provider of per-passage `BaselineStatsRecord` objects."""
 
     def __init__(self, directory: Optional[Union[str, Path]] = None, custom_directory: Optional[Union[str, Path]] = None) -> None:
-        """`directory` holds the project baselines; `custom_directory` the ones made from a user's own recordings (DEC-044).
+        """`directory` holds the project baselines; `custom_directory` the ones made from a user's own recordings.
 
         When no `directory` is given both default to their places under ``settings.DATA_DIR``. A caller that names `directory` (tests,
         tools) gets no custom baselines unless it names `custom_directory` too.
@@ -113,7 +113,7 @@ class BaselineProvider:
         return sorted(found)
 
     def list_baselines(self) -> List[str]:
-        """Baseline ids (file stems) that have a stats file, sorted; the same list as `list_passages` (kept for DEC-015)."""
+        """Baseline ids (file stems) that have a stats file, sorted; the same list as `list_passages` (kept for)."""
         return self.list_passages()
 
     def load(self, baseline_id: str) -> BaselineStatsRecord:
@@ -148,7 +148,7 @@ class BaselineProvider:
         """Return verified baseline statistics.
 
         `baseline_id` selects the statistics file (``<baseline_id>.json``). The builder names its output after the
-        passage, so by default ``baseline_id`` IS the passage id (DEC-015: ``get(passage_id)``). When the caller also
+        passage, so by default ``baseline_id`` IS the passage id (``get(passage_id)``). When the caller also
         names the passage it is analysing, the file must describe exactly that passage: several baselines (e.g.
         different baseline speakers) can then exist for one passage, but a baseline can never be applied to another one.
 

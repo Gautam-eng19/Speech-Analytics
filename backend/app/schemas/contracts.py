@@ -1,4 +1,4 @@
-"""Intermediate pipeline data contracts (ARCHITECTURE.md §9).
+"""Intermediate pipeline data contracts.
 
 Defines strongly-typed internal data transfers between canonical pipeline stages.
 """
@@ -23,7 +23,7 @@ _TRIM_BOUND_TOLERANCE_S = 1e-3
 
 
 class PreprocessedAudio(ContractModel):
-    """Audio output of services/audio preprocessing (ARCHITECTURE.md §9.1)."""
+    """Audio output of services/audio preprocessing."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
@@ -33,7 +33,7 @@ class PreprocessedAudio(ContractModel):
     audio_array: np.ndarray = Field(description="1D float32 normalized PCM audio array")
     sha256: str = Field(pattern="^[0-9a-f]{64}$", description="SHA-256 hex digest of audio_array bytes")
     peak_dbfs: float = Field(description="Measured peak loudness in dBFS after normalization")
-    # Source-time provenance of silence trimming (TASK-013A). All downstream analysis
+    # Source-time provenance of silence trimming. All downstream analysis
     # timestamps are in processed-audio time (0 = first retained sample); these fields
     # record where that origin sits in the pre-trim signal. Defaults keep untrimmed /
     # legacy constructors valid. Conversion to source time is done once, at response assembly.
@@ -83,10 +83,10 @@ class PreprocessedAudio(ContractModel):
 
 
 class WordTiming(ContractModel):
-    """Whisper-reported approximate word timing for a single word (ARCHITECTURE.md §9.2).
+    """Whisper-reported approximate word timing for a single word.
 
     These are Whisper's own word timestamps, NOT forced-alignment timestamps.
-    TASK-022 (forced alignment) will produce a separate AlignedTranscript with
+    Forced alignment produces a separate AlignedTranscript with
     more accurate boundaries. Fields are Optional because Whisper does not
     guarantee per-word timestamps in all conditions.
     """
@@ -116,16 +116,16 @@ class TranscriptSegment(ContractModel):
 
 
 class Transcript(ContractModel):
-    """Output of services/transcription/ (ARCHITECTURE.md §9.2).
+    """Output of services/transcription/.
 
     Contains the full ASR transcript text plus Whisper's own word/segment
-    timestamps. This is the INPUT to TASK-022 (forced alignment); it is NOT
+    timestamps. This is the INPUT to forced alignment; it is NOT
     a replacement for AlignedTranscript.
     """
 
     text: str = Field(description="Full transcript string")
     segments: list[TranscriptSegment] = Field(default_factory=list)
-    # Flat word list derived from segments — convenience for TASK-022.
+    # Flat word list derived from segments — convenience for.
     words: list[WordTiming] = Field(default_factory=list)
     model_name: str = Field(description="Whisper model identifier, e.g. 'whisper_base'")
     source: TranscriptSource = Field(description="'asr' or 'manual'")
@@ -135,7 +135,7 @@ class Transcript(ContractModel):
 
 
 class AlignedWord(ContractModel):
-    """Word-level forced alignment entry (ARCHITECTURE.md §9.3)."""
+    """Word-level forced alignment entry."""
 
     word: str = Field(min_length=1, description="Aligned word token text")
     start_s: Optional[float] = Field(
@@ -163,7 +163,7 @@ AlignedWordTiming = AlignedWord
 
 
 class AlignedTranscript(ContractModel):
-    """Output of services/alignment/ (ARCHITECTURE.md §7.3, §9.3, §12).
+    """Output of services/alignment/.
 
     Contains word-level forced alignment timing, alignment method provenance,
     and total coverage statistics. Consumed by downstream feature extraction
@@ -185,7 +185,7 @@ class AlignedTranscript(ContractModel):
 
 
 class AlignmentValidationResult(ContractModel):
-    """Validation result for AlignedTranscript (TASK-023, ARCHITECTURE.md §12).
+    """Validation result for AlignedTranscript.
 
     Distinguishes valid from invalid alignments, providing machine-readable
     deterministic error reasons and warnings.
@@ -217,7 +217,7 @@ ValidationResult = AlignmentValidationResult
 
 
 class NoiseModel(ContractModel):
-    """How much an average over `n` consecutive words varies between readings of the same passage (DEC-040).
+    """How much an average over `n` consecutive words varies between readings of the same passage.
 
     ``sigma(n) = sqrt(drift**2 + word**2 / n)``: `word` is the part that averages out as more words are taken (each word is a little
     faster, slower, louder or quieter by chance), `drift` is the part that does not (a whole stretch of the reading is slightly faster or
@@ -229,7 +229,7 @@ class NoiseModel(ContractModel):
 
 
 class PitchProfile(ContractModel):
-    """How much the pitch of the SAME words moved in the baseline recordings (DEC-042); part of the `WordProfile`.
+    """How much the pitch of the SAME words moved in the baseline recordings; part of the `WordProfile`.
 
     Pitch is measured in semitones from the reading's OWN median pitch, so the speaker's register does not matter, only how far the voice moves
     around its usual level. For one word, the movement is the mean squared deviation (semitones squared) of its voiced frames, each deviation
@@ -257,7 +257,7 @@ class PitchProfile(ContractModel):
 
 
 class WordProfile(ContractModel):
-    """How the SAME words were read in the baseline recordings, word by word (DEC-040).
+    """How the SAME words were read in the baseline recordings, word by word.
 
     The baseline is the effective delivery of one passage, so the comparison can be made at the same place in the text: a long word takes
     longer than a short one, and a rate measured over a fixed stretch of TIME says as much about the words in it as about the speaker.
@@ -283,7 +283,7 @@ class WordProfile(ContractModel):
     tempo_window_words: int = Field(ge=2)
     max_gap_s: float = Field(gt=0.0, allow_inf_nan=False)
     active_threshold_dbfs: float = Field(allow_inf_nan=False)
-    # How much the pitch of the same words moved (DEC-042). Absent in a profile built before it, or when the baseline recordings had too little
+    # How much the pitch of the same words moved. Absent in a profile built before it, or when the baseline recordings had too little
     # voiced speech; flat pitch is then not judged and the analysis says so.
     pitch: Optional[PitchProfile] = None
 
@@ -306,7 +306,7 @@ class WordProfile(ContractModel):
 
 
 class BaselineStatsRecord(BaselineStats):
-    """Persisted baseline statistics for one passage (ARCHITECTURE.md §9.5, DEC-015, TASK-040).
+    """Persisted baseline statistics for one passage.
 
     Extends the API `BaselineStats` (the numeric statistics, defined once in
     `schemas/response.py`) with the identity, provenance and evidence-count fields of
@@ -320,7 +320,7 @@ class BaselineStatsRecord(BaselineStats):
 
     `sha256` is the SHA-256 of the canonical JSON of every other field (sorted keys, compact
     separators, no NaN); it identifies the exact statistics used in an analysis and feeds the
-    cache key (§26.4). Use `with_computed_sha256()` to set it and `verify_sha256()` to check it.
+    cache key. Use `with_computed_sha256()` to set it and `verify_sha256()` to check it.
     """
 
     passage_id: str = Field(pattern=ID_PATTERN)
@@ -337,7 +337,7 @@ class BaselineStatsRecord(BaselineStats):
     n_pauses_unknown_boundary: int = Field(ge=0)
     # Parameters that define how the statistics were computed (e.g. which energy frames count).
     config_snapshot: dict[str, Union[str, int, float, bool]]
-    # How the same words were read in the baseline recordings (DEC-040). Absent in baselines built before it, and when the passage text or
+    # How the same words were read in the baseline recordings. Absent in baselines built before it, and when the passage text or
     # enough recordings were not available; the analysis then falls back to the overall statistics above and says so.
     word_profile: Optional[WordProfile] = None
     sha256: str = Field(pattern="^[0-9a-f]{64}$")

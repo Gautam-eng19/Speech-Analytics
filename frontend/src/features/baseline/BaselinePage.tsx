@@ -8,7 +8,7 @@ import { fmtLevel, fmtNum, plural } from '@/lib/format';
 import { loadSamples, type LoadedAnalysis } from '@/state/analysis';
 import { refreshCatalog, useCatalog } from '@/state/connection';
 
-/** The canonical pipeline (AGENTS.md section 2), with what each step contributes. Static documentation of the method. */
+/** The canonical pipeline, with what each step contributes. Static documentation of the method. */
 const PIPELINE: { icon: IconName; name: string; what: string }[] = [
   { icon: 'file-audio', name: 'Preprocess', what: 'Decode, resample to 16 kHz mono, trim leading and trailing silence, normalise the peak.' },
   { icon: 'text', name: 'Transcribe and align', what: 'Speech recognition, then forced alignment, give every word a start and end time.' },

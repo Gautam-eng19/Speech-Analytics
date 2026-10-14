@@ -1,4 +1,4 @@
-"""End to end: flat pitch on synthetic readings whose pitch moves like a person's (DEC-042).
+"""End to end: flat pitch on synthetic readings whose pitch moves like a person's.
 
 Readings of the real passage (tests/dataset_takes.human_layout with `expressive_pitch`: the intonation of the passage is shared by every reading,
 each reading adds its own register, wander and word jitter, and the speaker is more or less expressive) are registered with the stand-in aligner,

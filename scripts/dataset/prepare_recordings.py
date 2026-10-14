@@ -1,4 +1,4 @@
-"""Register recorded takes in the dataset and get them ready for the site (TASK-126).
+"""Register recorded takes in the dataset and get them ready for the site.
 
 Run it on a folder of WAV files that follow the naming of the recording protocol (rec_<passage>_<speaker>_<kind>_<nn>.wav) after the
 quality check passed (check_recordings.py):
@@ -10,7 +10,7 @@ For every take it
   1. checks the recording quality again (a take that fails is not registered),
   2. copies the file to data/raw/ and records its SHA-256,
   3. runs the project's own preprocessing and forced alignment (WhisperX) with the PASSAGE TEXT as the transcript, because the
-     speaker read a known text (the manual-transcript option of ARCHITECTURE.md 7.2 / 11),
+     speaker read a known text (the manual-transcript option of  7.2 / 11),
   4. checks that the alignment is plausible and writes data/processed/alignments/<take>.alignment.json (processed-audio time),
   5. for a flawed take, proposes the flaw annotation from the recording plan: the planned stretch is placed on the timeline by the
      alignment and written to data/annotations/<take>.flaws.json in the time of the ORIGINAL file, marked "proposed" until a person has

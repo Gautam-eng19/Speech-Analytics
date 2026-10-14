@@ -1,4 +1,4 @@
-"""Integration test: baseline builder <-> normalizer consistency (TASK-040 + TASK-041).
+"""Integration test: baseline builder <-> normalizer consistency (+).
 
 Property: normalizing a recording against baseline statistics built FROM that same recording
 must give a zero mean and unit (sample) standard deviation for every feature. This only holds if

@@ -1,4 +1,4 @@
-"""Baseline-relative feature normalization (TASK-041; ARCHITECTURE.md §14, §15, §9.6; DEC-010).
+"""Baseline-relative feature normalization.
 
 First stage of `services/grounding/`: turns participant feature timelines plus the passage's
 `BaselineStatsRecord` into z-scores,
@@ -10,7 +10,7 @@ deviations (the "contrastive" signal of the next stage).
 
 This is baseline-relative normalization, NOT speaker adaptation: a participant whose habitual
 pitch or loudness differs from the baseline speaker shows a systematic offset (documented
-limitation, ARCHITECTURE.md §14.2). Optional participant calibration is a P1 feature and is not
+limitation). Optional participant calibration is a P1 feature and is not
 applied here.
 
 Rules (all deterministic, no thresholds, no scoring):
@@ -87,7 +87,7 @@ class NormalizedPause:
 
 @dataclass
 class NormalizedFeatureBundle:
-    """Z-scored participant features (ARCHITECTURE.md §9.6).
+    """Z-scored participant features.
 
     Array attributes are index-aligned with their `*_times_s` and are empty when the feature is
     unavailable (see `unavailable`). NaN marks "no meaningful z-score".
@@ -101,7 +101,7 @@ class NormalizedFeatureBundle:
             bounds in rate_window_start_s / rate_window_end_s. rate_effective_duration_s and
             rate_word_count pass through the extractor's per-window span and word count (the
             measured interval of window k is rate_times_s[k] +/- rate_effective_duration_s[k] / 2).
-        rate_max_gap_s: the rate extractor's cap on a gap between words (DEC-039; None if unknown), needed to locate a finding the same way
+        rate_max_gap_s: the rate extractor's cap on a gap between words (None if unknown), needed to locate a finding the same way
             the rate was measured.
         energy_hop_s: frame hop of the energy timeline in seconds (None if not derivable).
         pauses: per-event pause z-scores (same order as the input events).

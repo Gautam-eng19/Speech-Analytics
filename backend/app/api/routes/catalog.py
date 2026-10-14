@@ -1,4 +1,4 @@
-"""Baseline catalogue: GET /api/v1/baselines (API contract 1.2.0; DEC-033).
+"""Baseline catalogue: GET /api/v1/baselines (API contract 1.2.0).
 
 Lists the baselines an analysis can be run against, with the passage each one describes, so the dashboard can offer a choice
 instead of asking for ids. Baseline files that exist but cannot be used are listed separately with a short reason code (never a

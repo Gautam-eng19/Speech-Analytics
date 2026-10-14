@@ -1,4 +1,4 @@
-"""Tests for FastAPI skeleton and health endpoint (TASK-010)."""
+"""Tests for FastAPI skeleton and health endpoint."""
 from __future__ import annotations
 
 import asyncio

@@ -1,10 +1,9 @@
-"""Rolling-window speech-rate Feature Extraction Service (TASK-033).
+"""Rolling-window speech-rate Feature Extraction Service.
 
 Single canonical implementation of speech-rate extraction under
-`backend/app/services/features/` (ARCHITECTURE.md §7.4, §9.4, §13.4;
-DECISIONS.md DEC-020, DEC-P004).
+`backend/app/services/features/`.
 
-Algorithm (DEC-020):
+Algorithm:
     Rolling-window words-per-minute over `AlignedTranscript.words`:
 
         rate_wpm(window)     = n_words_in_window / effective_duration_s * 60
@@ -12,14 +11,13 @@ Algorithm (DEC-020):
 
     It is NOT derived from individual word durations (explicitly forbidden: too noisy).
 
-Amendment (DEC-039): a silence longer than ``max_gap_s`` (default 1.0 s) between two words is counted as
+Amendment: a silence longer than ``max_gap_s`` (default 1.0 s) between two words is counted as
 ``max_gap_s`` when the rate is computed, so a deliberate long pause is reported by pause detection and does
 not also make the surrounding window look slow. The window's span (``effective_duration_s``, used to
 place findings in time) is unchanged; the rate divides by ``speaking_duration_s`` = span minus the part of
 each gap beyond ``max_gap_s``. Gaps up to ``max_gap_s`` (all natural pauses) count in full, as before.
 
-Implementation choices where DEC-020 / §13.4 are silent (documented here, to be
-confirmed by the team leader):
+Implementation choices (documented here):
     * Window grid: window k covers ``[k * step_s, k * step_s + window_s)`` in
       processed-audio time, for k = 0 .. while ``k * step_s <= last word start``.
       Window starts are computed by multiplication (not accumulated addition) so the
@@ -57,8 +55,7 @@ import numpy as np
 class RateConfig:
     """Explicit configuration for rolling-window speech rate.
 
-    Defaults are the PROPOSED values of ARCHITECTURE.md §13.4 / DEC-020 (not calibrated):
-    window_s=8.0, step_s=4.0, min_words=5, min_windows=2; ``max_gap_s=1.0`` is DEC-039.
+    Defaults: window_s=8.0, step_s=4.0, min_words=5, min_windows=2, max_gap_s=1.0.
     """
 
     window_s: float = 8.0
@@ -132,14 +129,14 @@ class RateExtractionResult:
         return len(self.times_s)
 
     def to_timeline_dict(self) -> Dict[str, List[float]]:
-        """Serialize to the API response `SpeechRateTimeline` shape (ARCHITECTURE.md §6.3)."""
+        """Serialize to the API response `SpeechRateTimeline` shape."""
         return {
             "times_s": [float(t) for t in self.times_s],
             "words_per_min": [float(v) for v in self.words_per_min],
         }
 
     def to_feature_bundle_dict(self) -> Dict[str, np.ndarray]:
-        """Export fields matching the internal `FeatureBundle` (ARCHITECTURE.md §9.4)."""
+        """Export fields matching the internal `FeatureBundle`."""
         return {
             "rate_times_s": self.times_s.copy(),
             "rate_wpm": self.words_per_min.copy(),
@@ -214,7 +211,7 @@ class RateExtractor:
                 continue
             members = np.flatnonzero(member)
             gaps = start_arr[members[1:]] - end_arr[members[:-1]]
-            beyond = float(np.clip(gaps - cfg.max_gap_s, 0.0, None).sum())      # silence beyond max_gap_s is not speaking time (DEC-039)
+            beyond = float(np.clip(gaps - cfg.max_gap_s, 0.0, None).sum())      # silence beyond max_gap_s is not speaking time
             speaking_s = effective - beyond
             if not speaking_s > 0.0:
                 continue

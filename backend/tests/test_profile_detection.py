@@ -1,4 +1,4 @@
-"""Tests for the word-by-word comparison with the baseline (DEC-040): the scan for runs of words, what it reports, what it refuses to report, and how
+"""Tests for the word-by-word comparison with the baseline: the scan for runs of words, what it reports, what it refuses to report, and how
 its findings enter the candidate stage, the severity and the evidence.
 
 The readings are hand-made (profile_helpers): a passage whose words differ in expected duration and level, read with a known amount of chance

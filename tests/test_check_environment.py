@@ -1,4 +1,4 @@
-"""Tests for scripts/check_environment.py (TASK-126): what it reports for a missing package, a broken package, an old Python, Node.js, and the model download.
+"""Tests for scripts/check_environment.py: what it reports for a missing package, a broken package, an old Python, Node.js, and the model download.
 
 The real libraries are replaced by fake modules so that every branch can be reached on any machine.
 """
